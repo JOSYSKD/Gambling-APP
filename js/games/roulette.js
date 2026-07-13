@@ -191,6 +191,12 @@
         stage, betField, controls, payBox
       ]));
 
+      // Standard-Wette (Rot) vorwählen, damit man ohne Umweg sofort drehen kann.
+      (function () {
+        var r = selEls.filter(function (n) { return n.textContent === 'ROT'; })[0];
+        if (r) r.click();
+      })();
+
       /* ---------------- Ablauf ---------------- */
       function updateBetLabel() {
         if (!selected) { betLabelEl.textContent = 'keine'; betLabelEl.className = 'rl-cur-bet'; return; }
@@ -309,7 +315,7 @@
 
       /* Rad */
       '.rl-wheel-wrap{position:relative;display:flex;align-items:center;justify-content:center;padding-top:14px;}',
-      '.rl-wheel{--size:clamp(240px,74vw,320px);--r:calc(var(--size)/2 - 24px);',
+      '.rl-wheel{--size:clamp(190px,54vw,250px);--r:calc(var(--size)/2 - 22px);',
       'position:relative;width:var(--size);height:var(--size);border-radius:50%;',
       'box-shadow:0 0 0 8px #06170f,0 0 0 11px rgba(57,255,20,.35),inset 0 0 26px rgba(0,0,0,.6),0 12px 34px rgba(0,0,0,.5);',
       'transition:transform 2.8s cubic-bezier(.15,.82,.24,1);will-change:transform;}',
