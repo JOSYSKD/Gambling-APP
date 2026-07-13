@@ -14,9 +14,14 @@
       icon: '🎰',
       desc: 'Sechs Neon-Klassiker. Setze deine Coins und jage den Highscore.',
       games: ['blackjack', 'crash', 'cuberoll', 'slots', 'roulette', 'mines']
+    },
+    {
+      id: 'minigames',
+      name: 'Online Minigames',
+      icon: '🎮',
+      desc: 'Über 20 Spiele – allein oder mit Freunden per Raum-Code, 2–4 Spieler.',
+      route: '/minigames'
     }
-    // Beispiel für später:
-    // { id: 'arcade', name: 'Arcade', icon:'🕹️', desc:'...', games:[...] }
   ];
 
   function categoryById(id) {
@@ -48,7 +53,7 @@
   /* ---------- MENÜ ---------- */
   function renderMenu() {
     var cards = CATEGORIES.map(function (c) {
-      return el('button', { class: 'cat-card glass', type: 'button', onclick: function () { go('/category/' + c.id); } }, [
+      return el('button', { class: 'cat-card glass', type: 'button', onclick: function () { go(c.route || ('/category/' + c.id)); } }, [
         el('div', { class: 'cat-icon' }, [c.icon]),
         el('div', { class: 'cat-name neon' }, [c.name]),
         el('div', { class: 'cat-desc' }, [c.desc]),
@@ -250,6 +255,8 @@
     .add('/', renderMenu)
     .add('/category/:id', renderCategory)
     .add('/game/:id', renderGame)
+    .add('/minigames', function () { return App.MinigameHub.list(); })
+    .add('/mini/:id', function (p) { return App.MinigameHub.open(p.id); })
     .add('/leaderboard', renderLeaderboard)
     .add('/profile', renderProfile)
     .setNotFound(renderMenu);
