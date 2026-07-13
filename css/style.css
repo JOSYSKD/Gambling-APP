@@ -37,6 +37,11 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; }
 
+/* hidden muss IMMER greifen — sonst überschreibt ein späteres display:
+   (z. B. beim Game-Over-Overlay) das [hidden]-Attribut und ein unsichtbares
+   Overlay (opacity:0) fängt trotzdem alle Klicks ab. */
+[hidden] { display: none !important; }
+
 body {
   font-family: var(--font);
   color: var(--text);
