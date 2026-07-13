@@ -18,8 +18,35 @@ Kategorie **Gambling** mit 6 voll funktionsfähigen Spielen:
 | 🎡 **Roulette** | Europäisch — Rot/Schwarz, Gerade/Ungerade, Zahlen, Dutzende |
 | 💣 **Mines** | 5×5-Feld — sichere Felder aufdecken, jederzeit auscashen |
 
+Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusammen im selben WLAN** (2–8 Spieler über einen Raum-Code, kein Konto/Setup nötig):
+
+| Spiel | Kurz |
+|------|------|
+| 🍯 **Jungle Tycoon** | Idle-Clicker — sammle in der Rundenzeit den meisten Nektar |
+| ⚡ **Reflex-Blitz** | Reaktionstest — schlag zu, sobald es grün wird |
+| 👆 **Tap-Battle** | So schnell tippen wie möglich |
+| 🃏 **Dschungel-Memory** | Pärchen aufdecken gegen die Zeit |
+| 🎨 **Simon-Sequenz** | Merke dir die leuchtende Farbfolge |
+| 🔢 **Kopf-Rechnen** | Schnelle Rechenaufgaben unter Zeitdruck |
+| 🎯 **Ziel-Jäger** | Triff fliegende Ziele mit Combo-Bonus |
+| 🌈 **Farb-Chaos** | Stroop-Test — klicke die Schriftfarbe, nicht das Wort |
+| 🐍 **Dschungel-Schlange** | Snake — friss und wachse |
+| 🦜 **Papagei-Flug** | Flappy-Bird durch die Ranken-Lücken |
+| 🍉 **Frucht-Slicer** | Zerschneide Früchte, meide die Bomben |
+| 🧱 **Turm-Stapler** | Staple die Blöcke möglichst exakt |
+| 🎈 **Ballon-Risiko** | Pump für mehr Punkte — nicht platzen lassen! |
+| ⌨️ **Wort-Rausch** | Tipp-Rennen — Wörter schnell und fehlerfrei |
+| 🔼 **Höher oder Tiefer** | Rate die nächste Karte, jage die Serie |
+| 🧩 **2048 Dschungel** | Kacheln schieben und verschmelzen |
+| ❓ **Quiz-Rausch** | Möglichst viele Fragen richtig |
+| 🔴 **4 Gewinnt** | Duell zu zweit / gegen den Bot |
+| ⭕ **Tic-Tac-Toe** | Drei gewinnt, Best of 5 |
+| 🏓 **Neon-Pong** | Der Klassiker, erster auf 7 gewinnt |
+
+**Zusammen spielen:** Ein Spieler öffnet ein Minispiel → *Zusammen* → *Raum erstellen* und teilt den 4‑stelligen Code. Die anderen tippen den Code ein — fertig. Läuft per **WebRTC (PeerJS)** direkt zwischen den Geräten, ohne Server-Konto. Tab-Wechsel wirft niemanden raus (alle Timer laufen über die Wall-Clock).
+
 ## ✨ Features
-- **1000 Start-Coins**, übergreifend für alle Spiele, gespeichert im `localStorage`.
+- **1000 Start-Coins**, übergreifend für alle Gambling-Spiele, gespeichert im `localStorage`.
 - Guthaben immer sichtbar in der festen Kopfleiste.
 - Einsatz-Schnellbuttons: 10, 50, 100, 500, ½, Max (Mindesteinsatz 10).
 - **Game Over**, wenn das Guthaben unter 10 fällt → Neustart auf 1000.
@@ -38,7 +65,11 @@ js/
   ui.js               UI-Helfer: Einsatz-Panel, Flash/Toast, DOM-Helfer
   router.js           Hash-Router (funktioniert unter file://)
   app.js              Menü, Navigation, Views, Game-Over
-  games/              je ein Modul pro Spiel (registrieren sich in App.Games)
+  games/              je ein Modul pro Gambling-Spiel (registrieren sich in App.Games)
+  net.js              Multiplayer-Räume (PeerJS/WebRTC, Fallback lokal) — Room-API
+  minigames.js        Minigame-Hub: Übersicht, Modus-Wahl, Lobby mit Raum-Code
+  mgutil.js           gemeinsame Bausteine (App.MG): Countdown, Timer, Live-Rangliste, Podest
+  minigames/          je ein Modul pro Minispiel (registrieren sich in App.Minigames)
 ```
 Die App ist eine **Single-Page-App mit Hash-Routing** (`#/`, `#/category/gambling`,
 `#/game/slots`, `#/leaderboard`, `#/profile`). Bewusst **klassische `<script>`-Tags**
