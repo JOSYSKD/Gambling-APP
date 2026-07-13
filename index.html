@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Börsencrash</title>
+<style>
+  :root{
+    --bg:#05080a;
+    --panel:rgba(10,20,18,0.72);
+    --neon:#39ff14;
+    --neon-dim:#1f8f0d;
+    --red:#ff2e4d;
+    --text:#d8ffe0;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;
+    padding:0;
+    min-height:100%;
+    background:
+      radial-gradient(circle at 20% 10%, #0a1f14 0%, transparent 45%),
+      radial-gradient(circle at 80% 90%, #061a12 0%, transparent 50%),
+      var(--bg);
+    color:var(--text);
+    font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+  }
+  header{
+    position:sticky;
+    top:0;
+    z-index:10;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:14px 20px;
+    background:rgba(4,10,8,0.85);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--neon-dim);
+    box-shadow:0 0 20px rgba(57,255,20,0.15);
+  }
+  header h1{
+    margin:0;
+    font-size:1.3rem;
+    color:var(--neon);
+    text-shadow:0 0 8px var(--neon), 0 0 18px rgba(57,255,20,0.5);
+    letter-spacing:1px;
+  }
+  #balanceBox{
+    font-size:1.1rem;
+    font-weight:bold;
+    color:#ffe066;
+    text-shadow:0 0 6px rgba(255,224,102,0.6);
+    position:relative;
+  }
+  #balanceFloat{
+    position:absolute;
+    right:0;
+    top:-4px;
+    font-size:0.95rem;
+    font-weight:bold;
+    opacity:0;
+    pointer-events:none;
+  }
+  #balanceFloat.show{
+    animation: floatUp 1.1s ease-out forwards;
+  }
+  @keyframes floatUp{
+    0%{opacity:1; transform:translateY(0);}
+    100%{opacity:0; transform:translateY(-40px);}
+  }
+  main{
+    max-width:760px;
+    margin:0 auto;
+    padding:20px 16px 60px;
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid rgba(57,255,20,0.25);
+    border-radius:16px;
+    padding:18px;
+    margin-bottom:18px;
+    box-shadow:0 0 25px rgba(0,0,0,0.4), inset 0 0 30px rgba(57,255,20,0.03);
+    backdrop-filter:blur(4px);
+  }
+  #chartWrap{
+    position:relative;
+    text-align:center;
+  }
+  canvas{
+    width:100%;
+    height:280px;
+    display:block;
+    border-radius:12px;
+    background:#020604;
+    border:1px solid rgba(57,255,20,0.15);
+  }
+  #multiplierDisplay{
+    position:absolute;
+    top:14px;
+    left:50%;
+    transform:translateX(-50%);
+    font-size:2.6rem;
+    font-weight:800;
+    color:var(--neon);
+    text-shadow:0 0 10px var(--neon), 0 0 30px rgba(57,255,20,0.6);
+    transition:color 0.2s;
+  }
+  #multiplierDisplay.crashed{
+    color:var(--red);
+    text-shadow:0 0 10px var(--red), 0 0 30px rgba(255,46,77,0.7);
+  }
+  #statusText{
+    margin-top:10px;
+    min-height:1.4em;
+    font-size:1rem;
+    color:#9be7a3;
+  }
+  #statusText.crash{ color:var(--red); font-weight:bold; }
+  #statusText.win{ color:var(--neon); font-weight:bold; }
+
+  .bet-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:center;
+    margin-bottom:12px;
+  }
+  .bet-row label{
+    font-size:0.9rem;
+    color:#a9e6b0;
+  }
+  #betInput{
+    flex:1;
+    min-width:110px;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid var(--neon-dim);
+    background:#08110d;
+    color:var(--text);
+    font-size:1rem;
+  }
+  .quick-bets{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .quick-bets button{
+    flex:1;
+    min-width:60px;
+  }
+  button{
+    cursor:pointer;
+    border:none;
+    border-radius:10px;
+    padding:10px 14px;
+    font-size:0.95rem;
+    font-weight:600;
+    background:linear-gradient(160deg, #123a1c, #0a1f11);
+    color:var(--neon);
+    border:1px solid var(--neon-dim);
+    transition:transform 0.12s, box-shadow 0.12s;
+  }
+  button:hover:not(:disabled){
+    box-shadow:0 0 14px rgba(57,255,20,0.55);
+    transform:translateY(-1px);
+  }
+  button:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+  }
+  .actions{
+    display:flex;
+    gap:12px;
+  }
+  #startBtn{
+    flex:2;
+    background:linear-gradient(160deg, #1c5c2b, #0e3018);
+    font-size:1.05rem;
+    padding:14px;
+  }
+  #cashoutBtn{
+    flex:2;
+    background:linear-gradient(160deg, #6b1616, #3a0a0a);
+    color:#ffdede;
+    border-color:#a33;
+    font-size:1.05rem;
+    padding:14px;
+  }
+  #cashoutBtn:hover:not(:disabled){
+    box-shadow:0 0 14px rgba(255,46,77,0.6);
+  }
+
+  #gameOverOverlay{
+    position:fixed;
+    inset:0;
+    background:rgba(2,4,3,0.92);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    z-index:100;
+    text-align:center;
+    padding:20px;
+  }
+  #gameOverOverlay.show{ display:flex; }
+  #gameOverOverlay h2{
+    font-size:2.6rem;
+    color:var(--red);
+    text-shadow:0 0 16px var(--red), 0 0 40px rgba(255,46,77,0.7);
+    margin-bottom:10px;
+    letter-spacing:2px;
+  }
+  #gameOverOverlay p{
+    color:#cfcfcf;
+    margin-bottom:24px;
+  }
+  #restartBtn{
+    background:linear-gradient(160deg, #1c5c2b, #0e3018);
+    padding:14px 30px;
+    font-size:1.1rem;
+  }
+  .hint{
+    font-size:0.8rem;
+    color:#6f9e77;
+    margin-top:6px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📈 Börsencrash</h1>
+  <div id="balanceBox">💰 <span id="balance">1000</span> Coins
+    <span id="balanceFloat"></span>
+  </div>
+</header>
+
+<main>
+  <div class="panel" id="chartWrap">
+    <canvas id="chart" width="700" height="280"></canvas>
+    <div id="multiplierDisplay">1.00x</div>
+    <div id="statusText">Setze deinen Einsatz und starte die Investition.</div>
+  </div>
+
+  <div class="panel">
+    <div class="bet-row">
+      <label for="betInput">Einsatz</label>
+      <input type="number" id="betInput" min="10" step="10" value="10">
+    </div>
+    <div class="quick-bets">
+      <button data-amount="10">10</button>
+      <button data-amount="50">50</button>
+      <button data-amount="100">100</button>
+      <button data-amount="500">500</button>
+      <button id="halfBtn">1/2</button>
+      <button id="maxBtn">Max</button>
+    </div>
+    <div class="actions">
+      <button id="startBtn">📈 Investieren</button>
+      <button id="cashoutBtn" disabled>💵 Verkaufen</button>
+    </div>
+    <div class="hint">Mindesteinsatz: 10 Coins · Verkaufe rechtzeitig, bevor die Börse crasht!</div>
+  </div>
+</main>
+
+<div id="gameOverOverlay">
+  <h2>💥 GAME OVER</h2>
+  <p>Dein Depot ist unter 10 Coins gefallen.</p>
+  <button id="restartBtn">🔄 Neustart</button>
+</div>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'gambling_coins';
+  const MIN_BET = 10;
+
+  const balanceEl = document.getElementById('balance');
+  const balanceFloatEl = document.getElementById('balanceFloat');
+  const betInput = document.getElementById('betInput');
+  const startBtn = document.getElementById('startBtn');
+  const cashoutBtn = document.getElementById('cashoutBtn');
+  const multiplierDisplay = document.getElementById('multiplierDisplay');
+  const statusText = document.getElementById('statusText');
+  const gameOverOverlay = document.getElementById('gameOverOverlay');
+  const restartBtn = document.getElementById('restartBtn');
+  const canvas = document.getElementById('chart');
+  const ctx = canvas.getContext('2d');
+
+  let balance = loadBalance();
+  let roundActive = false;
+  let crashPoint = 0;
+  let startTime = 0;
+  let currentMultiplier = 1;
+  let points = [];
+  let rafId = null;
+  let chartColor = '#39ff14';
+
+  function loadBalance(){
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const val = stored === null ? 1000 : parseInt(stored, 10);
+    return Number.isFinite(val) ? val : 1000;
+  }
+
+  function saveBalance(){
+    localStorage.setItem(STORAGE_KEY, String(balance));
+  }
+
+  function renderBalance(delta){
+    balanceEl.textContent = balance;
+    if (delta) {
+      balanceFloatEl.textContent = (delta > 0 ? '+' : '') + delta;
+      balanceFloatEl.style.color = delta > 0 ? '#39ff14' : '#ff2e4d';
+      balanceFloatEl.classList.remove('show');
+      void balanceFloatEl.offsetWidth;
+      balanceFloatEl.classList.add('show');
+    }
+    checkGameOver();
+  }
+
+  function checkGameOver(){
+    if (balance < MIN_BET && !roundActive) {
+      gameOverOverlay.classList.add('show');
+      startBtn.disabled = true;
+      cashoutBtn.disabled = true;
+    }
+  }
+
+  restartBtn.addEventListener('click', () => {
+    balance = 1000;
+    saveBalance();
+    renderBalance();
+    gameOverOverlay.classList.remove('show');
+    startBtn.disabled = false;
+    betInput.value = MIN_BET;
+    resetChart();
+    statusText.textContent = 'Setze deinen Einsatz und starte die Investition.';
+    statusText.className = '';
+  });
+
+  document.querySelectorAll('.quick-bets button[data-amount]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      betInput.value = btn.dataset.amount;
+    });
+  });
+  document.getElementById('halfBtn').addEventListener('click', () => {
+    const current = parseInt(betInput.value, 10) || MIN_BET;
+    betInput.value = Math.max(MIN_BET, Math.floor(current / 2));
+  });
+  document.getElementById('maxBtn').addEventListener('click', () => {
+    betInput.value = Math.max(MIN_BET, balance);
+  });
+
+  function getBet(){
+    let bet = parseInt(betInput.value, 10);
+    if (!Number.isFinite(bet) || bet < MIN_BET) bet = MIN_BET;
+    if (bet > balance) bet = balance;
+    return bet;
+  }
+
+  // Standard "crash game" distribution: mostly low multipliers,
+  // occasionally high ones, with a built-in house edge.
+  function generateCrashPoint(){
+    const houseEdge = 0.04; // 4% instant-crash chance
+    const r = Math.random();
+    if (r < houseEdge) return 1.00;
+    const point = 0.99 / (1 - r);
+    return Math.max(1.00, Math.floor(point * 100) / 100);
+  }
+
+  function currentMultiplierFromElapsed(elapsedMs){
+    return Math.pow(Math.E, 0.00006 * elapsedMs);
+  }
+
+  function resetChart(){
+    points = [];
+    currentMultiplier = 1;
+    chartColor = '#39ff14';
+    multiplierDisplay.textContent = '1.00x';
+    multiplierDisplay.classList.remove('crashed');
+    drawChart();
+  }
+
+  function drawChart(){
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // grid
+    ctx.strokeStyle = 'rgba(57,255,20,0.08)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < 6; i++) {
+      const y = (h / 6) * i;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+
+    if (points.length < 2) return;
+
+    const maxT = points[points.length - 1].t || 1;
+    const maxM = Math.max(2, ...points.map(p => p.m)) * 1.15;
+
+    ctx.beginPath();
+    points.forEach((p, i) => {
+      const x = (p.t / maxT) * (w - 20) + 10;
+      const y = h - (p.m / maxM) * (h - 20) - 10;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+
+    ctx.strokeStyle = chartColor;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = chartColor;
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  function startRound(){
+    const bet = getBet();
+    if (bet < MIN_BET || bet > balance) return;
+
+    balance -= bet;
+    saveBalance();
+    renderBalance();
+
+    roundActive = true;
+    crashPoint = generateCrashPoint();
+    startTime = performance.now();
+    points = [{t: 0, m: 1}];
+    currentMultiplier = 1;
+    chartColor = '#39ff14';
+
+    startBtn.disabled = true;
+    cashoutBtn.disabled = false;
+    betInput.disabled = true;
+    document.querySelectorAll('.quick-bets button').forEach(b => b.disabled = true);
+
+    multiplierDisplay.classList.remove('crashed');
+    statusText.textContent = 'Kurs steigt… rechtzeitig verkaufen!';
+    statusText.className = '';
+
+    tick();
+  }
+
+  function tick(){
+    const elapsed = performance.now() - startTime;
+    currentMultiplier = currentMultiplierFromElapsed(elapsed);
+
+    if (currentMultiplier >= crashPoint) {
+      currentMultiplier = crashPoint;
+      points.push({t: elapsed, m: currentMultiplier});
+      endRound(false);
+      return;
+    }
+
+    points.push({t: elapsed, m: currentMultiplier});
+    multiplierDisplay.textContent = currentMultiplier.toFixed(2) + 'x';
+    drawChart();
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function endRound(cashedOut){
+    roundActive = false;
+    chartColor = cashedOut ? '#39ff14' : '#ff2e4d';
+    if (rafId) cancelAnimationFrame(rafId);
+
+    startBtn.disabled = false;
+    cashoutBtn.disabled = true;
+    betInput.disabled = false;
+    document.querySelectorAll('.quick-bets button').forEach(b => b.disabled = false);
+
+    multiplierDisplay.textContent = currentMultiplier.toFixed(2) + 'x';
+    drawChart();
+
+    if (cashedOut) {
+      const payout = Math.floor(lastBet * currentMultiplier);
+      const profit = payout - lastBet;
+      balance += payout;
+      saveBalance();
+      renderBalance(profit);
+      statusText.textContent = `✅ Verkauft bei ${currentMultiplier.toFixed(2)}x: Auszahlung ${payout} Coins (+${profit})`;
+      statusText.className = 'win';
+    } else {
+      multiplierDisplay.classList.add('crashed');
+      renderBalance(-lastBet);
+      statusText.textContent = `💥 CRASH bei ${currentMultiplier.toFixed(2)}x — Einsatz verloren`;
+      statusText.className = 'crash';
+    }
+
+    setTimeout(() => {
+      if (balance >= MIN_BET) resetChart();
+    }, 1800);
+  }
+
+  let lastBet = MIN_BET;
+
+  startBtn.addEventListener('click', () => {
+    lastBet = getBet();
+    startRound();
+  });
+
+  cashoutBtn.addEventListener('click', () => {
+    if (!roundActive) return;
+    endRound(true);
+  });
+
+  renderBalance();
+  resetChart();
+})();
+</script>
+</body>
+</html>
