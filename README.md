@@ -54,7 +54,7 @@ Einfach **`index.html` im Browser öffnen** (Doppelklick). Fertig — kein Serve
 4. **Branch: `main`**, **Ordner: `/ (root)`** auswählen → **Save**.
 5. Nach ~1 Minute ist die Seite erreichbar unter:
    `https://<dein-benutzername>.github.io/<repo-name>/`
-   (für dieses Repo: `https://josyskd.github.io/Gambling-APP/`).
+   (für dieses Repo: `https://josyskd.github.io/Klett-Login/`).
 
 Alle Pfade sind **relativ**, daher funktioniert die Seite auch im Unterordner `/<repo-name>/`.
 Die Datei `.nojekyll` sorgt dafür, dass GitHub Pages die Dateien 1:1 ausliefert.
