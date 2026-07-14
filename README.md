@@ -20,7 +20,7 @@ Kategorie **Gambling** mit 8 voll funktionsfähigen Spielen:
 | 🪙 **Coinflip** | Kopf oder Zahl — 50/50-Münzwurf, 1.92× Auszahlung |
 | 🌀 **Glücksrad** | Dreh das Rad — Niete oder Multiplikator bis 10× |
 
-Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusammen im selben WLAN** (2–8 Spieler über einen Raum-Code, kein Konto/Setup nötig):
+Kategorie **Online Minigames** mit 24 Spielen — jedes **allein** oder **zusammen im selben WLAN** (2–8 Spieler über einen Raum-Code, kein Konto/Setup nötig; die vier Poker-Varianten unten unterstützen je nach Kartendeck-Limit bis zu 12 Spieler):
 
 | Spiel | Kurz |
 |------|------|
@@ -46,6 +46,10 @@ Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusamm
 | 🏓 **Neon-Pong** | Der Klassiker, erster auf 7 gewinnt |
 | 🏃 **Dschungel-Flucht** | Endlosläufer – **zwei Sieger**: bester Läufer (Geschick) & Münz-König |
 | 🗼 **Wackelturm** | Balance-Stapelrennen (Tricky-Towers-Art), 2–4 Spieler zur Ziel-Linie |
+| ♠️ **Poker – Texas Hold'em** | Der Klassiker, 2 Handkarten + Board, **bis zu 12 Spieler** |
+| ♣️ **Poker – Omaha** | 4 Handkarten, genau 2 zählen fürs Blatt, bis zu 10 Spieler |
+| ♦️ **Poker – Seven Card Stud** | 7 Karten, kein Board, bis zu 7 Spieler (Kartendeck-Limit) |
+| ♥️ **Poker – Five Card Draw** | 5 Karten, einmal tauschen erlaubt, bis zu 8 Spieler |
 
 Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level schafft (kein Gegeneinander – geteilter Team-Zustand, gemeinsames Gewinnen/Verlieren), allein zum Üben oder als Team im selben WLAN:
 
@@ -81,6 +85,7 @@ js/
   app.js              Menü, Navigation, Views, Game-Over
   games/              je ein Modul pro Gambling-Spiel (registrieren sich in App.Games)
   net.js              Multiplayer-Räume (PeerJS/WebRTC, Fallback lokal) — Room-API
+  poker-engine.js     Poker-Kartenlogik (Deck, Hand-Bewertung, Side-Pots) — keine Netz-/UI-Abhängigkeit
   minigames.js        Minigame-Hub: Übersicht, Modus-Wahl, Lobby mit Raum-Code
   mgutil.js           gemeinsame Bausteine (App.MG): Countdown, Timer, Live-Rangliste, Podest
   minigames/          je ein Modul pro Minispiel (registrieren sich in App.Minigames)

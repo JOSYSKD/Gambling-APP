@@ -19,7 +19,7 @@
       id: 'minigames',
       name: 'Online Minigames',
       icon: '🎮',
-      desc: 'Über 20 Spiele – allein oder mit Freunden per Raum-Code, 2–4 Spieler.',
+      desc: 'Über 20 Spiele – allein oder mit Freunden per Raum-Code, 2–12 Spieler.',
       route: '/minigames'
     },
     {
