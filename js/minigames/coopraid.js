@@ -397,6 +397,8 @@
         function finishGame(win, totalDmg, teamLeft) {
           if (ended) return; ended = true;
           clearAll();
+          // Bei Sieg: besiegtes Level (Drache down) in der Bestenliste hochzählen (genau einmal, Guard: ended)
+          if (win && App.Scores) App.Scores.winCurrent();
           var reason = win ? 'Ihr habt den Drachen gemeinsam bezwungen!'
             : (teamLeft <= 0 ? 'Das Team wurde vom Drachen ueberwaeltigt.'
                              : 'Die Zeit lief ab – der Drache lebt noch.');

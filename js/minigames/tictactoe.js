@@ -220,6 +220,7 @@
         function showEnd() {
           var res = seriesResultMark(st.scores);   // 'X' | 'O' | 'draw'
           var mine = res === X ? 'win' : res === O ? 'lose' : 'draw';
+          if (mine === 'win' && App.Scores) App.Scores.winCurrent();  // Serien-Sieg zählen
           root.innerHTML = '';
           root.appendChild(endPanel(mine, {
             xName: 'Du', oName: 'Bot', xScore: st.scores.X, oScore: st.scores.O, myMark: X
@@ -405,6 +406,7 @@
           var xId = sh.order[0], oId = sh.order[1];
           var xP = playerById(players, xId), oP = playerById(players, oId);
           var mine = sh.seriesWinner === 'draw' ? 'draw' : (sh.seriesWinner === me.id ? 'win' : 'lose');
+          if (mine === 'win' && App.Scores) App.Scores.winCurrent();  // Serien-Sieg zählen (nur beim Gewinner-Client, einmalig durch curView-Guard)
           var actions;
           if (room.isHost()) {
             actions = [

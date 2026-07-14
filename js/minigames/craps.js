@@ -549,7 +549,11 @@
           lastResolveRound = v.round;
           var r = v.results && v.results[me.id];
           if (r) {
-            if (r.outcome === 'win') UI.toast('Gewonnen! +' + r.delta + ' Chips', 'win');
+            if (r.outcome === 'win') {
+              UI.toast('Gewonnen! +' + r.delta + ' Chips', 'win');
+              // Bestenliste: eigene gewonnene Wette; lastResolveRound-Guard → genau einmal pro Runde je Client
+              if (App.Scores) App.Scores.winCurrent();
+            }
             else if (r.outcome === 'lose') UI.toast('Verloren ' + r.delta + ' Chips', 'lose');
             else UI.toast('Push — Einsatz zurück', 'info');
           }

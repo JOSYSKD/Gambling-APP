@@ -102,6 +102,7 @@
       function soloWin() {
         if (ended) return;
         var iWon = st.winner === 'L';
+        if (iWon && App.Scores) App.Scores.winCurrent();  // Solo-Sieg: der Mensch (linker Schläger 'L') hat 7 erreicht; ended-Guard oben -> genau einmal
         showEnd(iWon, st.scoreL + ' : ' + st.scoreR, { onAgain: startSolo, onExit: ctx.onExit, exitLabel: 'Zurück' });
       }
 
@@ -175,6 +176,7 @@
       function multiWin(winnerId) {
         if (ended) return;
         var iWon = (winnerId === ctx.me.id);
+        if (iWon && App.Scores) App.Scores.winCurrent();  // Multiplayer-Sieg: nur wenn ICH der Gewinner bin; ended-Guard oben -> genau einmal pro Match
         var sub = (st ? st.scoreL : 0) + ' : ' + (st ? st.scoreR : 0);
         showEnd(iWon, sub, { onExit: ctx.onExit, exitLabel: 'Zurück zur Lobby' });
       }

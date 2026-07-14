@@ -564,6 +564,8 @@
 
       /* ===================== ENDE ===================== */
       function showEnd(win, S) {
+        // Bei Sieg: geschafftes Level in der Bestenliste hochzählen (genau einmal — showEnd läuft pro Runde nur einmal, Guard: ended)
+        if (win && App.Scores) App.Scores.winCurrent();
         stopLoops();
         clearNodes();
         var sorted = (S && S.sorted) || 0;

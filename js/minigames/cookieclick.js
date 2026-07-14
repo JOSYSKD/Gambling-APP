@@ -220,8 +220,11 @@
           stopTimers();
           if (isMulti) {
             ctx.room.reportScore(Math.floor(s.total));
+            var me = ctx.room.players().filter(function (p) { return p.id === ctx.me.id; })[0];
+            if (App.Scores && me) App.Scores.submitCurrent(Math.floor(me.score || 0)); // nur EIGENER Nektar-Endwert, genau einmal
             after(1200, showPodium);        // kurz warten, bis alle Endstände da sind
           } else {
+            if (App.Scores) App.Scores.submitCurrent(Math.floor(s.total)); // eigene Gesamtsumme, genau einmal
             showSingleResult();
           }
         }

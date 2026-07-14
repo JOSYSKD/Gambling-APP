@@ -795,12 +795,15 @@
           if (isMulti) {
             ctx.room.reportScore(skInt);
             ctx.room.reportState({ coins: coins });
+            var me = ctx.room.players().filter(function (p) { return p.id === ctx.me.id; })[0];
+            if (App.Scores && me) App.Scores.submitCurrent(Math.floor(me.score || 0)); // nur EIGENER Geschick-Endwert, genau einmal
             var to = setTimeout(function () {
               if (destroyed) return;
               showMultiEnd();
             }, 1200);
             stops.push(function () { clearTimeout(to); });
           } else {
+            if (App.Scores) App.Scores.submitCurrent(skInt); // eigener Geschicklichkeits-Score, genau einmal
             var bestS = App.Storage.get('best_runner_skill', 0), nbS = skInt > bestS;
             var bestC = App.Storage.get('best_runner_coins', 0), nbC = coins > bestC;
             if (nbS) App.Storage.set('best_runner_skill', skInt);

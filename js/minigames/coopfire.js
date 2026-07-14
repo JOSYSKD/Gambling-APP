@@ -464,6 +464,8 @@
         if (finished) return;
         finished = true;
         clearAll();
+        // Bei Sieg: geschafftes Level in der Bestenliste hochzählen (genau einmal, Guard: finished)
+        if (win && App.Scores) App.Scores.winCurrent();
         var survived = Math.round(Math.min(LEVEL, Math.max(0, (nowFn() - (G ? G.startAt : nowFn())) / 1000)));
         var ext = G ? G.ext : 0, wave = G ? G.wave : 1, peak = G ? G.peak : 0;
         MG.teamEnd(root, {

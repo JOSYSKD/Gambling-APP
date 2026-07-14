@@ -225,6 +225,8 @@
         }
         function finish(winId) {
           state.done = true; state.winner = winId; stop();
+          // Bestenliste: eigener Sieg zählt genau einmal (finish läuft pro Runde nur einmal)
+          if (winId === 'me' && App.Scores) App.Scores.winCurrent();
           paint();
           after(1400, function () { if (!destroyed) showEnd(); });
         }
@@ -342,6 +344,8 @@
           players = players || room.players();
           var winId = sh.winner, iWon = winId === me.id, winName = '';
           for (var i = 0; i < players.length; i++) if (players[i].id === winId) winName = players[i].name;
+          // Bestenliste: nur der lokale Spieler zählt seinen Sieg; Guard (curView==='end') → genau einmal pro Runde
+          if (iWon && App.Scores) App.Scores.winCurrent();
           var wc = sh.cards ? sh.cards[winId] : null;
           root.innerHTML = ''; root.appendChild(endPanel(iWon, winName, wc, sh.drawn || []));
         }

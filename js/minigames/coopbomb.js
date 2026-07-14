@@ -538,6 +538,8 @@
       /* ============================ ENDE ============================ */
       function showEnd(vs) {
         stopTimerOnly();
+        // Bei Sieg: entschärftes Level in der Bestenliste hochzählen (genau einmal je Bombe, Guard: endShownGen)
+        if (vs.win && App.Scores) App.Scores.winCurrent();
         var st = vs.stats || { solved: 0, total: (vs.modules || []).length, strikes: vs.strikes || 0, secLeft: 0 };
         var canAgain = (!isMulti) || amHost;
         App.MG.teamEnd(root, {

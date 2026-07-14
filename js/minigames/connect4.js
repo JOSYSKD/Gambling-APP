@@ -232,7 +232,7 @@
           S.board[r][col] = 1;
           var line = checkWinAt(S.board, r, col);
           paint(S.board, line || []); updatePreview();
-          if (line) { S.over = true; statusSingle(); after(700, function () { buildOverlay('win', { multi: false, sub: 'Vier in einer Reihe – stark!' }); }); return; }
+          if (line) { S.over = true; if (App.Scores) App.Scores.winCurrent(); statusSingle(); after(700, function () { buildOverlay('win', { multi: false, sub: 'Vier in einer Reihe – stark!' }); }); return; }  // Solo-Sieg: der Mensch (Rot) hat 4 in einer Reihe -> genau hier zaehlen
           if (isFull(S.board)) { S.over = true; after(700, function () { buildOverlay('draw', { multi: false, sub: 'Brett voll – keiner gewinnt.' }); }); return; }
           S.turn = 2; statusSingle(); updatePreview();
           after(650, botMove);
@@ -316,6 +316,7 @@
       function showEndMulti(res, sh, players) {
         var key = res + ':' + (sh.winner || '') + ':' + (sh.gen || 0);
         if (overlayEl && overlayEl.dataset.key === key) return;   // schon angezeigt
+        if (res === 'win' && App.Scores) App.Scores.winCurrent();  // eigener Sieg (w === ctx.me.id); Guard oben sorgt fuer genau einmal pro Match
         var sub;
         if (res === 'win') sub = 'Du hast vier in einer Reihe!';
         else if (res === 'draw') sub = 'Brett voll – unentschieden.';

@@ -505,7 +505,11 @@
           if (v.phase === 'race' && lastPhase === 'betting') { myOptimistic = null; UI.toast('Und los! 🏇', 'info'); }
           if (v.phase === 'result' && v.lastWin && v.lastWin.payouts) {
             var net = v.lastWin.payouts[me.id];
-            if (net > 0) UI.toast('🎉 Gewonnen: +' + net + ' Chips', 'win');
+            if (net > 0) {
+              UI.toast('🎉 Gewonnen: +' + net + ' Chips', 'win');
+              // Bestenliste: eigenes Pferd hat gewonnen (net>0); Phasen-Guard → genau einmal pro Runde je Client
+              if (App.Scores) App.Scores.winCurrent();
+            }
             else if (net != null && net < 0) UI.toast('Verloren: ' + net + ' Chips', 'lose');
           }
         }

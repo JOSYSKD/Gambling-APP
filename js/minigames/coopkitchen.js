@@ -662,6 +662,8 @@
         if (endShown) return;
         endShown = true;
         stopLoops();
+        // Bei Sieg: geschafftes Level in der Bestenliste hochzählen (genau einmal, Guard: endShown)
+        if (v.win && App.Scores) App.Scores.winCurrent();
         var lines = [
           'Serviert: ' + v.teamScore + ' / ' + v.target,
           'Übrige Leben: ' + Math.max(0, v.lives)

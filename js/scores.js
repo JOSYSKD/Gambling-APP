@@ -35,7 +35,12 @@
     fivedraw: { win: true, fmt: wins, label: 'Gewonnene Hände' },
     bingo: { win: true, fmt: wins, label: 'Bingo-Siege' },
     craps: { win: true, fmt: wins, label: 'Gewonnene Runden' },
-    horserace: { win: true, fmt: wins, label: 'Gewonnene Wetten' }
+    horserace: { win: true, fmt: wins, label: 'Gewonnene Wetten' },
+    coopkitchen: { win: true, fmt: wins, label: 'Geschaffte Level' },
+    coopraid: { win: true, fmt: wins, label: 'Geschaffte Level' },
+    coopbelt: { win: true, fmt: wins, label: 'Geschaffte Level' },
+    coopfire: { win: true, fmt: wins, label: 'Geschaffte Level' },
+    coopbomb: { win: true, fmt: wins, label: 'Geschaffte Level' }
   };
   function meta(id) { return META[id] || {}; }
   function fmtScore(id, v) { var m = meta(id); return m.fmt ? m.fmt(v) : (App.MG ? App.MG.fmt(v) : String(v)); }
