@@ -206,6 +206,14 @@
         el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/'); } }, ['← Menü']),
         el('h2', { class: 'page-title neon' }, ['👤 Profil'])
       ]));
+      // Anpassbare Profilkarte + Kosmetik-Editor (Level-Freischaltungen)
+      if (App.ProfileCard) {
+        var cardHolder = el('div');
+        var refreshCard = function () { cardHolder.innerHTML = ''; cardHolder.appendChild(App.ProfileCard.renderCard()); };
+        refreshCard();
+        container.appendChild(cardHolder);
+        container.appendChild(App.ProfileCard.renderCustomizer(refreshCard));
+      }
       container.appendChild(nameCard());
       container.appendChild(accountCard());
     }
