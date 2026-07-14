@@ -100,7 +100,7 @@
 
   // Keyloser Fallback ohne Google-/Firebase-Konto, siehe js/cloud.js + js/cloud-config.js.
   function cloudBackend() {
-    App.Cloud.startPolling(15000);
+    App.Cloud.startPolling(10000);
     var lbCache = [];
     function syncLbCache(state) { lbCache = (state && state.leaderboard) || []; App.Leaderboard.refresh(); }
     App.Cloud.onChange(syncLbCache);

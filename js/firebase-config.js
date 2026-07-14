@@ -1,17 +1,18 @@
-/* firebase-config.js — hier kommt deine Firebase-Konfiguration rein.
+/* firebase-config.js — echte Firebase-Konfiguration (Realtime Database).
  *
- * Ersetze die Platzhalter durch den Block aus der Firebase-Konsole
- * (Projekteinstellungen → Meine Apps → Web-App → SDK-Konfiguration).
- * Wichtig ist besonders `databaseURL` (Realtime Database).
+ * Diese Werte sind bei Firebase bewusst ÖFFENTLICH (Client-SDK). Der Zugriffs-
+ * schutz läuft über die Datenbank-Regeln (database.rules.json), nicht über den
+ * API-Key — daher ist es normal und unbedenklich, dass sie hier im Repo stehen.
  *
- * Solange hier Platzhalter stehen, läuft der Online-Multiplayer im
- * LOKAL-Modus (nur mehrere Tabs im selben Browser, zum Ausprobieren).
- * Sobald echte Werte drinstehen, spielen deine Freunde über Firebase mit.
+ * Projekt: KlettLogin (klettlogin-3d1ed), Realtime Database in europe-west1.
+ * Sobald diese Werte vorhanden sind, schalten js/net.js (Raum-Codes),
+ * js/account.js (Konten) und js/leaderboard.js (Bestenliste) automatisch auf
+ * das geteilte, echtzeitfähige Firebase-Backend um.
  */
 window.FIREBASE_CONFIG = {
-  apiKey: "DEIN_API_KEY",
-  authDomain: "DEIN_PROJEKT.firebaseapp.com",
-  databaseURL: "https://DEIN_PROJEKT-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "DEIN_PROJEKT",
-  appId: "DEINE_APP_ID"
+  apiKey: "AIzaSyB9e7SS4RsT86XnuCo5UVHE6nmEnmEiT_w",
+  authDomain: "klettlogin-3d1ed.firebaseapp.com",
+  databaseURL: "https://klettlogin-3d1ed-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "klettlogin-3d1ed",
+  appId: "1:273062395503:web:724a7bfcace398dec2179a"
 };

@@ -1,0 +1,7 @@
+{
+  "rules": {
+    "rooms": { ".read": true, ".write": true },
+    "leaderboard": { ".read": true, ".write": true },
+    "accounts": { ".read": true, ".write": true }
+  }
+}

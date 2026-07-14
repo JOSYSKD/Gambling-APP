@@ -109,7 +109,7 @@
       if (pollTimer) return pollTimer;
       pollTimer = setInterval(function () {
         Cloud.load(true).catch(function () {});
-      }, ms || 15000);
+      }, ms || 10000);
       return pollTimer;
     }
   };
