@@ -20,7 +20,7 @@ Kategorie **Gambling** mit 8 voll funktionsfähigen Spielen:
 | 🪙 **Coinflip** | Kopf oder Zahl — 50/50-Münzwurf, 1.92× Auszahlung |
 | 🌀 **Glücksrad** | Dreh das Rad — Niete oder Multiplikator bis 10× |
 
-Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusammen im selben WLAN** (2–8 Spieler über einen Raum-Code, kein Konto/Setup nötig):
+Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusammen über das Internet** (2–8 Spieler über einen Raum-Code, kein Konto/Setup für die Mitspieler nötig):
 
 | Spiel | Kurz |
 |------|------|
@@ -47,7 +47,7 @@ Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusamm
 | 🏃 **Dschungel-Flucht** | Endlosläufer – **zwei Sieger**: bester Läufer (Geschick) & Münz-König |
 | 🗼 **Wackelturm** | Balance-Stapelrennen (Tricky-Towers-Art), 2–4 Spieler zur Ziel-Linie |
 
-Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level schafft (kein Gegeneinander – geteilter Team-Zustand, gemeinsames Gewinnen/Verlieren), allein zum Üben oder als Team im selben WLAN:
+Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level schafft (kein Gegeneinander – geteilter Team-Zustand, gemeinsames Gewinnen/Verlieren), allein zum Üben oder als Team über das Internet:
 
 | Spiel | Kurz |
 |------|------|
@@ -57,7 +57,7 @@ Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level scha
 | 🔥 **Feuer-Alarm** | Löscht die sich ausbreitenden Brände, bevor der Dschungel abbrennt |
 | 💣 **Bomben-Team** | Entschärft die Bombe zusammen – Drähte, Muster & Code vor Ablauf |
 
-**Zusammen spielen:** Ein Spieler öffnet ein Minispiel → *Zusammen* → *Raum erstellen* und teilt den 4‑stelligen Code. Die anderen tippen den Code ein — fertig. Läuft per **WebRTC (PeerJS)** direkt zwischen den Geräten, ohne Server-Konto. Tab-Wechsel wirft niemanden raus (alle Timer laufen über die Wall-Clock).
+**Zusammen spielen:** Ein Spieler öffnet ein Minispiel → *Zusammen* → *Raum erstellen* und teilt den 4‑stelligen Code. Die anderen tippen den Code ein — fertig. Läuft über die **Firebase Realtime Database** (siehe unten), sodass die Räume von **überall über das Internet** funktionieren; ohne Firebase-Konfiguration fällt es automatisch auf **WebRTC (PeerJS)** bzw. den lokalen Modus zurück. Tab-Wechsel wirft niemanden raus (alle Timer laufen über die Wall-Clock).
 
 ## ✨ Features
 - **1000 Start-Coins**, übergreifend für alle Gambling-Spiele.
@@ -73,19 +73,25 @@ Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level scha
 - Spielername im Profil änderbar.
 - Responsive für Desktop und Handy.
 
-### 🔐 Konten — geräteübergreifend vs. nur dieser Browser
-`js/account.js` wählt automatisch das Backend (genau wie `js/net.js`), in dieser Reihenfolge:
-1. **Echte Firebase-Konfiguration** in `js/firebase-config.js`, falls vorhanden (robustestes Backend).
-2. Sonst: **Cloud-Speicher-ID** in `js/cloud-config.js`, falls vorhanden — funktioniert **ohne
-   Google-/Firebase-Konto**, Einrichtung dauert ~30 Sekunden (siehe Abschnitt
-   "Geteilte Bestenliste" unten).
-3. Sonst (Standard, ohne jede Konfiguration): Konten funktionieren sofort, aber nur
-   **in diesem einen Browser** (Registrieren/Login/Passwort-ändern/Sitzungssperre laufen
-   über einen lokalen Simulator). Gut zum Ausprobieren der Funktion, aber kein Login von
-   einem anderen Gerät aus möglich.
+### 🔐 Konten — geräteübergreifend (Firebase ist aktiv ✅)
+Diese Seite läuft mit einem **echten geteilten Backend: Firebase Realtime Database**
+(Projekt `KlettLogin`, Region `europe-west1`). Damit sind **Konten, Spielstand und
+Bestenliste für alle Besucher geteilt** und funktionieren von **jedem Gerät und jedem
+Browser** aus — der Login klappt überall, und die Bestenliste aktualisiert sich in
+**Echtzeit** (Push, kein Polling).
 
-Sobald Variante 1 oder 2 eingerichtet ist, sind Konten, Spielstand und Bestenliste für
-**alle Besucher der Seite** geteilt — Login funktioniert von jedem Gerät/Browser aus.
+`js/account.js`, `js/net.js` und `js/leaderboard.js` wählen ihr Backend automatisch, in
+dieser Reihenfolge:
+1. **Firebase-Konfiguration** in `js/firebase-config.js` — **aktuell aktiv**, robustestes
+   Backend (geteilt + Echtzeit).
+2. Sonst: **Cloud-Speicher-ID** in `js/cloud-config.js` (JSONBlob) — nur noch stiller
+   Fallback, falls Firebase mal nicht erreichbar ist.
+3. Sonst (ganz ohne Konfiguration, z. B. beim direkten Öffnen per `file://`): lokaler
+   Modus — Konten/Bestenliste dann nur **in diesem einen Browser**.
+
+> ℹ️ Beim direkten Doppelklick auf `index.html` (`file://`) läuft die Seite bewusst im
+> lokalen Modus (kein Netz). Das geteilte Firebase-Backend greift, sobald die Seite über
+> `http(s)://` geladen wird — also live über GitHub Pages.
 
 > ⚠️ Sicherheits-Hinweis: Passwörter werden nur gehasht (SHA-256 + Salt) gespeichert,
 > nicht im Klartext. Da es keinen eigenen Server gibt und die Firebase-Regeln (siehe unten)
@@ -132,12 +138,15 @@ Alle Pfade sind **relativ**, daher funktioniert die Seite auch im Unterordner `/
 Die Datei `.nojekyll` sorgt dafür, dass GitHub Pages die Dateien 1:1 ausliefert.
 
 ## ☁️ Geteilte Bestenliste & geräteübergreifende Konten
-`js/leaderboard.js` und `js/account.js` sind modular gebaut und schalten **automatisch**
-auf ein geteiltes Backend um. Es gibt dafür zwei Wege — beide sind optional, ohne
-Einrichtung läuft alles weiterhin nur lokal in jedem einzelnen Browser (kein Fehler,
-einfach eingeschränkter Funktionsumfang).
+**Aktueller Stand: Firebase ist eingerichtet und aktiv** (Variante B unten). Konten,
+Spielstand, Bestenliste und Raum-Codes sind damit für alle Besucher geteilt und laufen
+in Echtzeit — es ist **nichts weiter zu tun**.
 
-### Variante A: Cloud-Speicher ohne Konto (empfohlen zum schnellen Ausprobieren)
+`js/leaderboard.js`, `js/account.js` und `js/net.js` sind modular gebaut und schalten
+**automatisch** auf das beste verfügbare Backend um. Die folgenden zwei Wege sind nur zur
+Doku — Variante B ist bereits erledigt; Variante A ist eine konto-freie Alternative.
+
+### Variante A: Cloud-Speicher ohne Konto (konto-freie Alternative zu Firebase)
 Kein Google-Konto, keine E-Mail, keine Anmeldung irgendwo nötig — nur eine anonyme ID:
 1. [https://jsonblob.com](https://jsonblob.com) öffnen (dort erscheint direkt ein leerer JSON-Editor).
 2. `{}` eintragen und auf **Save** klicken.
@@ -156,8 +165,12 @@ automatisch auf den lokalen Modus zurück — nichts bricht.
 > Für eine Spaß-Seite unter Freunden/in der Klasse ist das ein vertretbares Risiko — wer mehr
 > Sicherheit möchte, nutzt Variante B (Firebase).
 
-### Variante B: Firebase (robuster, braucht ein Google-Konto)
-Einmalige Einrichtung (~5 Minuten, kein Programmieren nötig):
+### Variante B: Firebase (robuster) — ✅ bereits eingerichtet
+Dies ist das **aktuell aktive** Backend. Projekt `KlettLogin` (`klettlogin-3d1ed`),
+Realtime Database in `europe-west1`, Web-App registriert, Regeln veröffentlicht — die
+fünf Werte stehen bereits in `js/firebase-config.js`. Die folgende Anleitung ist nur als
+Referenz gedacht, **falls das Projekt je neu aufgesetzt werden muss** (~5 Minuten, kein
+Programmieren nötig):
 1. **Projekt anlegen:** [console.firebase.google.com](https://console.firebase.google.com) →
    mit einem Google-Konto einloggen → "Projekt hinzufügen" (Google Analytics kann man abwählen).
 2. **Realtime Database aktivieren:** im Projekt → **Build → Realtime Database → Datenbank
