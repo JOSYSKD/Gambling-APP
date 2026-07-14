@@ -42,6 +42,18 @@ Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusamm
 | 🔴 **4 Gewinnt** | Duell zu zweit / gegen den Bot |
 | ⭕ **Tic-Tac-Toe** | Drei gewinnt, Best of 5 |
 | 🏓 **Neon-Pong** | Der Klassiker, erster auf 7 gewinnt |
+| 🏃 **Dschungel-Flucht** | Endlosläufer – **zwei Sieger**: bester Läufer (Geschick) & Münz-König |
+| 🗼 **Wackelturm** | Balance-Stapelrennen (Tricky-Towers-Art), 2–4 Spieler zur Ziel-Linie |
+
+Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level schafft (kein Gegeneinander – geteilter Team-Zustand, gemeinsames Gewinnen/Verlieren), allein zum Üben oder als Team im selben WLAN:
+
+| Spiel | Kurz |
+|------|------|
+| 🍳 **Koop-Küche** | Overcooked-Art: kocht & serviert die Bestellungen rechtzeitig |
+| 🐉 **Drachen-Raid** | Besiegt den Boss gemeinsam – angreifen und im Team ausweichen |
+| 🍣 **Fließband-Chaos** | Sortiert die Sachen ins richtige Fach, bevor sie runterfallen |
+| 🔥 **Feuer-Alarm** | Löscht die sich ausbreitenden Brände, bevor der Dschungel abbrennt |
+| 💣 **Bomben-Team** | Entschärft die Bombe zusammen – Drähte, Muster & Code vor Ablauf |
 
 **Zusammen spielen:** Ein Spieler öffnet ein Minispiel → *Zusammen* → *Raum erstellen* und teilt den 4‑stelligen Code. Die anderen tippen den Code ein — fertig. Läuft per **WebRTC (PeerJS)** direkt zwischen den Geräten, ohne Server-Konto. Tab-Wechsel wirft niemanden raus (alle Timer laufen über die Wall-Clock).
 
