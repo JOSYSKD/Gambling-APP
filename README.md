@@ -28,7 +28,7 @@ Kategorie **Gambling** mit 16 voll funktionsfähigen Spielen:
 | 🔢 **Keno** | Zahlen tippen, Ziehung abwarten, Treffer kassieren |
 | 🎯 **Plinko** | Kugel fällt durch die Pins — Multiplikator am Boden |
 
-Kategorie **Poker & Casino** mit 7 Spielen — **allein gegen Bots** oder **zusammen über das Internet** (2–6 Spieler per Raum-Code):
+Im **selben Gambling-Menü** stehen zusätzlich 7 **Poker & Casino**-Spiele — **allein gegen Bots** oder **zusammen über das Internet** (2–6 Spieler per Raum-Code):
 
 | Spiel | Kurz |
 |------|------|
@@ -81,17 +81,25 @@ Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level scha
 **Zusammen spielen:** Ein Spieler öffnet ein Minispiel → *Zusammen* → *Raum erstellen* und teilt den 4‑stelligen Code. Die anderen tippen den Code ein — fertig. Läuft über die **Firebase Realtime Database** (siehe unten), sodass die Räume von **überall über das Internet** funktionieren; ohne Firebase-Konfiguration fällt es automatisch auf **WebRTC (PeerJS)** bzw. den lokalen Modus zurück. Tab-Wechsel wirft niemanden raus (alle Timer laufen über die Wall-Clock).
 
 ## ✨ Features
+- **Ein Gambling-Menü** für alles: die 16 Solo-Klassiker **und** die 7 Poker/Casino-Tische, alle mit demselben Coin-Konto.
 - **1000 Start-Coins**, übergreifend für alle Gambling-Spiele.
 - Guthaben immer sichtbar in der festen Kopfleiste.
 - Einsatz-Schnellbuttons: 10, 50, 100, 500, ½, Max (Mindesteinsatz 10).
-- **Game Over**, wenn das Guthaben unter 10 fällt → Neustart auf 1000.
+- **Nie festgefahren**: fällt das Guthaben unter den Mindesteinsatz, wird es wieder aufgefüllt — der Betrag steigt mit dem Level (1000 → bis 15.000+).
+- **Level & XP** (`js/progress.js`): Beim Gambeln sammelst du XP (fürs Spielen + fürs Gewinnen) und steigst im Level auf — mit Level-Up-Bonus, Titel und höherem Auffüllbetrag. Level-Chip + XP-Leiste in der Kopfleiste.
+- **10 Quests** (`/quests`): z. B. „Gewinne 10 Runden", „Setze 20.000 Coins", „Erreiche 10.000 Guthaben", „Jackpot-Jäger" — geben Coins + XP, lösen automatisch aus.
+- **Farb-Styles / Themes** (`js/settings.js`, `/settings`): 10 wählbare Farbwelten (Neon-Dschungel, Cyber-Pink, Ozean, Sunset, Royal, Eis, Blutmond, Matrix, Gold, Candy) — Live-Wechsel, gemerkt. Plus „Bewegung reduzieren" für schwache Geräte.
+- **Anpassbare Profilkarte** (`js/profile-card.js`): Avatar, Rahmen (inkl. animiert), Banner und Titel — **schalten sich mit steigendem Level frei**.
+- **Täglicher Bonus mit Streak** (`js/daily.js`, 🎁 in der Kopfleiste): einmal pro Tag Gratis-Coins, der Betrag steigt mit Level und 7-Tage-Streak.
+- **Konfetti** bei großen Gewinnen und Level-Ups.
 - **Bestenliste** (Peak-Kontostand pro Run) mit Gold/Silber/Bronze und Live-Anzeige des aktiven Runs.
 - **Eigene Bestenliste pro Spiel** (🏆-Knopf auf jeder Minispiel-Kachel, `js/scores.js`): jedes
   Nicht-Gambling-Spiel hat seine eigene Rangliste — Highscore bei Punktespielen, Sieg-Zähler bei
   Duellen/Poker/Casino/Koop. Geteilt & in Echtzeit über Firebase (sonst lokal). Die **Gambling-
   Bestenliste bleibt davon unberührt**.
-- **Sound & Musik** (`js/audio.js`, Web Audio API, ohne Fremd-Dateien): dumpfe, chillige Menü-Musik,
-  ein ruhiger Beat mit langen Tönen im Spiel und dezente Soundeffekte (Klick/Gewinn/Verlust/Karten).
+- **Sound & Musik** (`js/audio.js`, Web Audio API, ohne Fremd-Dateien): dumpfe, chillige Menü-Musik
+  **nur im Menü** — im Spiel sind es nur die Soundeffekte. **Eigene Effekte pro Spiel** (z. B. bei Crash
+  ein steigender Ton, der beim Absturz abbricht; Würfel-Rollen, Walzen-Ticks, Karten, Explosionen …).
   Startet beim ersten Klick/Tipp; **Stummschalt-Knopf** in der Kopfleiste.
 - **Konten mit Passwort** (Profil-Seite): einmal registrieren, danach in jedem Browser mit
   Kontoname + Passwort anmelden und exakt beim eigenen Spielstand weitermachen. Bleibt
@@ -136,7 +144,11 @@ js/
   coins.js            Coin-System: Guthaben, Peak-Tracking, Game Over
   leaderboard.js      Bestenliste (modular — Backend-Driver austauschbar)
   ui.js               UI-Helfer: Einsatz-Panel, Flash/Toast, DOM-Helfer
-  audio.js            Sound & Musik (App.Audio): Menü-Musik, In-Game-Beat, SFX, Mute
+  audio.js            Sound & Musik (App.Audio): Menü-Musik + pro-Spiel-SFX, hold/blip/sweep, Mute
+  progress.js         Level, XP & Quests (App.Progress): Level-Chip, /quests, Konfetti
+  settings.js         Farb-Themes + Optionen (App.Settings): 10 Styles, /settings
+  profile-card.js     Anpassbare Profilkarte (App.ProfileCard): Level-Kosmetiks
+  daily.js            Täglicher Bonus mit Streak (App.Daily): 🎁 im Header
   scores.js           Pro-Spiel-Bestenliste (App.Scores): Highscore/Sieg-Zähler je Spiel
   poker-eval.js       Poker-Handbewertung (App.Poker) — gemeinsam für alle Poker-Tische
   router.js           Hash-Router (funktioniert unter file://)
