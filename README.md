@@ -7,7 +7,7 @@ direkt öffnet **oder** über GitHub Pages hostet.
 > ⚠️ Nur zum Spaß: Es wird ausschließlich mit **virtuellen Coins** gespielt. Kein Echtgeld, keine Auszahlung.
 
 ## 🕹️ Spiele
-Kategorie **Gambling** mit 6 voll funktionsfähigen Spielen:
+Kategorie **Gambling** mit 8 voll funktionsfähigen Spielen:
 
 | Spiel | Kurz |
 |------|------|
@@ -17,6 +17,8 @@ Kategorie **Gambling** mit 6 voll funktionsfähigen Spielen:
 | 🎰 **Slots** | 3 Walzen, Dschungel-Symbole, Gewinntabelle |
 | 🎡 **Roulette** | Europäisch — Rot/Schwarz, Gerade/Ungerade, Zahlen, Dutzende |
 | 💣 **Mines** | 5×5-Feld — sichere Felder aufdecken, jederzeit auscashen |
+| 🪙 **Coinflip** | Kopf oder Zahl — 50/50 auf den Münzwurf, 1.92× Auszahlung |
+| 🌀 **Glücksrad** | Ein Dreh, ein fairer Multiplikator — Niete bis 10× |
 
 Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusammen im selben WLAN** (2–8 Spieler über einen Raum-Code, kein Konto/Setup nötig):
 

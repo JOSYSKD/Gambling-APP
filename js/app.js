@@ -12,8 +12,8 @@
       id: 'gambling',
       name: 'Gambling',
       icon: '🎰',
-      desc: 'Sechs Neon-Klassiker. Setze deine Coins und jage den Highscore.',
-      games: ['blackjack', 'crash', 'cuberoll', 'slots', 'roulette', 'mines']
+      desc: 'Acht Neon-Klassiker. Setze deine Coins und jage den Highscore.',
+      games: ['blackjack', 'crash', 'cuberoll', 'slots', 'roulette', 'mines', 'coinflip', 'wheel']
     },
     {
       id: 'minigames',
