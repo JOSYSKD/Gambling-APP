@@ -347,6 +347,7 @@
       }
 
       function showCard(r) {
+        if (App.Audio) App.Audio.sfx('deal');
         if (r.side === 'p') {
           playerCards.appendChild(cardNode(player[r.idx]));
           pShown++;

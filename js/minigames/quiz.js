@@ -262,6 +262,7 @@
             var gain = BASE_POINTS + speed + comboBonus;
             score += gain;
             btn.classList.add('correct');
+            if (App.Audio) App.Audio.sfx('point');
             popFloat(btn, '+' + gain);
             updateHud();
             if (isMulti) ctx.room.reportScore(score);
@@ -269,6 +270,7 @@
           } else {
             combo = 0;
             btn.classList.add('wrong');
+            if (App.Audio) App.Audio.sfx('error');
             answerBtns.forEach(function (x) { if (x.dataset.correct === '1') x.classList.add('correct'); });
             updateHud();
             if (isMulti) ctx.room.reportScore(score);

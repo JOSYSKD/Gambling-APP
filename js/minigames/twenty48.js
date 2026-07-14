@@ -228,6 +228,16 @@
           res.survivors.forEach(function (t) { place(t, true); });
           res.losers.forEach(function (l) { place(l, true); });
           if (res.gain > 0) { score += res.gain; renderScore(); showGain(res.gain); }
+          if (App.Audio) {
+            if (res.merged.length) {
+              var mv = 0;
+              res.merged.forEach(function (t) { if (t._pending > mv) mv = t._pending; });
+              var semis = Math.min(24, Math.round(Math.log(mv) / Math.LN2) * 2);   // Tonhöhe steigt mit dem Verschmelzungswert
+              App.Audio.blip(261.63 * Math.pow(2, semis / 12), 0.13, { type: 'triangle', peak: 0.12 });
+            } else {
+              App.Audio.sfx('step');   // Zug ohne Merge: leiser Schub
+            }
+          }
           if (isMulti && score !== lastReport) { lastReport = score; ctx.room.reportScore(score); }
           after(SLIDE, function () {
             res.losers.forEach(removeTile);

@@ -154,6 +154,7 @@
             pairs++; foundOnBoard++;
             bonus += Math.max(0, Math.round(secLeft / 9));   // kleiner Zeitbonus
             popFloat(b.el, '+100');
+            if (App.Audio) App.Audio.sfx('coin');
             if (foundOnBoard >= PAIRS) {
               boards++; bonus += 40;                          // Board-fertig-Bonus
               busy = true;
@@ -168,6 +169,7 @@
             /* Kein Paar */
             busy = true;
             misses++;
+            if (App.Audio) App.Audio.sfx('error');
             onScoreChange();
             var fa = firstIndex; firstIndex = null;
             after(700, function () {

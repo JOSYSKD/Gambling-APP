@@ -153,6 +153,7 @@
           score += gain; correct++;
           flashStage('ok');
           pulseBtn(key, 'ok');
+          if (App.Audio) App.Audio.sfx('point');
           popFloat('+' + gain, 'ok');
           if (isMulti) ctx.room.reportScore(score);
           newWord();
@@ -162,6 +163,7 @@
           flashStage('bad');
           pulseBtn(key, 'bad');
           pulseBtn(current.colorKey, 'reveal'); // richtige Farbe kurz zeigen
+          if (App.Audio) App.Audio.sfx('error');
           popFloat('−4', 'bad');
           if (isMulti) ctx.room.reportScore(score);
           newWord();

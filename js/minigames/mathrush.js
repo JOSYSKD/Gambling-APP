@@ -182,6 +182,7 @@
             var gain = q.points + bonus;
             score += gain;
             btn.classList.add('correct');
+            if (App.Audio) App.Audio.sfx('point');
             popFloat(btn, '+' + gain);
             updateHud();
             if (isMulti) ctx.room.reportScore(score);
@@ -190,6 +191,7 @@
             combo = 0;
             score = Math.max(0, score - WRONG_PENALTY);
             btn.classList.add('wrong');
+            if (App.Audio) App.Audio.sfx('error');
             answerBtns.forEach(function (x) { if (Number(x.dataset.val) === q.answer) x.classList.add('correct'); });
             updateHud();
             if (isMulti) ctx.room.reportScore(score);

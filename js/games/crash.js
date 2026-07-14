@@ -64,6 +64,8 @@
       var rafId = null;
       var timers = [];
       var history = [];      // {v:crashValue, win:bool}, neueste zuerst
+      var riser = null;      // steigender Ton während des Flugs (App.Audio.hold)
+      function stopRiser(fade) { if (riser) { riser.stop(fade); riser = null; } }
 
       function later(fn, ms) { var id = setTimeout(fn, ms); timers.push(id); return id; }
 
@@ -161,6 +163,10 @@
         updateCashLabel();
         updateButtons();
 
+        // Steigender Spannungston — Tonhöhe wächst mit dem Multiplikator, bricht bei Cashout/Crash ab.
+        stopRiser(0.02);
+        if (App.Audio) riser = App.Audio.hold(165, { type: 'sawtooth', peak: 0.06, filter: 1400 });
+
         rafId = requestAnimationFrame(loop);
       }
 
@@ -174,6 +180,9 @@
 
         state.mult = Math.floor(m * 100) / 100;
         if (state.mult < 1) state.mult = 1;
+
+        // Ton steigt mit dem Multiplikator (gedeckelt, damit's nicht schrill wird).
+        if (riser) riser.setFreq(150 + Math.min(1900, (state.mult - 1) * 95), 0.09);
 
         updateView();
         updateReadout();
@@ -202,6 +211,8 @@
         if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
 
         state.phase = 'cashed';
+        stopRiser(0.05);
+        if (App.Audio) App.Audio.sfx('cashout');
         var payout = Math.round(state.bet * state.mult);
         App.Coins.add(payout);
 
@@ -223,6 +234,9 @@
         state.phase = 'crashed';
         state.busted = true;
         state.mult = state.crashPoint;
+
+        stopRiser(0.02);
+        if (App.Audio) App.Audio.sfx('explosion');
 
         readout.className = 'big-readout crash-mult bust';
         updateReadout();
@@ -355,6 +369,7 @@
       return {
         cleanup: function () {
           if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+          stopRiser(0.02);
           timers.forEach(function (id) { clearTimeout(id); });
           timers = [];
           window.removeEventListener('resize', onResize);

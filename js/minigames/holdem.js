@@ -506,6 +506,7 @@
         var meId = ctx.me.id, myName = ctx.me.name || 'Du';
         var G = null, refs = null, loop = null, uiT = null, goShown = false;
         var lastCountedHand = -1;   // Bestenliste: je Hand höchstens 1× für MEINEN Sieg
+        var lastSoundHand = -1, lastSoundStreet = '', lastCoinHand = -1;   // Audio-Guards (Ereigniswechsel)
 
         function poolIds() { return G.allSeats.map(function (s) { return s.id; }).filter(function (id) { return G.chips[id] > 0; }); }
         function meta() { var m = {}; G.allSeats.forEach(function (s) { m[s.id] = { name: s.name, bot: s.bot }; }); return m; }

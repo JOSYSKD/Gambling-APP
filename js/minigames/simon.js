@@ -257,6 +257,7 @@
         safeReport(points);
         setStatus('Richtig! +' + (curLen * 10) + ' ⭐', 'win');
         successFlash();
+        if (App.Audio) App.Audio.sfx('levelup');
         // Folge um 1 verlängern -> nächstes Level.
         curLen++;
         seq.push(randColor());

@@ -20,6 +20,12 @@
   var KEY_BAL = 'gj_balance';
   var KEY_PEAK = 'gj_run_peak';
 
+  // Auffüll-/Startbetrag steigt mit dem Spieler-Level (App.Progress). Fällt auf 1000
+  // zurück, solange progress.js noch nicht geladen ist (Level 1).
+  function startAmount() {
+    return (App.Progress && App.Progress.startBalance) ? App.Progress.startBalance() : START;
+  }
+
   var listeners = { change: [], gameover: [] };
 
   function on(evt, cb) {
@@ -94,10 +100,13 @@
       return false;
     },
 
-    /** Kompletten Run zurücksetzen (nach Game Over -> Neustart). */
+    /** Aktuellen Auffüll-/Startbetrag (level-abhängig). */
+    startAmount: function () { return startAmount(); },
+
+    /** Kompletten Run zurücksetzen (nach Game Over -> Neustart, Betrag je Level). */
     reset: function () {
-      balance = START;
-      runPeak = START;
+      balance = startAmount();
+      runPeak = balance;
       save();
       emit('change', balance);
     },

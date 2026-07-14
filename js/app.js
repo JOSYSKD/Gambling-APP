@@ -84,6 +84,7 @@
       ]),
       el('div', { class: 'cat-grid' }, cards),
       el('div', { class: 'menu-links' }, [
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/quests'); } }, ['⭐ Level & Quests']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/leaderboard'); } }, ['🏆 Bestenliste']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/profile'); } }, ['👤 Profil'])
       ])
@@ -344,6 +345,9 @@
     App.Leaderboard.recordRun(name, peak, date);
 
     document.getElementById('go-peak').textContent = UI.formatCoins(peak) + ' 🪙';
+    var refill = App.Coins.startAmount ? App.Coins.startAmount() : 1000;
+    var btn = document.getElementById('gameover-restart');
+    if (btn) btn.textContent = '🌱 Neustart (' + UI.formatCoins(refill) + ' Coins)';
     var ov = document.getElementById('gameover');
     ov.hidden = false;
     setTimeout(function () { ov.classList.add('show'); }, 20);
@@ -369,6 +373,7 @@
     .add('/live', function () { return App.MinigameHub.list({ group: 'live', title: '🃏 Poker & Casino', intro: 'Mit Freunden per Raum-Code – Poker-Varianten und Casino-Klassiker. Solo geht gegen Bots.' }); })
     .add('/mini/:id', function (p) { return App.MinigameHub.open(p.id); })
     .add('/leaderboard', renderLeaderboard)
+    .add('/quests', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Progress.renderPage(d); })
     .add('/profile', renderProfile)
     .setNotFound(renderMenu);
 

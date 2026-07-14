@@ -178,10 +178,12 @@
               score += pts; correctCount++;
               card.classList.add('hl-correct');
               popFloat(card, '+' + pts, true);
+              if (App.Audio) App.Audio.sfx('coin');
             } else {
               streak = 0;
               card.classList.add('hl-wrong');
               popFloat(card, 'Daneben!', false);
+              if (App.Audio) App.Audio.sfx('error');
             }
             guesses++;
             updateHud();

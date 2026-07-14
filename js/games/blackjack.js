@@ -184,6 +184,7 @@
       }
       function addCard(container, card) {
         container.appendChild(cardNode(card, false));
+        if (App.Audio) App.Audio.sfx('deal');
       }
       function draw() { return shoe.pop(); }
 
@@ -241,6 +242,7 @@
 
         setPhase('busy');
         App.Coins.add(-bet);
+        if (App.Audio) App.Audio.sfx('chip');
         roundBet = bet;
         wager = bet;
         doubled = false;
@@ -262,11 +264,13 @@
           hiddenCardEl = cardNode(dealer[0], false);
           dealerCards.appendChild(hiddenCardEl); // Dealer 1. Karte offen
           hiddenCardEl = null;
+          if (App.Audio) App.Audio.sfx('deal');
         }, 190);
         later(function () { addCard(playerCards, player[1]); updateValues(); }, 340);
         later(function () {
           hiddenCardEl = cardNode(dealer[1], true); // verdeckt
           dealerCards.appendChild(hiddenCardEl);
+          if (App.Audio) App.Audio.sfx('deal');
           updateValues();
         }, 490);
 
@@ -293,7 +297,7 @@
         addCard(playerCards, player[player.length - 1]);
         updateValues();
         var v = handValue(player);
-        if (v > 21) later(function () { endRound('lose', 'Überkauft'); }, 520);
+        if (v > 21) { if (App.Audio) App.Audio.sfx('bust'); later(function () { endRound('lose', 'Überkauft'); }, 520); }
         else if (v === 21) later(function () { beginDealer(); }, 480);
         else later(function () { setPhase('player'); }, 260);
       }
@@ -303,13 +307,14 @@
         if (!App.Coins.canBet(roundBet)) { UI.toast('Nicht genug Coins zum Verdoppeln', 'lose'); return; }
         setPhase('busy');
         App.Coins.add(-roundBet);
+        if (App.Audio) App.Audio.sfx('chip');
         wager += roundBet;
         doubled = true;
         player.push(draw());
         addCard(playerCards, player[player.length - 1]);
         updateValues();
         var v = handValue(player);
-        if (v > 21) later(function () { endRound('lose', 'Überkauft'); }, 540);
+        if (v > 21) { if (App.Audio) App.Audio.sfx('bust'); later(function () { endRound('lose', 'Überkauft'); }, 540); }
         else later(function () { beginDealer(); }, 540);
       }
 
@@ -341,7 +346,7 @@
         updateValues();
 
         var payout = 0, cls = '', text = '', kind = 'info';
-        if (outcome === 'blackjack') { payout = Math.round(roundBet * 2.5); cls = 'bj'; text = 'BLACKJACK!'; kind = 'win'; }
+        if (outcome === 'blackjack') { payout = Math.round(roundBet * 2.5); cls = 'bj'; text = 'BLACKJACK!'; kind = 'win'; if (App.Audio) App.Audio.sfx('ding'); }
         else if (outcome === 'win') { payout = wager * 2; cls = 'win'; text = 'GEWONNEN'; kind = 'win'; }
         else if (outcome === 'push') { payout = wager; cls = 'push'; text = 'PUSH'; kind = 'info'; }
         else { payout = 0; cls = 'lose'; text = 'VERLOREN'; kind = 'lose'; }
