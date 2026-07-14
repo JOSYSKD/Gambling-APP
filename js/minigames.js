@@ -29,8 +29,15 @@
 
   /* ============================ ÜBERSICHT ============================ */
   function list(opts) {
-    var coop = !!(opts && opts.coop);
-    var ids = Object.keys(App.Minigames).filter(function (id) { return !!App.Minigames[id].coop === coop; });
+    opts = opts || {};
+    var coop = !!opts.coop;
+    var group = opts.group || null;
+    var ids = Object.keys(App.Minigames).filter(function (id) {
+      var g = App.Minigames[id];
+      if (group) return g.group === group;          // eigene Kategorie (z. B. Poker & Casino)
+      if (coop) return !!g.coop && !g.group;         // Koop-Team
+      return !g.coop && !g.group;                    // normale Online-Minigames
+    });
     // stabile Reihenfolge nach optionalem .order, dann Titel
     ids.sort(function (a, b) {
       var A = App.Minigames[a], B = App.Minigames[b];
@@ -44,7 +51,7 @@
         el('div', { class: 'tile-title' }, [g.title]),
         el('div', { class: 'tile-sub' }, [g.subtitle || '']),
         el('div', { class: 'mg-badges' }, [
-          coop ? el('span', { class: 'mg-badge mg-badge-coop' }, ['🤝 Team']) : null,
+          g.coop ? el('span', { class: 'mg-badge mg-badge-coop' }, ['🤝 Team']) : null,
           g.single !== false ? el('span', { class: 'mg-badge' }, ['👤 Solo']) : null,
           g.multi !== false ? el('span', { class: 'mg-badge mg-badge-mp' }, ['👥 ' + (g.minPlayers || 2) + '–' + (g.maxPlayers || 4)]) : null
         ])
@@ -56,12 +63,12 @@
     mount(el('div', { class: 'cat-page' }, [
       el('div', { class: 'page-head' }, [
         el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/'); } }, ['← Menü']),
-        el('h2', { class: 'page-title neon' }, [coop ? '🤝 Koop-Team' : '🎮 Online Minigames'])
+        el('h2', { class: 'page-title neon' }, [opts.title || (coop ? '🤝 Koop-Team' : '🎮 Online Minigames')])
       ]),
       el('p', { class: 'hint-text mg-intro' }, [
-        coop ? 'Zusammen über das Internet ein Level schaffen – arbeitet als Team gegen die Zeit. (Solo geht auch zum Üben.)'
+        opts.intro || (coop ? 'Zusammen über das Internet ein Level schaffen – arbeitet als Team gegen die Zeit. (Solo geht auch zum Üben.)'
              : (online ? 'Online-Modus aktiv – spiel mit Freunden per Raum-Code.'
-                       : 'Tipp: Ohne Firebase läuft der Mehrspieler-Modus lokal (mehrere Tabs). Sag Bescheid für echtes Online-Spiel.')
+                       : 'Tipp: Ohne Firebase läuft der Mehrspieler-Modus lokal (mehrere Tabs). Sag Bescheid für echtes Online-Spiel.'))
       ]),
       el('div', { class: 'tile-grid' }, tiles)
     ]));

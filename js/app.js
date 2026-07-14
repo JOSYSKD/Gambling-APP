@@ -12,8 +12,9 @@
       id: 'gambling',
       name: 'Gambling',
       icon: '🎰',
-      desc: 'Acht Neon-Klassiker. Setze deine Coins und jage den Highscore.',
-      games: ['blackjack', 'crash', 'cuberoll', 'slots', 'roulette', 'mines', 'coinflip', 'wheel']
+      desc: '16 Neon-Klassiker. Setze deine Coins und jage den Highscore.',
+      games: ['blackjack', 'crash', 'cuberoll', 'slots', 'roulette', 'mines', 'coinflip', 'wheel',
+        'baccarat', 'videopoker', 'casinowar', 'dragontiger', 'andarbahar', 'sicbo', 'keno', 'plinko']
     },
     {
       id: 'minigames',
@@ -358,6 +359,7 @@
     .add('/game/:id', renderGame)
     .add('/minigames', function () { return App.MinigameHub.list(); })
     .add('/coop', function () { return App.MinigameHub.list({ coop: true }); })
+    .add('/live', function () { return App.MinigameHub.list({ group: 'live', title: '🃏 Poker & Casino', intro: 'Mit Freunden per Raum-Code – Poker-Varianten und Casino-Klassiker. Solo geht gegen Bots.' }); })
     .add('/mini/:id', function (p) { return App.MinigameHub.open(p.id); })
     .add('/leaderboard', renderLeaderboard)
     .add('/profile', renderProfile)
