@@ -12,16 +12,9 @@
       id: 'gambling',
       name: 'Gambling',
       icon: '🎰',
-      desc: '16 Neon-Klassiker. Setze deine Coins und jage den Highscore.',
+      desc: '16 Solo-Klassiker + Poker & Casino mit Freunden. Setze deine Coins und jage den Highscore.',
       games: ['blackjack', 'crash', 'cuberoll', 'slots', 'roulette', 'mines', 'coinflip', 'wheel',
         'baccarat', 'videopoker', 'casinowar', 'dragontiger', 'andarbahar', 'sicbo', 'keno', 'plinko']
-    },
-    {
-      id: 'poker',
-      name: 'Poker & Casino',
-      icon: '🃏',
-      desc: 'Poker-Varianten und Casino-Klassiker – mit Freunden per Raum-Code (Solo gegen Bots).',
-      route: '/live'
     },
     {
       id: 'minigames',
@@ -108,13 +101,35 @@
       ]);
     }).filter(Boolean);
 
-    mount(el('div', { class: 'cat-page' }, [
+    var sections = [
       el('div', { class: 'page-head' }, [
         el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/'); } }, ['← Menü']),
         el('h2', { class: 'page-title neon' }, [c.icon + ' ' + c.name])
       ]),
       el('div', { class: 'tile-grid' }, tiles)
-    ]));
+    ];
+
+    // Gambling-Menü enthält zusätzlich die Poker- & Casino-Tische (Multiplayer per Raum-Code).
+    if (c.id === 'gambling' && App.Minigames) {
+      var live = Object.keys(App.Minigames).map(function (k) { return App.Minigames[k]; })
+        .filter(function (g) { return g && g.group === 'live'; })
+        .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+      if (live.length) {
+        var liveTiles = live.map(function (g) {
+          return el('button', { class: 'game-tile glass', type: 'button', onclick: (function (id) { return function () { go('/mini/' + id); }; })(g.id) }, [
+            el('div', { class: 'tile-glow' }),
+            el('div', { class: 'tile-icon' }, [g.icon || '🃏']),
+            el('div', { class: 'tile-title' }, [g.title]),
+            el('div', { class: 'tile-sub' }, [g.subtitle || '']),
+            el('span', { class: 'tile-play' }, ['Spielen →'])
+          ]);
+        });
+        sections.push(el('h3', { class: 'cat-subhead', style: 'margin:22px 2px 2px;font-weight:900;color:var(--gold);font-size:16px;' }, ['🃏 Poker & Casino · allein gegen Bots oder mit Freunden']));
+        sections.push(el('div', { class: 'tile-grid' }, liveTiles));
+      }
+    }
+
+    mount(el('div', { class: 'cat-page' }, sections));
   }
 
   /* ---------- SPIEL-ANSICHT ---------- */
