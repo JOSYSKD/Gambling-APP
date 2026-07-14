@@ -30,4 +30,4 @@
  * Firebase/Google-Konto. Falls stattdessen eine echte Firebase-Konfiguration in
  * js/firebase-config.js hinterlegt ist, hat die Priorität (robusteres Backend).
  */
-window.019f6002-55f3-7718-bb52-d68fc041ed22 = '019f6002-55f3-7718-bb52-d68fc041ed22';
+window.CLOUD_STORE_ID = '019f6002-55f3-7718-bb52-d68fc041ed22';
