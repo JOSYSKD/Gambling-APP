@@ -115,6 +115,25 @@
     root.appendChild(el('div', { class: 'glass mg-endscreen' }, body));
   }
 
+  /* Gemeinsamer Team-Endscreen für Koop-Spiele (alle gewinnen/verlieren zusammen).
+     opts: { win:bool, title?, subtitle?, lines?:[string], onAgain?, onExit }. */
+  function teamEnd(root, opts) {
+    opts = opts || {};
+    var win = !!opts.win;
+    var lines = (opts.lines || []).map(function (t) { return el('p', { class: 'mg-team-line' }, [t]); });
+    var actions = [];
+    if (opts.onAgain) actions.push(el('button', { class: 'btn btn-primary', type: 'button', onclick: opts.onAgain }, ['Nochmal']));
+    actions.push(el('button', { class: 'btn btn-ghost', type: 'button', onclick: opts.onExit }, [opts.exitLabel || 'Zurück']));
+    root.innerHTML = '';
+    root.appendChild(el('div', { class: 'glass mg-endscreen mg-team-end ' + (win ? 'is-win' : 'is-lose') }, [
+      el('div', { class: 'mg-team-emoji' }, [win ? '🎉' : '💥']),
+      el('h2', { class: win ? 'neon' : 'mg-team-lose-h' }, [opts.title || (win ? 'Level geschafft!' : 'Team gescheitert')]),
+      opts.subtitle ? el('p', { class: 'hint-text' }, [opts.subtitle]) : null,
+      lines.length ? el('div', { class: 'mg-team-lines' }, lines) : null,
+      el('div', { class: 'controls-row' }, actions)
+    ]));
+  }
+
   /* Wall-Clock-Timer: ruft tick(secLeft) bis 0, dann onEnd. nowFn optional
      (Multiplayer: ctx.room.now). Gibt stop() zurück. */
   function roundTimer(endAtMs, tick, onEnd, nowFn) {
@@ -131,7 +150,7 @@
   App.MG = {
     fmt: fmt, mmss: mmss,
     countdown: countdown, liveBoard: liveBoard, podiumEl: podiumEl,
-    endScreen: endScreen, roundTimer: roundTimer,
+    endScreen: endScreen, teamEnd: teamEnd, roundTimer: roundTimer,
     MULTI_START_DELAY: 3000     // ms Countdown vor Multiplayer-Start
   };
 
@@ -139,6 +158,13 @@
     '.mg-cd{padding:50px;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center;max-width:440px;margin:0 auto;}',
     '.mg-cd-num{font-size:80px;font-weight:900;line-height:1;}',
     '.mg-endscreen{padding:28px;text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center;max-width:540px;margin:0 auto;}',
-    '.mg-endscreen .big-readout{color:var(--gold);}'
+    '.mg-endscreen .big-readout{color:var(--gold);}',
+    '.mg-team-end{border:1px solid var(--stroke-2);}',
+    '.mg-team-end.is-win{box-shadow:0 0 30px rgba(57,255,20,.35);}',
+    '.mg-team-end.is-lose{box-shadow:0 0 30px rgba(255,77,109,.3);}',
+    '.mg-team-emoji{font-size:64px;line-height:1;filter:drop-shadow(0 0 14px rgba(255,255,255,.25));}',
+    '.mg-team-lose-h{margin:0;color:var(--danger);text-shadow:0 0 12px rgba(255,77,109,.5);}',
+    '.mg-team-lines{display:flex;flex-direction:column;gap:4px;}',
+    '.mg-team-line{margin:0;font-weight:700;color:var(--leaf);}'
   ].join(''));
 })();

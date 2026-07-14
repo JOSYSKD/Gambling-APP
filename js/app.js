@@ -21,6 +21,13 @@
       icon: '🎮',
       desc: 'Über 20 Spiele – allein oder mit Freunden per Raum-Code, 2–4 Spieler.',
       route: '/minigames'
+    },
+    {
+      id: 'coop',
+      name: 'Koop-Team',
+      icon: '🤝',
+      desc: 'Zusammen im Team Level schaffen – kocht, löscht, entschärft und besiegt gemeinsam.',
+      route: '/coop'
     }
   ];
 
@@ -256,6 +263,7 @@
     .add('/category/:id', renderCategory)
     .add('/game/:id', renderGame)
     .add('/minigames', function () { return App.MinigameHub.list(); })
+    .add('/coop', function () { return App.MinigameHub.list({ coop: true }); })
     .add('/mini/:id', function (p) { return App.MinigameHub.open(p.id); })
     .add('/leaderboard', renderLeaderboard)
     .add('/profile', renderProfile)

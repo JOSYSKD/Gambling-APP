@@ -28,8 +28,9 @@
   function playerName() { return (App.Leaderboard && App.Leaderboard.getPlayerName()) || 'Spieler'; }
 
   /* ============================ ÜBERSICHT ============================ */
-  function list() {
-    var ids = Object.keys(App.Minigames);
+  function list(opts) {
+    var coop = !!(opts && opts.coop);
+    var ids = Object.keys(App.Minigames).filter(function (id) { return !!App.Minigames[id].coop === coop; });
     // stabile Reihenfolge nach optionalem .order, dann Titel
     ids.sort(function (a, b) {
       var A = App.Minigames[a], B = App.Minigames[b];
@@ -43,6 +44,7 @@
         el('div', { class: 'tile-title' }, [g.title]),
         el('div', { class: 'tile-sub' }, [g.subtitle || '']),
         el('div', { class: 'mg-badges' }, [
+          coop ? el('span', { class: 'mg-badge mg-badge-coop' }, ['🤝 Team']) : null,
           g.single !== false ? el('span', { class: 'mg-badge' }, ['👤 Solo']) : null,
           g.multi !== false ? el('span', { class: 'mg-badge mg-badge-mp' }, ['👥 ' + (g.minPlayers || 2) + '–' + (g.maxPlayers || 4)]) : null
         ])
@@ -54,11 +56,12 @@
     mount(el('div', { class: 'cat-page' }, [
       el('div', { class: 'page-head' }, [
         el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/'); } }, ['← Menü']),
-        el('h2', { class: 'page-title neon' }, ['🎮 Online Minigames'])
+        el('h2', { class: 'page-title neon' }, [coop ? '🤝 Koop-Team' : '🎮 Online Minigames'])
       ]),
       el('p', { class: 'hint-text mg-intro' }, [
-        online ? 'Online-Modus aktiv – spiel mit Freunden per Raum-Code.'
-               : 'Tipp: Ohne Firebase läuft der Mehrspieler-Modus lokal (mehrere Tabs). Sag Bescheid für echtes Online-Spiel.'
+        coop ? 'Zusammen im selben WLAN ein Level schaffen – arbeitet als Team gegen die Zeit. (Solo geht auch zum Üben.)'
+             : (online ? 'Online-Modus aktiv – spiel mit Freunden per Raum-Code.'
+                       : 'Tipp: Ohne Firebase läuft der Mehrspieler-Modus lokal (mehrere Tabs). Sag Bescheid für echtes Online-Spiel.')
       ]),
       el('div', { class: 'tile-grid' }, tiles)
     ]));
@@ -68,6 +71,7 @@
   function open(id) {
     var g = App.Minigames[id];
     if (!g) { UI.toast('Minispiel nicht gefunden', 'lose'); go('/minigames'); return; }
+    var backTo = g.coop ? '/coop' : '/minigames';
 
     var container = el('div', { class: 'mg-wrap' });
     mount(container);
@@ -103,7 +107,7 @@
           g.multi !== false ? el('button', { class: 'btn btn-aqua btn-lg mg-mode', type: 'button', onclick: lobby }, ['👥 Mit Freunden']) : null
         ])
       ]);
-      frame(g.title, body, function () { go('/minigames'); });
+      frame(g.title, body, function () { go(backTo); });
     }
 
     /* ---- Singleplayer ---- */
@@ -259,6 +263,7 @@
       '.mg-badges{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}',
       '.mg-badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;background:rgba(9,32,21,.8);border:1px solid var(--stroke);color:var(--muted);}',
       '.mg-badge-mp{color:var(--aqua-soft);border-color:rgba(51,230,208,.35);}',
+      '.mg-badge-coop{color:var(--gold);border-color:rgba(255,210,63,.4);background:rgba(40,32,6,.7);}',
       '.mg-wrap{display:flex;flex-direction:column;}',
       '.mg-choose{display:flex;flex-direction:column;gap:20px;align-items:center;}',
       '.mg-hero{padding:28px;text-align:center;width:100%;max-width:520px;display:flex;flex-direction:column;gap:8px;align-items:center;}',
