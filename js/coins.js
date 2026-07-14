@@ -100,6 +100,13 @@
       runPeak = START;
       save();
       emit('change', balance);
+    },
+
+    /** Neu aus dem Storage laden (z. B. nachdem ein Konto-Login den Spielstand ersetzt hat). */
+    reloadFromStorage: function () {
+      balance = loadBalance();
+      runPeak = Math.max(loadPeak(), balance);
+      emit('change', balance);
     }
   };
 

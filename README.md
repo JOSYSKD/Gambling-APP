@@ -58,13 +58,34 @@ Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level scha
 **Zusammen spielen:** Ein Spieler öffnet ein Minispiel → *Zusammen* → *Raum erstellen* und teilt den 4‑stelligen Code. Die anderen tippen den Code ein — fertig. Läuft per **WebRTC (PeerJS)** direkt zwischen den Geräten, ohne Server-Konto. Tab-Wechsel wirft niemanden raus (alle Timer laufen über die Wall-Clock).
 
 ## ✨ Features
-- **1000 Start-Coins**, übergreifend für alle Gambling-Spiele, gespeichert im `localStorage`.
+- **1000 Start-Coins**, übergreifend für alle Gambling-Spiele.
 - Guthaben immer sichtbar in der festen Kopfleiste.
 - Einsatz-Schnellbuttons: 10, 50, 100, 500, ½, Max (Mindesteinsatz 10).
 - **Game Over**, wenn das Guthaben unter 10 fällt → Neustart auf 1000.
 - **Bestenliste** (Peak-Kontostand pro Run) mit Gold/Silber/Bronze und Live-Anzeige des aktiven Runs.
+- **Konten mit Passwort** (Profil-Seite): einmal registrieren, danach in jedem Browser mit
+  Kontoname + Passwort anmelden und exakt beim eigenen Spielstand weitermachen. Bleibt
+  angemeldet, auch wenn das Browserfenster geschlossen wird. Passwort lässt sich jederzeit
+  neu vergeben. Pro Konto ist immer nur **eine aktive Sitzung gleichzeitig** erlaubt (ein
+  zweites Login wird abgelehnt, solange die erste Sitzung noch aktiv ist).
 - Spielername im Profil änderbar.
 - Responsive für Desktop und Handy.
+
+### 🔐 Konten — geräteübergreifend vs. nur dieser Browser
+`js/account.js` wählt automatisch das Backend (genau wie `js/net.js`):
+- **Ohne Firebase-Konfiguration** (Standard): Konten funktionieren sofort, aber nur
+  **in diesem einen Browser** (Registrieren/Login/Passwort-ändern/Sitzungssperre laufen
+  über einen lokalen Simulator). Gut zum Ausprobieren der Funktion, aber kein Login von
+  einem anderen Gerät aus möglich.
+- **Mit echter Firebase-Konfiguration** in `js/firebase-config.js` (siehe Abschnitt
+  "Geteilte Bestenliste" unten): Konten, Spielstand und Bestenliste sind für **alle
+  Besucher der Seite** geteilt — Login funktioniert von jedem Gerät/Browser aus.
+
+> ⚠️ Sicherheits-Hinweis: Passwörter werden nur gehasht (SHA-256 + Salt) gespeichert,
+> nicht im Klartext. Da es keinen eigenen Server gibt und die Firebase-Regeln (siehe unten)
+> bewusst offen sind, könnte jemand mit Zugriff auf die Datenbank die Hashes herunterladen
+> und offline zu knacken versuchen. Für eine Spaß-Seite unter Freunden/in der Klasse ist das
+> ein angemessener Kompromiss — bitte trotzdem kein "echtes"/wiederverwendetes Passwort nutzen.
 
 ## 📂 Struktur
 ```
@@ -79,6 +100,7 @@ js/
   app.js              Menü, Navigation, Views, Game-Over
   games/              je ein Modul pro Gambling-Spiel (registrieren sich in App.Games)
   net.js              Multiplayer-Räume (PeerJS/WebRTC, Fallback lokal) — Room-API
+  account.js          Konten (Passwort-Login, Sitzungssperre) — lokal oder Firebase
   minigames.js        Minigame-Hub: Übersicht, Modus-Wahl, Lobby mit Raum-Code
   mgutil.js           gemeinsame Bausteine (App.MG): Countdown, Timer, Live-Rangliste, Podest
   minigames/          je ein Modul pro Minispiel (registrieren sich in App.Minigames)
@@ -102,10 +124,37 @@ Einfach **`index.html` im Browser öffnen** (Doppelklick). Fertig — kein Serve
 Alle Pfade sind **relativ**, daher funktioniert die Seite auch im Unterordner `/<repo-name>/`.
 Die Datei `.nojekyll` sorgt dafür, dass GitHub Pages die Dateien 1:1 ausliefert.
 
-## 🔌 Später: Online-Bestenliste
-`js/leaderboard.js` ist modular: Über `App.Leaderboard.useDriver(deinDriver)` lässt sich der
-localStorage-Driver durch ein Backend (z. B. Firebase) mit den Methoden `load()`/`save(entries)`
-ersetzen — ohne den Rest der App anzufassen.
+## ☁️ Geteilte Bestenliste & geräteübergreifende Konten (Firebase, optional)
+`js/leaderboard.js` und `js/account.js` sind modular gebaut und schalten **automatisch**
+auf ein geteiltes Backend um, sobald in `js/firebase-config.js` eine echte Firebase-Konfiguration
+steht (Platzhalter `DEIN_...` ersetzt). Ohne diesen Schritt läuft alles weiterhin nur lokal
+in jedem einzelnen Browser (kein Fehler, einfach eingeschränkter Funktionsumfang).
+
+Einmalige Einrichtung (~5 Minuten, kein Programmieren nötig):
+1. **Projekt anlegen:** [console.firebase.google.com](https://console.firebase.google.com) →
+   mit einem Google-Konto einloggen → "Projekt hinzufügen" (Google Analytics kann man abwählen).
+2. **Realtime Database aktivieren:** im Projekt → **Build → Realtime Database → Datenbank
+   erstellen** → Region wählen → Start im **Testmodus** (offen, ohne Login).
+3. **Web-App registrieren:** Projekteinstellungen (Zahnrad) → "Meine Apps" → Web-Symbol `</>` →
+   registrieren (kein Hosting nötig). Firebase zeigt dann `apiKey`, `authDomain`, `databaseURL`,
+   `projectId`, `appId`.
+4. Diese fünf Werte in [`js/firebase-config.js`](js/firebase-config.js) eintragen und committen.
+5. **Datenbank-Regeln** (Reiter **Regeln**) veröffentlichen:
+   ```json
+   {
+     "rules": {
+       "rooms": { ".read": true, ".write": true },
+       "leaderboard": { ".read": true, ".write": true },
+       "accounts": { ".read": true, ".write": true }
+     }
+   }
+   ```
+   Bewusst offen (keine Logins/Server), da es eine Spaß-Seite ohne sensible Daten ist —
+   siehe Sicherheits-Hinweis zu Passwörtern weiter oben.
+
+Sobald das erledigt ist, erkennen `js/net.js` (Raum-Code) **und** `js/account.js`/`js/leaderboard.js`
+(Konten + Bestenliste) automatisch die echte Konfiguration — am Code muss nichts weiter
+geändert werden.
 
 ## 🛠️ Neue Spiele/Kategorien hinzufügen
 - Neues Spiel: eine Datei `js/games/<id>.js` anlegen, in `App.Games.<id>` registrieren

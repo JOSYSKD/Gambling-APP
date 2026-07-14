@@ -328,6 +328,15 @@
     isOnline: function () { return preferredKind() !== 'local'; },
     backendKind: function () { return preferredKind(); },
     createRoom: function () { return makeRoom(); },
-    randId: randId
+    randId: randId,
+    /** true, wenn eine echte Firebase-Konfiguration hinterlegt ist (js/firebase-config.js). */
+    firebaseConfigured: function () { return fbConfigReal(window.FIREBASE_CONFIG); },
+    /** Liefert (geladen + initialisiert) die Firebase-Database-Instanz, für Module außerhalb von net.js (z. B. Accounts). */
+    firebaseDb: function () {
+      return loadFirebaseSDK().then(function () {
+        if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
+        return firebase.database();
+      });
+    }
   };
 })();

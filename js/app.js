@@ -163,7 +163,10 @@
         el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/'); } }, ['← Menü']),
         el('h2', { class: 'page-title neon' }, ['🏆 Bestenliste'])
       ]));
-      container.appendChild(el('p', { class: 'lb-hint' }, ['Höchster Coin-Stand pro Run (Peak). Lokal auf diesem Gerät gespeichert.']));
+      var hint = App.Account.backendKind() === 'firebase'
+        ? 'Höchster Coin-Stand pro Run (Peak). Geteilte Bestenliste — alle Besucher der Seite sehen dieselben Einträge.'
+        : 'Höchster Coin-Stand pro Run (Peak). Kein Cloud-Backend konfiguriert — aktuell nur Runs aus diesem Browser sichtbar.';
+      container.appendChild(el('p', { class: 'lb-hint' }, [hint]));
       container.appendChild(el('div', { class: 'lb-list' }, rows));
       container.appendChild(el('div', { class: 'lb-actions' }, [
         el('button', { class: 'btn btn-danger', type: 'button', onclick: function () {
@@ -183,22 +186,29 @@
 
   /* ---------- PROFIL ---------- */
   function renderProfile() {
-    var name = App.Leaderboard.getPlayerName();
-    var input = el('input', { class: 'text-input', type: 'text', maxlength: 18, value: name, placeholder: 'Dein Spielername' });
+    var container = el('div', { class: 'profile-page' });
+    mount(container);
 
-    function save() {
-      var v = input.value.trim();
-      if (!v) { UI.toast('Bitte einen Namen eingeben', 'lose'); return; }
-      App.Leaderboard.setPlayerName(v);
-      UI.toast('Gespeichert: ' + v, 'win');
-    }
-
-    mount(el('div', { class: 'profile-page' }, [
-      el('div', { class: 'page-head' }, [
+    function draw() {
+      container.innerHTML = '';
+      container.appendChild(el('div', { class: 'page-head' }, [
         el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/'); } }, ['← Menü']),
         el('h2', { class: 'page-title neon' }, ['👤 Profil'])
-      ]),
-      el('div', { class: 'glass profile-card' }, [
+      ]));
+      container.appendChild(nameCard());
+      container.appendChild(accountCard());
+    }
+
+    function nameCard() {
+      var name = App.Leaderboard.getPlayerName();
+      var input = el('input', { class: 'text-input', type: 'text', maxlength: 18, value: name, placeholder: 'Dein Spielername' });
+      function save() {
+        var v = input.value.trim();
+        if (!v) { UI.toast('Bitte einen Namen eingeben', 'lose'); return; }
+        App.Leaderboard.setPlayerName(v);
+        UI.toast('Gespeichert: ' + v, 'win');
+      }
+      return el('div', { class: 'glass profile-card' }, [
         el('label', { class: 'field-label' }, ['Spielername']),
         input,
         el('button', { class: 'btn btn-primary', type: 'button', onclick: save }, ['Speichern']),
@@ -206,8 +216,87 @@
           el('div', { class: 'pstat' }, [el('span', { class: 'pstat-l' }, ['Guthaben']), el('span', { class: 'pstat-v' }, [UI.formatCoins(App.Coins.get()) + ' 🪙'])]),
           el('div', { class: 'pstat' }, [el('span', { class: 'pstat-l' }, ['Aktueller Peak']), el('span', { class: 'pstat-v' }, [UI.formatCoins(App.Coins.getPeak()) + ' 🪙'])])
         ])
-      ])
-    ]));
+      ]);
+    }
+
+    function backendBanner() {
+      if (App.Account.backendKind() === 'firebase') {
+        return el('p', { class: 'lb-hint' }, ['☁️ Konten sind geräteübergreifend live (Firebase) — melde dich in jedem Browser mit deinem Kontonamen + Passwort an.']);
+      }
+      return el('p', { class: 'lb-hint' }, ['⚠️ Kein Cloud-Backend eingerichtet: Konten funktionieren aktuell nur in diesem Browser. Für geräteübergreifende Konten muss in js/firebase-config.js eine echte Firebase-Konfiguration eingetragen werden (siehe README).']);
+    }
+
+    function accountCard() {
+      var cur = App.Account.current();
+      if (cur) {
+        var oldPw = el('input', { class: 'text-input', type: 'password', placeholder: 'Aktuelles Passwort' });
+        var newPw = el('input', { class: 'text-input', type: 'password', placeholder: 'Neues Passwort (min. 4 Zeichen)' });
+        return el('div', { class: 'glass profile-card' }, [
+          el('label', { class: 'field-label' }, ['🔐 Konto']),
+          backendBanner(),
+          el('p', {}, ['Angemeldet als ', el('b', {}, [cur.name])]),
+          el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
+            App.Account.logout();
+            UI.toast('Abgemeldet', 'info');
+            draw();
+          } }, ['Abmelden']),
+          el('label', { class: 'field-label' }, ['Neues Passwort vergeben']),
+          oldPw, newPw,
+          el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
+            App.Account.changePassword(oldPw.value, newPw.value).then(function () {
+              UI.toast('Passwort geändert', 'win');
+              oldPw.value = ''; newPw.value = '';
+            }).catch(function (e) { UI.toast(e.message, 'lose'); });
+          } }, ['Passwort ändern'])
+        ]);
+      }
+
+      var loginName = el('input', { class: 'text-input', type: 'text', maxlength: 24, placeholder: 'Kontoname' });
+      var loginPw = el('input', { class: 'text-input', type: 'password', placeholder: 'Passwort' });
+      var regName = el('input', { class: 'text-input', type: 'text', maxlength: 24, placeholder: 'Kontoname' });
+      var regPw = el('input', { class: 'text-input', type: 'password', placeholder: 'Passwort (min. 4 Zeichen)' });
+      var regPw2 = el('input', { class: 'text-input', type: 'password', placeholder: 'Passwort bestätigen' });
+
+      var loginForm = el('div', { class: 'profile-account-form' }, [
+        loginName, loginPw,
+        el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
+          App.Account.login(loginName.value, loginPw.value).then(function () {
+            UI.toast('Angemeldet als ' + loginName.value, 'win');
+            draw();
+          }).catch(function (e) { UI.toast(e.message, 'lose'); });
+        } }, ['Anmelden'])
+      ]);
+      var regForm = el('div', { class: 'profile-account-form', style: 'display:none' }, [
+        regName, regPw, regPw2,
+        el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
+          if (regPw.value !== regPw2.value) { UI.toast('Passwörter stimmen nicht überein', 'lose'); return; }
+          App.Account.register(regName.value, regPw.value).then(function () {
+            UI.toast('Konto erstellt: ' + regName.value, 'win');
+            draw();
+          }).catch(function (e) { UI.toast(e.message, 'lose'); });
+        } }, ['Konto erstellen'])
+      ]);
+
+      var tabLogin = el('button', { class: 'btn btn-ghost tab-active', type: 'button', onclick: function () {
+        loginForm.style.display = ''; regForm.style.display = 'none';
+        tabLogin.classList.add('tab-active'); tabReg.classList.remove('tab-active');
+      } }, ['Anmelden']);
+      var tabReg = el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
+        loginForm.style.display = 'none'; regForm.style.display = '';
+        tabReg.classList.add('tab-active'); tabLogin.classList.remove('tab-active');
+      } }, ['Neues Konto']);
+
+      return el('div', { class: 'glass profile-card' }, [
+        el('label', { class: 'field-label' }, ['🔐 Konto']),
+        backendBanner(),
+        el('div', { class: 'profile-account-tabs' }, [tabLogin, tabReg]),
+        loginForm, regForm
+      ]);
+    }
+
+    draw();
+    var off = App.Account.onChange(draw);
+    return function () { off(); };
   }
 
   /* ---------- Namens-Abfrage beim ersten Besuch ---------- */
