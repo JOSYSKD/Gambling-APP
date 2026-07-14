@@ -38,6 +38,11 @@
       emit();
     },
 
+    /** Für asynchrone Driver (z. B. Firebase): Listener neu benachrichtigen, wenn sich der Cache ändert. */
+    refresh: function () {
+      emit();
+    },
+
     onChange: function (cb) {
       listeners.push(cb);
       return function () {
@@ -78,18 +83,26 @@
 
     /** Einen abgeschlossenen Run eintragen (bei Game Over). */
     recordRun: function (name, peak, dateStr) {
-      var list = driver.load() || [];
-      list.push({
+      var entry = {
         name: String(name || 'Anonym').slice(0, 18),
         peak: Math.round(peak),
         date: dateStr,
         active: false
-      });
-      list.sort(function (a, b) { return b.peak - a.peak; });
-      // Wir bewahren mehr als 10 auf, damit alte Rekorde nicht verloren gehen,
-      // aber deckeln großzügig, um localStorage nicht vollzumüllen.
-      if (list.length > 100) list = list.slice(0, 100);
-      driver.save(list);
+      };
+      // Driver mit additivem push() (z. B. Firebase) vermeiden ein Read-Modify-Write
+      // über die komplette Liste, damit gleichzeitige Runs anderer Spieler nicht
+      // überschrieben werden.
+      if (driver.push) {
+        driver.push(entry);
+      } else {
+        var list = driver.load() || [];
+        list.push(entry);
+        list.sort(function (a, b) { return b.peak - a.peak; });
+        // Wir bewahren mehr als 10 auf, damit alte Rekorde nicht verloren gehen,
+        // aber deckeln großzügig, um localStorage nicht vollzumüllen.
+        if (list.length > 100) list = list.slice(0, 100);
+        driver.save(list);
+      }
       emit();
     },
 
