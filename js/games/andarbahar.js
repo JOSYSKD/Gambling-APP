@@ -274,6 +274,7 @@
 
         jokerHolder.innerHTML = '';
         jokerHolder.appendChild(cardNode(joker, 'joker'));
+        if (App.Audio) App.Audio.sfx('deal');   // Joker aufgedeckt
         setBanner('Joker ' + joker.rank + joker.suit + ' — es wird ausgeteilt…', null);
 
         later(function () { dealStep(bet); }, 520);
@@ -288,6 +289,8 @@
         var node = cardNode(card, match ? 'hit' : null);
         if (side === 'andar') { andarCards.appendChild(node); dealtAndar++; }
         else { baharCards.appendChild(node); dealtBahar++; }
+        // Jede ausgeteilte Karte klingt; der Treffer (Rang = Joker) rastet mit 'ding' ein.
+        if (App.Audio) App.Audio.sfx(match ? 'ding' : 'deal');
         updateCounts();
         turnIndex++;
 

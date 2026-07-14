@@ -154,6 +154,7 @@
         var target = revY * 360 + (result === 'heads' ? 0 : 180);
 
         setStatus('Die Münze dreht sich…', null);
+        if (App.Audio) App.Audio.sweep(300, 760, 0.45, { type: 'triangle', peak: 0.08, filter: 2600 });
         coin.style.transition = 'transform ' + dur + 'ms cubic-bezier(0.18,0.72,0.28,1)';
         coin.style.transform = 'rotateY(' + target + 'deg)';
 
@@ -164,6 +165,7 @@
       }
 
       function resolve(bet, result, snap) {
+        if (App.Audio) App.Audio.sfx('ding');   // Münze landet
         var won = result === snap.side;
         var label = result === 'heads' ? 'Kopf' : 'Zahl';
         if (won) {

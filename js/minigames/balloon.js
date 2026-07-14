@@ -129,11 +129,13 @@
           if (Math.random() < chance) { popBalloon(); return; }
           pumps++;
           stake += pumps;                       // Zuwachs wächst: +1, +2, +3, …
+          if (App.Audio) App.Audio.blip(Math.min(900, 300 + pumps * 32), 0.08, { type: 'sine', peak: 0.06 });
           applyScale(true); paint(); syncHud();
         }
 
         function doCash() {
           if (dead || finished || stake <= 0) return;
+          if (App.Audio) App.Audio.sfx('coin');
           total += stake;
           totalEl.textContent = MG.fmt(total);
           totalEl.classList.remove('bl-pump-total'); void totalEl.offsetWidth; totalEl.classList.add('bl-pump-total');
@@ -143,6 +145,7 @@
         }
 
         function popBalloon() {
+          if (App.Audio) App.Audio.sfx('pop');
           balloonEl.classList.remove('bl-danger');
           balloonEl.classList.add('bl-popped');
           showBurst();

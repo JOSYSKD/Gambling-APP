@@ -299,6 +299,7 @@
         var gained = POINTS + (combo >= 2 ? (combo - 1) * 5 : 0);
         score += gained;
         hudScore.textContent = MG.fmt(score);
+        if (App.Audio) App.Audio.sweep(820 + Math.min(combo, 6) * 55, 300, 0.1, { type: 'sawtooth', peak: 0.06 });
         floatText(it.x, it.y, '+' + gained, combo >= 2 ? 'hot' : '');
         sliceFx(it);
         updateCombo();
@@ -310,6 +311,7 @@
         score = Math.max(0, score - BOMB_PEN);
         combo = 0; lastSlice = 0;
         hudScore.textContent = MG.fmt(score);
+        if (App.Audio) App.Audio.sfx('explosion');
         floatText(it.x, it.y, '−' + BOMB_PEN, 'neg');
         bombFx(it);
         updateCombo();

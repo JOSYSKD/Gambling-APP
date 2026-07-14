@@ -267,6 +267,7 @@
         var fy = revY * 360 + BASE[result].y;
 
         setStatus('Der Würfel rollt…', null);
+        if (App.Audio) App.Audio.sfx('roll');
         cube.style.transition = 'transform ' + dur + 'ms cubic-bezier(0.18,0.72,0.28,1)';
         cube.style.transform = 'rotateX(' + fx + 'deg) rotateY(' + fy + 'deg)';
 

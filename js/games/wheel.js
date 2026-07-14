@@ -101,6 +101,8 @@
       var controlsDisabled = false;
       var totalDeg = 0; // aufsummierte Ziel-Rotation (immer vorwärts)
       var spinTimer = null;
+      var tickTimers = [];   // Segment-Ticks (werden langsamer)
+      function clearTicks() { tickTimers.forEach(function (id) { clearTimeout(id); }); tickTimers = []; }
 
       var wheelEl = el('div', { class: 'wh-wheel' });
       wheelEl.style.background = conicGradient();
@@ -179,6 +181,16 @@
         wheelEl.style.transition = 'transform ' + dur + 'ms cubic-bezier(0.12,0.66,0.12,1)';
         wheelEl.style.transform = 'rotate(' + totalDeg + 'deg)';
 
+        // Zeiger-Ticks pro passiertem Segment — werden zum Ende hin langsamer.
+        clearTicks();
+        if (App.Audio) {
+          var tt = 0, gap = 45;
+          while (tt < dur - 150) {
+            tickTimers.push(setTimeout(function () { App.Audio.sfx('tick'); }, tt));
+            tt += gap; gap *= 1.09;
+          }
+        }
+
         spinTimer = setTimeout(function () {
           spinTimer = null;
           resolve(bet, seg);
@@ -186,6 +198,9 @@
       }
 
       function resolve(bet, seg) {
+        clearTicks();
+        // Zeiger rastet ein — großer Multiplikator = Jackpot-Fanfare, sonst ein Ding.
+        if (App.Audio) App.Audio.sfx(seg.mult >= 5 ? 'jackpot' : 'ding');
         var won = seg.mult > 0;
         if (won) {
           var payout = Math.round(bet * seg.mult);
@@ -207,6 +222,7 @@
       return {
         cleanup: function () {
           if (spinTimer) { clearTimeout(spinTimer); spinTimer = null; }
+          clearTicks();
         }
       };
     }

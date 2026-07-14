@@ -186,6 +186,7 @@
 
         if (nx === fruit.x && ny === fruit.y) {
           score += POINTS;
+          if (App.Audio) App.Audio.sfx('coin');
           ripples.push({ x: fruit.x, y: fruit.y, t0: Date.now(), c: FRUITS[fruitIx].c });
           if (hudScore) hudScore.textContent = MG.fmt(score);
           if (hudLen) hudLen.textContent = '🐍 ' + snake.length;
@@ -200,6 +201,7 @@
       function crash() {
         crashes++;
         paused = true;
+        if (App.Audio) App.Audio.sfx('hit');
         UI.toast('Autsch! Länge zurückgesetzt 🐍💥', 'lose');
         after(CRASH_PAUSE, function () {
           if (dead || finished) return;

@@ -325,8 +325,22 @@
         g.arcTo(x, y, x + w, y, r);
         g.closePath();
       }
+      /* Sound-Cues aus dem Render ableiten (funktioniert für Host UND Gast, da beide
+         st.vx/st.vy + Punkte gespiegelt halten): Punkt = Punktestand-Wechsel,
+         Schläger-Abprall = vx-Vorzeichenwechsel, Wandkontakt = vy-Vorzeichenwechsel.
+         Guard-Variablen sorgen dafür, dass pro Ereignis nur einmal geklungen wird. */
+      var cueVx = 0, cueVy = 0, cueSL = 0, cueSR = 0, cueReady = false;
+      function emitCues(sL, sR) {
+        var vx = st ? st.vx : 0, vy = st ? st.vy : 0;
+        if (!cueReady) { cueVx = vx; cueVy = vy; cueSL = sL; cueSR = sR; cueReady = true; return; }
+        if (sL !== cueSL || sR !== cueSR) { if (App.Audio) App.Audio.sfx('point'); }
+        else if (vx !== 0 && cueVx !== 0 && (vx < 0) !== (cueVx < 0)) { if (App.Audio) App.Audio.blip(520, 0.05, { type: 'square', peak: 0.06 }); }
+        else if (vy !== 0 && cueVy !== 0 && (vy < 0) !== (cueVy < 0)) { if (App.Audio) App.Audio.sfx('tick'); }
+        cueVx = vx; cueVy = vy; cueSL = sL; cueSR = sR;
+      }
       function drawScene(pl, pr, ball, sL, sR) {
         var g = ctx2d; if (!g) return;
+        emitCues(sL, sR);
         g.clearRect(0, 0, W, H);
         var grd = g.createLinearGradient(0, 0, 0, H);
         grd.addColorStop(0, '#06180e'); grd.addColorStop(1, '#020c07');

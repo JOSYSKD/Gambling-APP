@@ -126,7 +126,7 @@
     for (var i = 0; i < 9; i++) {
       var cell = refs.cells[i], m = vm.board[i];
       var wanted = m ? MARKS[m] : '';
-      if (cell.textContent !== wanted) cell.textContent = wanted;
+      if (cell.textContent !== wanted) { cell.textContent = wanted; if (wanted && App.Audio) App.Audio.blip(m === X ? 660 : 440, 0.12, { type: 'triangle', peak: 0.08 }); }
       cell.classList.toggle('x', m === X);
       cell.classList.toggle('o', m === O);
       cell.classList.toggle('filled', m !== '');

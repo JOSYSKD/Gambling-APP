@@ -58,6 +58,7 @@
       var dropping = false;
       var rafId = null;
       var animStart = null;
+      var lastSeg = -1;           // zuletzt beklungenes Fall-Segment (Peg-Kontakt-Throttle)
       var path = null;            // { cols:[13], slot:int }
       var ballPos = null;         // {x,y} in CSS-px, oder null
       var trail = [];             // letzte Positionen fuer die Spur
@@ -171,6 +172,7 @@
         trail = [];
         animStart = null;
         ballPos = null;
+        lastSeg = -1;
 
         setControlsDisabled(true);
         setStatus('Die Kugel fällt … 🎯', null);
@@ -185,6 +187,13 @@
         if (e >= TOTAL_SEG * SEG_MS) {
           finishDrop(M);
           return;
+        }
+
+        // Pro Fall-Segment ein Peg-Kontakt-Tick (throttled: einmal je Reihe).
+        var seg = Math.floor(e / SEG_MS);
+        if (seg !== lastSeg) {
+          if (seg >= 1 && seg <= ROWS && App.Audio) App.Audio.sfx('tick');
+          lastSeg = seg;
         }
 
         ballPos = ballAt(e, M);
@@ -207,6 +216,9 @@
         trail = [];
         landedSlot = slot;
         pulse = 1;
+
+        // Landung im Fach: großer Rand-Multiplikator = Jackpot, Gewinn = Münze, sonst dumpfer Aufprall.
+        if (App.Audio) App.Audio.sfx(mult >= 4 ? 'jackpot' : (mult > 1 ? 'coin' : 'pop'));
 
         App.Coins.add(brutto);
         UI.flash(delta);

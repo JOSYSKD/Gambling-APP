@@ -262,8 +262,8 @@
         renderBack(playerSlot);
         updateRanks();
 
-        later(function () { dealerCard = dc; renderCard(dealerSlot, dc); updateRanks(); }, 160);
-        later(function () { playerCard = pc; renderCard(playerSlot, pc); updateRanks(); }, 460);
+        later(function () { dealerCard = dc; renderCard(dealerSlot, dc); updateRanks(); if (App.Audio) App.Audio.sfx('deal'); }, 160);
+        later(function () { playerCard = pc; renderCard(playerSlot, pc); updateRanks(); if (App.Audio) App.Audio.sfx('deal'); }, 460);
         later(compareInitial, 900);
       }
 
@@ -276,6 +276,7 @@
 
       function enterWar() {
         setPhase('war');
+        if (App.Audio) App.Audio.sweep(560, 180, 0.45, { type: 'sawtooth', peak: 0.09, filter: 1500 }); // dramatischer Kriegs-Sweep
         banner.className = 'cw-banner war';
         if (App.Coins.canBet(roundBet)) {
           banner.textContent = '⚔️ GLEICHSTAND — Krieg oder aufgeben?';
@@ -303,6 +304,7 @@
         burned.forEach(function (c, i) {
           later(function () {
             burnRow.appendChild(el('div', { class: 'cw-burn-card' }, [el('span', {}, ['🌴'])]));
+            if (App.Audio) App.Audio.sfx('deal');
           }, 120 + i * 150);
         });
 
@@ -311,8 +313,8 @@
           renderBack(dealerSlot); renderBack(playerSlot);
           playerCard = null; dealerCard = null; updateRanks();
         }, 640);
-        later(function () { dealerCard = dc; renderCard(dealerSlot, dc); updateRanks(); }, 880);
-        later(function () { playerCard = pc; renderCard(playerSlot, pc); updateRanks(); }, 1180);
+        later(function () { dealerCard = dc; renderCard(dealerSlot, dc); updateRanks(); if (App.Audio) App.Audio.sfx('deal'); }, 880);
+        later(function () { playerCard = pc; renderCard(playerSlot, pc); updateRanks(); if (App.Audio) App.Audio.sfx('deal'); }, 1180);
         later(function () {
           var pv = rankVal(playerCard.rank), dv = rankVal(dealerCard.rank);
           if (pv >= dv) { markResult(playerSlot, 'win'); markResult(dealerSlot, 'lose'); endRound('warwin'); }

@@ -432,6 +432,7 @@
 
       /* ===================== ERFOLG / MISS-ANIMATIONEN ===================== */
       function flyToBin(id, by) {
+        if (App.Audio) App.Audio.sfx('pop');
         var o = planIndex && planIndex[id];
         var typ = o ? o.typ : 0;
         binPulse(typ, by);
@@ -454,6 +455,7 @@
       }
 
       function dropOff(id) {
+        if (App.Audio) App.Audio.sfx('error');
         missFlash();
         var node = nodes[id];
         if (!node || node.flying) { if (node) node.flying = true; return; }

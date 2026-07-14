@@ -279,8 +279,10 @@
               cell.classList.add('hit', 'pop');
               liveHits++;
               bigEl.textContent = String(liveHits);
+              if (App.Audio) App.Audio.sfx('coin');           // getroffene Zahl
             } else {
               cell.classList.add('drawn', 'pop');
+              if (App.Audio) App.Audio.blip(500 + k * 30, 0.08, { type: 'triangle', peak: 0.06 }); // steigende Tonhöhe
             }
           }, 60 + k * 60);
         });

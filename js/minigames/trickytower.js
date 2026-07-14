@@ -227,6 +227,7 @@
           spawnFaller(active.leftCol + c[0] + 0.5, active.oy + c[1], active.hue, (Math.random() - 0.5) * 3);
         });
         active = null;
+        if (App.Audio) App.Audio.sfx('error');
         crashFlash();
         spawnNext();
       }
@@ -241,6 +242,7 @@
         placed.push({ cells: cells, hue: hue });
         recompute();
         var toppled = resolveBalance();
+        if (App.Audio) App.Audio.sfx(toppled ? 'hit' : 'pop');
         if (!toppled) spawnParticles(sX(cx), sYtop(cyRow), hue);
         active = null;
         onHeightChanged();

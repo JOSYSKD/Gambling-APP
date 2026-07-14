@@ -202,6 +202,7 @@
           nb = { x: oL, w: ov, hue: cur.hue };
         }
         blocks.push(nb);
+        if (App.Audio) App.Audio.sfx(perfect ? 'pop' : 'step');
 
         var h = blocks.length;                 // inkl. Fundament
         var gained = 8 + h * 2;                 // höher = mehr Punkte
@@ -216,6 +217,7 @@
       }
 
       function startCollapse(cur) {
+        if (App.Audio) App.Audio.sfx('error');
         phase = 'collapsing'; perfectStreak = 0;
         var prev = blocks[blocks.length - 1];
         var away = (cur.x + cur.w / 2) < (prev.x + prev.w / 2) ? -1 : 1;

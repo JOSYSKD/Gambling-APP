@@ -458,6 +458,7 @@
         if (firstRender) { seenServe = v.serveAt || 0; seenLife = v.lifeLostAt || 0; firstRender = false; return; }
         if (v.serveAt && v.serveAt > seenServe) {
           seenServe = v.serveAt;
+          if (App.Audio) App.Audio.sfx('ding');
           UI.toast((v.serveBy ? v.serveBy + ' ' : '') + 'serviert ' + (v.serveIcon || '🍽') + '  +1', 'win');
           bump(scoreValEl);
         }
@@ -551,11 +552,13 @@
         // Puls bei Schritt-Fortschritt
         if (o.pulseAt && o.pulseAt > c.lastPulse) {
           c.lastPulse = o.pulseAt;
+          if (App.Audio) App.Audio.sfx('step');
           pulseNode(c.root, 'pulse');
         }
         // Fehler-Flash (falscher Schritt)
         if (o.errAt && o.errAt > c.lastErr) {
           c.lastErr = o.errAt;
+          if (App.Audio) App.Audio.sfx('error');
           pulseNode(c.root, 'err');
         }
       }

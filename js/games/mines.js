@@ -207,6 +207,7 @@
         revealedCount++;
         cell.classList.add('revealed', 'safe', 'pop');
         cell.textContent = GEMS[Math.floor(Math.random() * GEMS.length)];
+        if (App.Audio) App.Audio.sfx('pop');
         updateReadout();
 
         if (revealedCount >= safeTotal()) {
@@ -224,6 +225,7 @@
         var cell = cells[i];
         cell.classList.add('revealed', 'mine', 'exploded');
         cell.textContent = '💣';
+        if (App.Audio) App.Audio.sfx('explosion');
 
         // Restliche Minen gestaffelt aufdecken
         var order = 0;
@@ -255,6 +257,7 @@
         // nur gültig mit mind. 1 sicherem Feld
         if (revealedCount < 1) return;
         over = true;
+        if (App.Audio) App.Audio.sfx('cashout');
         var mult = multFor(mineCount, revealedCount);
         var payout = Math.round(currentBet * mult);
         Coins.add(payout);                  // Bruttoauszahlung inkl. Einsatz

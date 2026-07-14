@@ -102,6 +102,7 @@
           countEl.textContent = String(score);
           punch = Math.min(1.6, punch + 0.9);
           tapTimes.push(Date.now());
+          if (App.Audio) App.Audio.blip(760, 0.025, { type: 'triangle', peak: 0.03 });
           spawnPlus(clientX, clientY);
         }
 

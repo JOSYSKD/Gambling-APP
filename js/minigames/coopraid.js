@@ -146,6 +146,7 @@
           combo = (now - lastTap < COMBO_MS) ? combo + 1 : 1;
           lastTap = now;
           punch = Math.min(1.7, punch + 0.9);
+          if (App.Audio) App.Audio.sfx('hit');
           var dmg = tapDamage(combo);
           if (amHost()) { if (G && G.init) applyDamage(dmg); }
           else { myDmg += dmg; dirty = true; }
@@ -155,6 +156,7 @@
           if (!curAtk || !curAtk.active) return;
           if (myDodgedLocal) return;
           myDodgedLocal = true;
+          if (App.Audio) App.Audio.sfx('whoosh');
           if (amHost()) { if (G) G.dodgers[me.id] = true; }
           else { myDodgeId = curAtk.id; sendState(); }
           dodgeBtn.disabled = true; dodgeBtn.classList.add('done'); dodgeBtn.textContent = '✔ AUSGEWICHEN';
@@ -344,6 +346,7 @@
             overlayAtkId = a.id;
             myDodgedLocal = !!dodgers[me.id];
             buildDodgeTeam();
+            if (!myDodgedLocal && App.Audio) App.Audio.sweep(760, 300, 0.2, { type: 'sawtooth', peak: 0.08 });
           }
           overlayEl.classList.add('show');
           var iDodged = myDodgedLocal || !!dodgers[me.id];
@@ -399,6 +402,7 @@
           clearAll();
           // Bei Sieg: besiegtes Level (Drache down) in der Bestenliste hochzählen (genau einmal, Guard: ended)
           if (win && App.Scores) App.Scores.winCurrent();
+          if (win && App.Audio) App.Audio.sfx('levelup');
           var reason = win ? 'Ihr habt den Drachen gemeinsam bezwungen!'
             : (teamLeft <= 0 ? 'Das Team wurde vom Drachen ueberwaeltigt.'
                              : 'Die Zeit lief ab – der Drache lebt noch.');

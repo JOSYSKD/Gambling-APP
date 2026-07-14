@@ -158,7 +158,7 @@
             if (val === 0) { if (d) cell.removeChild(d); continue; }
             if (!d) {
               d = el('div', { class: 'c4-disc ' + (val === 1 ? 'red' : 'aqua') });
-              if (renderedBoard && renderedBoard[r][c] === 0) d.classList.add('drop');
+              if (renderedBoard && renderedBoard[r][c] === 0) { d.classList.add('drop'); if (App.Audio) App.Audio.sfx('pop'); }
               cell.appendChild(d);
             } else { d.classList.remove('win'); }
           }

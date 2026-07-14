@@ -115,11 +115,13 @@
             updateStats();
             if (isMulti) ctx.room.reportScore(score);
             state = 'pause';
+            if (App.Audio) App.Audio.sfx('point');
             setField('hit', rt < 150 ? '🚀' : '✅', rt + ' ms', '+' + pts + ' Punkte');
             after(650, nextRound);
           } else if (state === 'wait') {
             /* Fehlstart */
             state = 'pause';
+            if (App.Audio) App.Audio.sfx('error');
             setField('early', '🚫', 'Zu früh!', '0 Punkte – warte auf Grün');
             after(950, nextRound);
           }
@@ -139,6 +141,7 @@
             if (nowFn() >= endAt) return;
             state = 'go';
             goAt = perf();
+            if (App.Audio) App.Audio.sfx('start');
             setField('go', '⚡', 'JETZT!', 'Klick sofort!');
           });
         }

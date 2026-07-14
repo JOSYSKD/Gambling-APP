@@ -335,6 +335,7 @@
 
         sumEl.textContent = '';
         setStatus('Die Würfel rollen…', null);
+        if (App.Audio) App.Audio.sfx('roll');
         dieEls.forEach(function (de) { de.classList.remove('hit'); de.classList.add('rolling'); });
 
         // Schnelle Zufalls-Faces während des Rollens.

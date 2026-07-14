@@ -299,6 +299,14 @@
 
   function paintBoard(refs, board, o) {
     o = o || {};
+    // Sound-Cue: Brett hat sich geändert UND es gab einen Zug -> Schlag ('hit') oder Zug ('step').
+    // Guard über refs (pro Instanz), damit Mehrfach-Renders desselben Stands nicht mehrfach klingen.
+    var _bkey = board.join(''), _cnt = 0;
+    for (var _q = 0; _q < 64; _q++) if (board[_q] !== '.') _cnt++;
+    if (refs._sndKey !== undefined && _bkey !== refs._sndKey && o.last) {
+      if (App.Audio) App.Audio.sfx(_cnt < refs._sndCount ? 'hit' : 'step');
+    }
+    refs._sndKey = _bkey; refs._sndCount = _cnt;
     var checkSq = -1;
     if (o.checkColor) { var ks = kingSquare(board, o.checkColor); if (ks >= 0) checkSq = ks; }
     for (var i = 0; i < 64; i++) {

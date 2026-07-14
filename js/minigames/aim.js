@@ -216,6 +216,7 @@
         updateCombo();
         if (isMulti) ctx.room.reportScore(score);
 
+        if (App.Audio) App.Audio.sfx(target.tier.gold ? 'coin' : 'pop');
         popFloat(target.cx, target.cy, '+' + gained, target.tier.gold ? 'aim-float-gold' : (mult > 1 ? 'aim-float-hot' : ''));
         target.el.classList.add('aim-hit');
         after(280, function () { if (target.el.parentNode) target.el.parentNode.removeChild(target.el); });

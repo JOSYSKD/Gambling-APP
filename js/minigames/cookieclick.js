@@ -125,6 +125,7 @@
         flower.addEventListener('click', function (e) {
           if (Date.now() >= endAt) return;
           s.nectar += s.perClick; s.total += s.perClick;
+          if (App.Audio) App.Audio.blip(620, 0.05, { type: 'sine', peak: 0.045 });
           popFloat(flower, '+' + fmt(s.perClick));
           flower.classList.remove('pop'); void flower.offsetWidth; flower.classList.add('pop');
         });
@@ -158,12 +159,13 @@
         function buyHelper(h) {
           var price = priceOf(h.base, s.helpers[h.key]);
           if (s.nectar < price) { UI.toast('Zu wenig Nektar', 'lose'); return; }
-          s.nectar -= price; s.helpers[h.key]++; refreshShop();
+          s.nectar -= price; s.helpers[h.key]++; if (App.Audio) App.Audio.sfx('chip'); refreshShop();
         }
         function buyClick() {
           var price = priceOf(CLICK_UP.base, s.clickLevel, CLICK_UP.growth);
           if (s.nectar < price) { UI.toast('Zu wenig Nektar', 'lose'); return; }
           s.nectar -= price; s.clickLevel++; s.perClick = Math.pow(2, s.clickLevel) ;
+          if (App.Audio) App.Audio.sfx('powerup');
           clickInfo.textContent = '+' + fmt(s.perClick) + ' pro Klick'; refreshShop();
         }
         function refreshShop() {

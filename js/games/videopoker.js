@@ -226,6 +226,7 @@
         if (phase !== 'draw') return;
         held[i] = !held[i];
         slots[i].classList.toggle('held', held[i]);
+        if (held[i] && App.Audio) App.Audio.sfx('select');   // Karte eingerastet
       }
 
       /* ---------- Paytable-Helfer ---------- */
@@ -285,6 +286,8 @@
         setBanner('Wähle Karten zum HALTEN', null);
         subline.textContent = 'Angeklickte Karten bleiben — der Rest wird getauscht.';
         paintAll(true);
+        // 5 Karten nacheinander austeilen (hörbar gestaffelt)
+        if (App.Audio) for (var d = 0; d < 5; d++) (function (k) { later(function () { App.Audio.sfx('deal'); }, k * 75); })(d);
 
         // Blatt-Vorschau, sobald die Deal-Animation durch ist
         later(function () {
@@ -308,7 +311,11 @@
         refreshControls();
         var swapped = 0;
         for (var i = 0; i < 5; i++) {
-          if (!held[i]) { hand[i] = deck.pop(); paintCard(i, true); swapped++; }
+          if (!held[i]) {
+            hand[i] = deck.pop(); paintCard(i, true);
+            if (App.Audio) (function (k) { later(function () { App.Audio.sfx('deal'); }, k * 75); })(swapped);
+            swapped++;
+          }
         }
         setBanner('Karten getauscht…', null);
         subline.textContent = swapped ? (swapped + (swapped === 1 ? ' Karte' : ' Karten') + ' getauscht') : 'Alle Karten gehalten';
@@ -327,7 +334,7 @@
         highlightPay(key);
 
         var cls, toastKind, head;
-        if (factor >= 25) { cls = 'jackpot'; toastKind = 'win'; head = '💎 ' + (key === 'royal' ? 'ROYAL FLUSH!' : name.toUpperCase()); }
+        if (factor >= 25) { cls = 'jackpot'; toastKind = 'win'; head = '💎 ' + (key === 'royal' ? 'ROYAL FLUSH!' : name.toUpperCase()); if (App.Audio) App.Audio.sfx('jackpot'); }
         else if (factor > 1) { cls = 'win'; toastKind = 'win'; head = 'GEWONNEN'; }
         else if (factor === 1) { cls = 'push'; toastKind = 'info'; head = 'PUSH'; }
         else { cls = 'lose'; toastKind = 'lose'; head = 'VERLOREN'; }

@@ -253,13 +253,13 @@
           if (destroyed || finished) return;
           try { stage.focus({ preventScroll: true }); } catch (e) {}
           if (phase === 'stumble') return;
-          if (dir === 'left') { if (lane > 0) lane--; }
-          else if (dir === 'right') { if (lane < LANES - 1) lane++; }
+          if (dir === 'left') { if (lane > 0) { lane--; if (App.Audio) App.Audio.sfx('whoosh'); } }
+          else if (dir === 'right') { if (lane < LANES - 1) { lane++; if (App.Audio) App.Audio.sfx('whoosh'); } }
           else if (dir === 'up') {
-            if (!airborne) { airborne = true; jumpVel = 2.2; slide = 0; }
+            if (!airborne) { airborne = true; jumpVel = 2.2; slide = 0; if (App.Audio) App.Audio.sfx('whoosh'); }
           } else if (dir === 'down') {
             if (airborne) { jumpVel = Math.min(jumpVel, -1.4); }   // Sturzflug -> schneller runter
-            else { slide = 650; }
+            else { slide = 650; if (App.Audio) App.Audio.sfx('whoosh'); }
           }
         }
 
@@ -350,6 +350,7 @@
           var val = now < x2Until ? 2 : 1;
           coins += val;
           if (coinEl) { coinEl.textContent = String(coins); bumpEl(coinEl); }
+          if (App.Audio) App.Audio.sfx('coin');
           for (var s = 0; s < 5; s++) {
             var a = Math.random() * TAU, sp = 40 + Math.random() * 120;
             sparks.push({ x: pk._px || W / 2, y: pk._py || H / 2, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, life: 0.5, col: '#ffd23f' });
@@ -368,11 +369,13 @@
         function crash(now, laneIdx) {
           if (shield) {
             shield = false;
+            if (App.Audio) App.Audio.sfx('pop');
             floatText('🛡️ Schild!', laneIdx, '#ffd23f');
             shake = Math.max(shake, 8);
             for (var s = 0; s < 10; s++) { var a = Math.random() * TAU, sp = 60 + Math.random() * 140; sparks.push({ x: W / 2, y: H * 0.68, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 0.5, col: '#ffd23f' }); }
             return false;
           }
+          if (App.Audio) App.Audio.sfx('hit');
           phase = 'stumble'; stumbleUntil = now + 1000; shake = Math.max(shake, 16);
           combo = 0; comboUntil = 0; if (comboEl) { comboEl.textContent = ''; comboEl.classList.remove('rn-combo-on'); }
           airborne = false; jump = 0; jumpVel = 0; slide = 0; trickSpin = 0;
@@ -421,7 +424,7 @@
             jump += jumpVel * dt * 2.2;
             jumpVel -= 4.0 * dt * 2.2;
             if (trickSpin > 0) trickSpin += dt * 9;
-            if (jump <= 0) { jump = 0; airborne = false; jumpVel = 0; if (trickSpin > 0) { addSkill(14); floatText('Trick! +14', lane, '#39ff14'); trickSpin = 0; } }
+            if (jump <= 0) { jump = 0; airborne = false; jumpVel = 0; if (trickSpin > 0) { addSkill(14); floatText('Trick! +14', lane, '#39ff14'); if (App.Audio) App.Audio.sfx('ding'); trickSpin = 0; } }
           }
           // Rutschen abklingen
           if (slide > 0) slide -= dt * 1000;

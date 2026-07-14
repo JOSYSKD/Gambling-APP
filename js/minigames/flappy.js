@@ -163,6 +163,7 @@
           if (phase === 'dead') return;
           if (phase === 'wait') phase = 'fly';
           vy = -0.80 * H;
+          if (App.Audio) App.Audio.blip(660, 0.07, { type: 'triangle', peak: 0.05 });
         }
 
         /* ---- abgeleitete Maße (jederzeit aus W/H, Resize-robust) ---- */
@@ -200,11 +201,13 @@
             scoreEl.classList.remove('fl-bump'); void scoreEl.offsetWidth; scoreEl.classList.add('fl-bump');
           }
           if (isMulti) ctx.room.reportScore(score);
+          if (App.Audio) App.Audio.sfx('point');
           pops.push({ x: m.birdX + m.birdR * 0.6, y: birdY - m.birdR * 1.1, t0: now });
         }
 
         function crash(now, m) {
           if (phase !== 'fly') return;
+          if (App.Audio) App.Audio.sfx('hit');
           phase = 'dead'; deadUntil = now + 1000; shake = Math.max(shake, 12);
           vy = -0.12 * H;
           var cols = ['#39ff14', '#33e6d0', '#7dff5a', '#ffd23f'];

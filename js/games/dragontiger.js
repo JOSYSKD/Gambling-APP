@@ -293,6 +293,7 @@
           revealCard(dragonCards, dragon);
           dragonRank.className = 'dt-rank on';
           dragonRank.textContent = dragon.rank;
+          if (App.Audio) App.Audio.sfx('deal');
         }, 380);
 
         // Tiger aufdecken
@@ -300,6 +301,7 @@
           revealCard(tigerCards, tiger);
           tigerRank.className = 'dt-rank on';
           tigerRank.textContent = tiger.rank;
+          if (App.Audio) App.Audio.sfx('deal');
         }, 800);
 
         // Auswerten

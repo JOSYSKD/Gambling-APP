@@ -56,6 +56,8 @@
       var timers = [];           // alle setTimeout-IDs (cleanup!)
       var spinning = false;
       var destroyed = false;
+      var spinHold = null;       // leiser Dauerton während des Drehens
+      function stopSpinHold(fade) { if (spinHold) { spinHold.stop(fade); spinHold = null; } }
       // pro Walze die aktuell sichtbaren 3 Emojis [oben, mitte, unten]
       var visible = [null, null, null];
 
@@ -174,6 +176,10 @@
         readout.className = 'big-readout slots-readout spinning';
         readout.textContent = 'Dreht …';
 
+        // leiser, aufsteigender Dreh-Ton — baut Spannung, bricht beim letzten Stopp ab
+        stopSpinHold(0.02);
+        if (App.Audio) { spinHold = App.Audio.hold(160, { type: 'sawtooth', peak: 0.03, filter: 1200 }); spinHold.sweepTo(300, 1.4); }
+
         // Ergebnis vorab unabhaengig ziehen
         var targets = [drawSymbol(), drawSymbol(), drawSymbol()];
 
@@ -200,8 +206,12 @@
             // Roll starten
             strip.style.transition = 'transform ' + durations[idx] + 'ms ' + ease;
             strip.style.transform = 'translateY(' + (-finalOffset) + 'px)';
-            // Landungs-Bounce dieser Walze
-            later(function () { reelEls[idx].classList.add('reel-landed'); }, durations[idx]);
+            // Landungs-Bounce dieser Walze + hörbarer Walzen-Stopp
+            later(function () {
+              reelEls[idx].classList.add('reel-landed');
+              if (App.Audio) App.Audio.sfx('pop');
+              if (idx === 2) stopSpinHold(0.05);
+            }, durations[idx]);
           })(w);
         }
 
@@ -238,6 +248,7 @@
           });
 
           if (kind === 'jackpot') {
+            if (App.Audio) App.Audio.sfx('jackpot');
             readout.className = 'big-readout slots-readout jackpot';
             readout.textContent = '🐍 JACKPOT ×' + multiplier + '! 🐍';
             UI.toast('JACKPOT! ×' + multiplier + ' — ' + UI.formatCoins(payout - bet) + ' 🪙', 'win');
@@ -269,6 +280,7 @@
         cleanup: function () {
           destroyed = true;
           spinning = false;
+          stopSpinHold(0.02);
           for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]);
           timers.length = 0;
           // CSS-Transitions sterben mit dem entfernten DOM-Knoten.

@@ -65,6 +65,7 @@
       var evSeq = 0;             // Host: fortlaufende Ereignis-Nummer
       var mySeq = 0;             // Gast: eigener Intent-Zähler
       var shownEvSeq = -1;       // zuletzt angezeigtes Aktivitäts-Ereignis
+      var shownStrikes = 0;      // Sound-Guard: zuletzt vertonter Strike-Stand
 
       /* ---- Render-Buchhaltung ---- */
       var builtGen = -1, endShownGen = -1, timerGen = -1;
@@ -391,6 +392,7 @@
         ]);
         root.innerHTML = ''; root.appendChild(wrap);
         updateTeam();
+        shownStrikes = vs.strikes;   // Sound-Guard auf aktuellen Stand setzen (kein Fehl-Ton beim Aufbau)
       }
 
       function buildModule(m, idx) {
@@ -485,6 +487,8 @@
         for (var s = 0; s < MAX_STRIKES; s++) {
           if (dom.strikeLamps[s]) dom.strikeLamps[s].classList.toggle('on', s < vs.strikes);
         }
+        if (vs.strikes > shownStrikes && App.Audio) App.Audio.sfx('error');
+        shownStrikes = vs.strikes;
         // Module
         vs.modules.forEach(function (m, i) { updateModule(m, i, vs.over); });
         // Aktivität
@@ -504,6 +508,14 @@
         r.root.classList.toggle('done', !!m.done);
         r.statusEl.textContent = m.done ? '✓ entschärft' : 'aktiv';
         r.statusEl.classList.toggle('ok', !!m.done);
+
+        // Sound-Cues (guarded pro Modul): korrekter Schritt -> steigender Blip, Modul gelöst -> Ding.
+        if (r._pos === undefined) { r._pos = m.pos; r._done = !!m.done; }
+        else {
+          if (m.done && !r._done) { if (App.Audio) App.Audio.sfx('ding'); }
+          else if (m.pos > r._pos && !m.done && App.Audio) App.Audio.blip(400 + Math.min(m.pos, 6) * 80, 0.07, { type: 'triangle', peak: 0.06 });
+          r._pos = m.pos; r._done = !!m.done;
+        }
 
         if (m.type === 'wire') {
           r.orderChips.forEach(function (chip, k) {
@@ -540,6 +552,7 @@
         stopTimerOnly();
         // Bei Sieg: entschärftes Level in der Bestenliste hochzählen (genau einmal je Bombe, Guard: endShownGen)
         if (vs.win && App.Scores) App.Scores.winCurrent();
+        if (App.Audio) App.Audio.sfx(vs.win ? 'levelup' : 'explosion');
         var st = vs.stats || { solved: 0, total: (vs.modules || []).length, strikes: vs.strikes || 0, secLeft: 0 };
         var canAgain = (!isMulti) || amHost;
         App.MG.teamEnd(root, {

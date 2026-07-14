@@ -251,6 +251,10 @@
           if (val.length > prevLen && val === target.slice(0, val.length)) {
             var addN = val.length - prevLen, t = Date.now();
             for (var k = 0; k < addN; k++) charTimes.push(t);
+            if (App.Audio) App.Audio.blip(860, 0.02, { type: 'square', peak: 0.025 });
+          } else if (val.length > prevLen) {
+            // neu getipptes Zeichen passt nicht -> Tippfehler
+            if (App.Audio) App.Audio.sfx('error');
           }
           if (firstKeyAt === 0 && val.length > 0) firstKeyAt = Date.now();
           prevLen = val.length;

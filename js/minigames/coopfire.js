@@ -382,9 +382,11 @@
         for (var i = 0; i < N; i++) {
           var hp = G.grid[i] || 0, cell = cells[i];
           if (cell.__hp !== hp) {
+            var wasHp = cell.__hp;
             cell.__hp = hp;
             cell.setAttribute('data-hp', String(hp));
             cell.__em.textContent = hp >= 1 ? '🔥' : '🌳';
+            if (wasHp === 0 && hp >= 1 && App.Audio) App.Audio.sfx('tick');  // neuer Brand
           }
         }
         var h = Math.max(0, Math.round(G.health));
@@ -431,6 +433,7 @@
       function poof(i, label) {
         if (destroyed || !gridEl) return;
         var cell = cells[i]; if (!cell) return;
+        if (App.Audio) App.Audio.sfx('whoosh');
         cell.classList.remove('mg-cf-splash'); void cell.offsetWidth; cell.classList.add('mg-cf-splash');
         after(620, function () { if (cell) cell.classList.remove('mg-cf-splash'); });
         var f = el('div', { class: 'mg-cf-float' + (label ? ' named' : '') }, [label ? ('💧 ' + label) : '💧']);

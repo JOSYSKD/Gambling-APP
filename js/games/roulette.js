@@ -44,6 +44,8 @@
       /* ---------------- Zustand ---------------- */
       var spinning = false;
       var spinTimer = null;
+      var tickTimers = [];          // Kugel-Ticks (werden langsamer)
+      function clearTicks() { tickTimers.forEach(function (id) { clearTimeout(id); }); tickTimers = []; }
       var rotation = 0;              // aktueller Rad-Drehwinkel (wächst monoton)
       var selected = null;          // gewählte Wette
       var selEls = [];              // alle anklickbaren Wett-Elemente
@@ -237,11 +239,23 @@
         wheel.style.transition = 'transform 2.8s cubic-bezier(.15,.82,.24,1)';
         wheel.style.transform = 'rotate(' + rotation + 'deg)';
 
+        // Kugel-Ticks, die synchron zum abbremsenden Rad langsamer werden.
+        clearTicks();
+        if (App.Audio) {
+          var tt = 0, gap = 55;
+          while (tt < 2760) {
+            tickTimers.push(setTimeout(function () { App.Audio.sfx('tick'); }, tt));
+            tt += gap; gap *= 1.13;
+          }
+        }
+
         spinTimer = setTimeout(function () { finish(winNum, bet); }, 2950);
       }
 
       function finish(winNum, bet) {
         spinTimer = null;
+        clearTicks();
+        if (App.Audio) App.Audio.sfx('ding');   // Kugel rastet im Fach ein
         var won = selected.match(winNum);
         var payout = won ? bet * selected.mult : 0;
 
@@ -284,6 +298,7 @@
       return {
         cleanup: function () {
           if (spinTimer) { clearTimeout(spinTimer); spinTimer = null; }
+          clearTicks();
           spinning = false;
         }
       };
