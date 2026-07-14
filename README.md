@@ -20,7 +20,7 @@ Kategorie **Gambling** mit 8 voll funktionsfähigen Spielen:
 | 🪙 **Coinflip** | Kopf oder Zahl — 50/50-Münzwurf, 1.92× Auszahlung |
 | 🌀 **Glücksrad** | Dreh das Rad — Niete oder Multiplikator bis 10× |
 
-Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusammen über das Internet** (2–8 Spieler über einen Raum-Code, kein Konto/Setup für die Mitspieler nötig):
+Kategorie **Online Minigames** mit 23 Spielen — jedes **allein** oder **zusammen über das Internet** (2–8 Spieler über einen Raum-Code, kein Konto/Setup für die Mitspieler nötig):
 
 | Spiel | Kurz |
 |------|------|
@@ -43,6 +43,7 @@ Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusamm
 | ❓ **Quiz-Rausch** | Möglichst viele Fragen richtig |
 | 🔴 **4 Gewinnt** | Duell zu zweit / gegen den Bot |
 | ⭕ **Tic-Tac-Toe** | Drei gewinnt, Best of 5 |
+| ♛ **Schach** | Das königliche Duell — alle Regeln, Solo gegen den Bot oder zu zweit |
 | 🏓 **Neon-Pong** | Der Klassiker, erster auf 7 gewinnt |
 | 🏃 **Dschungel-Flucht** | Endlosläufer – **zwei Sieger**: bester Läufer (Geschick) & Münz-König |
 | 🗼 **Wackelturm** | Balance-Stapelrennen (Tricky-Towers-Art), 2–4 Spieler zur Ziel-Linie |

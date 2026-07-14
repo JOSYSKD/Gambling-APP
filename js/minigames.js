@@ -59,7 +59,7 @@
         el('h2', { class: 'page-title neon' }, [coop ? '🤝 Koop-Team' : '🎮 Online Minigames'])
       ]),
       el('p', { class: 'hint-text mg-intro' }, [
-        coop ? 'Zusammen im selben WLAN ein Level schaffen – arbeitet als Team gegen die Zeit. (Solo geht auch zum Üben.)'
+        coop ? 'Zusammen über das Internet ein Level schaffen – arbeitet als Team gegen die Zeit. (Solo geht auch zum Üben.)'
              : (online ? 'Online-Modus aktiv – spiel mit Freunden per Raum-Code.'
                        : 'Tipp: Ohne Firebase läuft der Mehrspieler-Modus lokal (mehrere Tabs). Sag Bescheid für echtes Online-Spiel.')
       ]),
