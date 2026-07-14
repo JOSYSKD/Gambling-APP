@@ -20,7 +20,7 @@ Kategorie **Gambling** mit 8 voll funktionsfähigen Spielen:
 | 🪙 **Coinflip** | Kopf oder Zahl — 50/50-Münzwurf, 1.92× Auszahlung |
 | 🌀 **Glücksrad** | Dreh das Rad — Niete oder Multiplikator bis 10× |
 
-Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusammen im selben WLAN** (2–8 Spieler über einen Raum-Code, kein Konto/Setup nötig):
+Kategorie **Online Minigames** mit 24 Spielen — die meisten **allein** oder **zusammen im selben WLAN** (2–8 Spieler über einen Raum-Code, kein Konto/Setup nötig), die vier Poker-Varianten nur zusammen (2–12 Spieler je nach Variante):
 
 | Spiel | Kurz |
 |------|------|
@@ -46,6 +46,10 @@ Kategorie **Online Minigames** mit 20 Spielen — jedes **allein** oder **zusamm
 | 🏓 **Neon-Pong** | Der Klassiker, erster auf 7 gewinnt |
 | 🏃 **Dschungel-Flucht** | Endlosläufer – **zwei Sieger**: bester Läufer (Geschick) & Münz-König |
 | 🗼 **Wackelturm** | Balance-Stapelrennen (Tricky-Towers-Art), 2–4 Spieler zur Ziel-Linie |
+| ♠️ **Poker: Texas Hold'em** | Bis zu 12 Spieler — 2 Handkarten + 5 Gemeinschaftskarten |
+| ♣️ **Poker: Omaha** | Bis zu 10 Spieler — 4 Handkarten, genau 2 zählen ins Blatt |
+| ♦️ **Poker: Seven Card Stud** | Bis zu 7 Spieler — 7 Karten, kein Gemeinschaftsboard |
+| ♥️ **Poker: Five Card Draw** | Bis zu 8 Spieler — 5 Karten + eine Tausch-Phase |
 
 Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level schafft (kein Gegeneinander – geteilter Team-Zustand, gemeinsames Gewinnen/Verlieren), allein zum Üben oder als Team im selben WLAN:
 
