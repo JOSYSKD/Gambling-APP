@@ -163,7 +163,8 @@
         el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/'); } }, ['← Menü']),
         el('h2', { class: 'page-title neon' }, ['🏆 Bestenliste'])
       ]));
-      var hint = App.Account.backendKind() === 'firebase'
+      var shared = App.Account.backendKind() === 'firebase' || App.Account.backendKind() === 'cloud';
+      var hint = shared
         ? 'Höchster Coin-Stand pro Run (Peak). Geteilte Bestenliste — alle Besucher der Seite sehen dieselben Einträge.'
         : 'Höchster Coin-Stand pro Run (Peak). Kein Cloud-Backend konfiguriert — aktuell nur Runs aus diesem Browser sichtbar.';
       container.appendChild(el('p', { class: 'lb-hint' }, [hint]));
@@ -220,10 +221,14 @@
     }
 
     function backendBanner() {
-      if (App.Account.backendKind() === 'firebase') {
+      var kind = App.Account.backendKind();
+      if (kind === 'firebase') {
         return el('p', { class: 'lb-hint' }, ['☁️ Konten sind geräteübergreifend live (Firebase) — melde dich in jedem Browser mit deinem Kontonamen + Passwort an.']);
       }
-      return el('p', { class: 'lb-hint' }, ['⚠️ Kein Cloud-Backend eingerichtet: Konten funktionieren aktuell nur in diesem Browser. Für geräteübergreifende Konten muss in js/firebase-config.js eine echte Firebase-Konfiguration eingetragen werden (siehe README).']);
+      if (kind === 'cloud') {
+        return el('p', { class: 'lb-hint' }, ['☁️ Konten sind geräteübergreifend live (Cloud-Speicher) — melde dich in jedem Browser mit deinem Kontonamen + Passwort an. Änderungen anderer Geräte können bis zu ~15 Sek. brauchen.']);
+      }
+      return el('p', { class: 'lb-hint' }, ['⚠️ Kein Cloud-Backend eingerichtet: Konten funktionieren aktuell nur in diesem Browser. Für geräteübergreifende Konten reicht entweder eine Cloud-Speicher-ID (js/cloud-config.js, kein Login nötig) oder eine echte Firebase-Konfiguration (js/firebase-config.js, siehe README).']);
     }
 
     function accountCard() {

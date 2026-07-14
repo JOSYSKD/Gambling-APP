@@ -98,11 +98,55 @@
     };
   }
 
-  function initBackend() {
-    if (App.Net.firebaseConfigured()) {
-      return App.Net.firebaseDb().then(firebaseBackend).catch(function () { return localBackend(); });
+  // Keyloser Fallback ohne Google-/Firebase-Konto, siehe js/cloud.js + js/cloud-config.js.
+  function cloudBackend() {
+    App.Cloud.startPolling(15000);
+    var lbCache = [];
+    function syncLbCache(state) { lbCache = (state && state.leaderboard) || []; App.Leaderboard.refresh(); }
+    App.Cloud.onChange(syncLbCache);
+    App.Cloud.load().then(syncLbCache).catch(function () {});
+
+    return {
+      kind: 'cloud',
+      getAccount: function (key) {
+        return App.Cloud.load(true).then(function (state) { return (state.accounts || {})[key] || null; });
+      },
+      setAccount: function (key, data) {
+        return App.Cloud.mutate(function (state) {
+          state.accounts = state.accounts || {};
+          state.accounts[key] = data;
+        });
+      },
+      leaderboardDriver: function () {
+        return {
+          load: function () { return lbCache; },
+          push: function (entry) {
+            return App.Cloud.mutate(function (state) {
+              state.leaderboard = state.leaderboard || [];
+              state.leaderboard.push(entry);
+              if (state.leaderboard.length > 300) state.leaderboard = state.leaderboard.slice(state.leaderboard.length - 300);
+            }).then(syncLbCache).catch(function () {});
+          },
+          save: function (entries) {
+            return App.Cloud.mutate(function (state) { state.leaderboard = entries || []; }).then(syncLbCache).catch(function () {});
+          }
+        };
+      }
+    };
+  }
+
+  function cloudOrLocal() {
+    if (App.Cloud && App.Cloud.configured()) {
+      return App.Cloud.load().then(function () { return cloudBackend(); }).catch(function () { return localBackend(); });
     }
     return Promise.resolve(localBackend());
+  }
+
+  function initBackend() {
+    if (App.Net.firebaseConfigured()) {
+      return App.Net.firebaseDb().then(firebaseBackend).catch(function () { return cloudOrLocal(); });
+    }
+    return cloudOrLocal();
   }
 
   /* ---------- Zustand ---------- */

@@ -59,7 +59,10 @@
   <!-- Multiplayer-Fundament -->
   <script src="js/firebase-config.js"></script>
   <script src="js/net.js"></script>
-  <!-- Konten: Passwort-Login, geräteübergreifend sobald Firebase konfiguriert ist -->
+  <!-- Geteilter Cloud-Speicher ohne Google-/Firebase-Konto (Fallback für Konten + Bestenliste) -->
+  <script src="js/cloud-config.js"></script>
+  <script src="js/cloud.js"></script>
+  <!-- Konten: Passwort-Login, geräteübergreifend sobald Firebase ODER die Cloud-Speicher-ID konfiguriert ist -->
   <script src="js/account.js"></script>
   <!-- Gambling-Spiele -->
   <script src="js/games/blackjack.js"></script>

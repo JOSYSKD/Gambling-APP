@@ -74,14 +74,18 @@ Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level scha
 - Responsive für Desktop und Handy.
 
 ### 🔐 Konten — geräteübergreifend vs. nur dieser Browser
-`js/account.js` wählt automatisch das Backend (genau wie `js/net.js`):
-- **Ohne Firebase-Konfiguration** (Standard): Konten funktionieren sofort, aber nur
-  **in diesem einen Browser** (Registrieren/Login/Passwort-ändern/Sitzungssperre laufen
-  über einen lokalen Simulator). Gut zum Ausprobieren der Funktion, aber kein Login von
-  einem anderen Gerät aus möglich.
-- **Mit echter Firebase-Konfiguration** in `js/firebase-config.js` (siehe Abschnitt
-  "Geteilte Bestenliste" unten): Konten, Spielstand und Bestenliste sind für **alle
-  Besucher der Seite** geteilt — Login funktioniert von jedem Gerät/Browser aus.
+`js/account.js` wählt automatisch das Backend (genau wie `js/net.js`), in dieser Reihenfolge:
+1. **Echte Firebase-Konfiguration** in `js/firebase-config.js`, falls vorhanden (robustestes Backend).
+2. Sonst: **Cloud-Speicher-ID** in `js/cloud-config.js`, falls vorhanden — funktioniert **ohne
+   Google-/Firebase-Konto**, Einrichtung dauert ~30 Sekunden (siehe Abschnitt
+   "Geteilte Bestenliste" unten).
+3. Sonst (Standard, ohne jede Konfiguration): Konten funktionieren sofort, aber nur
+   **in diesem einen Browser** (Registrieren/Login/Passwort-ändern/Sitzungssperre laufen
+   über einen lokalen Simulator). Gut zum Ausprobieren der Funktion, aber kein Login von
+   einem anderen Gerät aus möglich.
+
+Sobald Variante 1 oder 2 eingerichtet ist, sind Konten, Spielstand und Bestenliste für
+**alle Besucher der Seite** geteilt — Login funktioniert von jedem Gerät/Browser aus.
 
 > ⚠️ Sicherheits-Hinweis: Passwörter werden nur gehasht (SHA-256 + Salt) gespeichert,
 > nicht im Klartext. Da es keinen eigenen Server gibt und die Firebase-Regeln (siehe unten)
@@ -102,7 +106,8 @@ js/
   app.js              Menü, Navigation, Views, Game-Over
   games/              je ein Modul pro Gambling-Spiel (registrieren sich in App.Games)
   net.js              Multiplayer-Räume (PeerJS/WebRTC, Fallback lokal) — Room-API
-  account.js          Konten (Passwort-Login, Sitzungssperre) — lokal oder Firebase
+  cloud.js            Keyloser Cloud-Speicher (JSONBlob) — kein Google-/Firebase-Konto nötig
+  account.js          Konten (Passwort-Login, Sitzungssperre) — lokal, Cloud-Speicher oder Firebase
   minigames.js        Minigame-Hub: Übersicht, Modus-Wahl, Lobby mit Raum-Code
   mgutil.js           gemeinsame Bausteine (App.MG): Countdown, Timer, Live-Rangliste, Podest
   minigames/          je ein Modul pro Minispiel (registrieren sich in App.Minigames)
@@ -126,12 +131,32 @@ Einfach **`index.html` im Browser öffnen** (Doppelklick). Fertig — kein Serve
 Alle Pfade sind **relativ**, daher funktioniert die Seite auch im Unterordner `/<repo-name>/`.
 Die Datei `.nojekyll` sorgt dafür, dass GitHub Pages die Dateien 1:1 ausliefert.
 
-## ☁️ Geteilte Bestenliste & geräteübergreifende Konten (Firebase, optional)
+## ☁️ Geteilte Bestenliste & geräteübergreifende Konten
 `js/leaderboard.js` und `js/account.js` sind modular gebaut und schalten **automatisch**
-auf ein geteiltes Backend um, sobald in `js/firebase-config.js` eine echte Firebase-Konfiguration
-steht (Platzhalter `DEIN_...` ersetzt). Ohne diesen Schritt läuft alles weiterhin nur lokal
-in jedem einzelnen Browser (kein Fehler, einfach eingeschränkter Funktionsumfang).
+auf ein geteiltes Backend um. Es gibt dafür zwei Wege — beide sind optional, ohne
+Einrichtung läuft alles weiterhin nur lokal in jedem einzelnen Browser (kein Fehler,
+einfach eingeschränkter Funktionsumfang).
 
+### Variante A: Cloud-Speicher ohne Konto (empfohlen zum schnellen Ausprobieren)
+Kein Google-Konto, keine E-Mail, keine Anmeldung irgendwo nötig — nur eine anonyme ID:
+1. [https://jsonblob.com](https://jsonblob.com) öffnen (dort erscheint direkt ein leerer JSON-Editor).
+2. `{}` eintragen und auf **Save** klicken.
+3. Die Adresse in der Adresszeile ändert sich zu etwas wie
+   `https://jsonblob.com/1a2b3c4d-5e6f-...` — den Teil **nach dem letzten `/`** kopieren.
+4. Diese ID in [`js/cloud-config.js`](js/cloud-config.js) bei `CLOUD_STORE_ID` eintragen
+   (Platzhalter `DEIN_CLOUD_ID` ersetzen) und committen.
+
+Danach sind Konten und Bestenliste sofort für alle Besucher der Seite geteilt. Änderungen
+von anderen Geräten können bis zu ~15 Sekunden brauchen (Polling statt Realtime-Push, da
+der Dienst kostenlos und anmeldefrei ist). Läuft der Dienst mal nicht, fällt die Seite
+automatisch auf den lokalen Modus zurück — nichts bricht.
+
+> ⚠️ Diese ID ist "geheim durch Unauffindbarkeit", aber nicht durch echten Zugriffsschutz
+> abgesichert: Wer den Wert im Quellcode findet, könnte die Daten theoretisch manipulieren.
+> Für eine Spaß-Seite unter Freunden/in der Klasse ist das ein vertretbares Risiko — wer mehr
+> Sicherheit möchte, nutzt Variante B (Firebase).
+
+### Variante B: Firebase (robuster, braucht ein Google-Konto)
 Einmalige Einrichtung (~5 Minuten, kein Programmieren nötig):
 1. **Projekt anlegen:** [console.firebase.google.com](https://console.firebase.google.com) →
    mit einem Google-Konto einloggen → "Projekt hinzufügen" (Google Analytics kann man abwählen).
