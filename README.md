@@ -7,7 +7,7 @@ direkt öffnet **oder** über GitHub Pages hostet.
 > ⚠️ Nur zum Spaß: Es wird ausschließlich mit **virtuellen Coins** gespielt. Kein Echtgeld, keine Auszahlung.
 
 ## 🕹️ Spiele
-Kategorie **Gambling** mit 8 voll funktionsfähigen Spielen:
+Kategorie **Gambling** mit 16 voll funktionsfähigen Spielen:
 
 | Spiel | Kurz |
 |------|------|
@@ -19,6 +19,26 @@ Kategorie **Gambling** mit 8 voll funktionsfähigen Spielen:
 | 💣 **Mines** | 5×5-Feld — sichere Felder aufdecken, jederzeit auscashen |
 | 🪙 **Coinflip** | Kopf oder Zahl — 50/50-Münzwurf, 1.92× Auszahlung |
 | 🌀 **Glücksrad** | Dreh das Rad — Niete oder Multiplikator bis 10× |
+| 🎴 **Baccarat** | Player/Banker/Tie — wetten aufs höhere Blatt |
+| 🃏 **Royal Flush** | Video-Poker (Jacks or Better) — halten & tauschen |
+| ⚔️ **Casino War** | Höhere Karte gewinnt — bei Gleichstand „in den Krieg" |
+| 🐲 **Dragon Tiger** | Zwei Karten, eine höher — schnellstes Casino-Spiel |
+| 🪔 **Andar Bahar** | Indischer Klassiker — auf welcher Seite fällt die Karte? |
+| 🎲 **Sic Bo** | Drei Würfel — Summen, Paare, Tripel, Klein/Groß |
+| 🔢 **Keno** | Zahlen tippen, Ziehung abwarten, Treffer kassieren |
+| 🎯 **Plinko** | Kugel fällt durch die Pins — Multiplikator am Boden |
+
+Kategorie **Poker & Casino** mit 7 Spielen — **allein gegen Bots** oder **zusammen über das Internet** (2–6 Spieler per Raum-Code):
+
+| Spiel | Kurz |
+|------|------|
+| ♠️ **Texas Hold'em** | Der Poker-Klassiker — 2 Hole-Cards + 5 Gemeinschaftskarten |
+| 🃏 **Omaha** | 4 Hole-Cards — nutze genau 2 davon + 3 vom Board |
+| 🂭 **Seven-Card Stud** | Ohne Gemeinschaftskarten — offene & verdeckte Karten |
+| 🎴 **Five-Card Draw** | 5 Karten, einmal tauschen, bestes Blatt gewinnt |
+| 🎱 **Bingo** | Erster mit einer vollen Reihe gewinnt |
+| 🎲 **Craps** | Pass oder Don't Pass — würfle die 7 nicht zur falschen Zeit |
+| 🐎 **Pferderennen** | Setze auf ein Pferd und fiebere mit beim Rennen |
 
 Kategorie **Online Minigames** mit 23 Spielen — jedes **allein** oder **zusammen über das Internet** (2–8 Spieler über einen Raum-Code, kein Konto/Setup für die Mitspieler nötig):
 
@@ -66,6 +86,13 @@ Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level scha
 - Einsatz-Schnellbuttons: 10, 50, 100, 500, ½, Max (Mindesteinsatz 10).
 - **Game Over**, wenn das Guthaben unter 10 fällt → Neustart auf 1000.
 - **Bestenliste** (Peak-Kontostand pro Run) mit Gold/Silber/Bronze und Live-Anzeige des aktiven Runs.
+- **Eigene Bestenliste pro Spiel** (🏆-Knopf auf jeder Minispiel-Kachel, `js/scores.js`): jedes
+  Nicht-Gambling-Spiel hat seine eigene Rangliste — Highscore bei Punktespielen, Sieg-Zähler bei
+  Duellen/Poker/Casino/Koop. Geteilt & in Echtzeit über Firebase (sonst lokal). Die **Gambling-
+  Bestenliste bleibt davon unberührt**.
+- **Sound & Musik** (`js/audio.js`, Web Audio API, ohne Fremd-Dateien): dumpfe, chillige Menü-Musik,
+  ein ruhiger Beat mit langen Tönen im Spiel und dezente Soundeffekte (Klick/Gewinn/Verlust/Karten).
+  Startet beim ersten Klick/Tipp; **Stummschalt-Knopf** in der Kopfleiste.
 - **Konten mit Passwort** (Profil-Seite): einmal registrieren, danach in jedem Browser mit
   Kontoname + Passwort anmelden und exakt beim eigenen Spielstand weitermachen. Bleibt
   angemeldet, auch wenn das Browserfenster geschlossen wird. Passwort lässt sich jederzeit
@@ -109,6 +136,9 @@ js/
   coins.js            Coin-System: Guthaben, Peak-Tracking, Game Over
   leaderboard.js      Bestenliste (modular — Backend-Driver austauschbar)
   ui.js               UI-Helfer: Einsatz-Panel, Flash/Toast, DOM-Helfer
+  audio.js            Sound & Musik (App.Audio): Menü-Musik, In-Game-Beat, SFX, Mute
+  scores.js           Pro-Spiel-Bestenliste (App.Scores): Highscore/Sieg-Zähler je Spiel
+  poker-eval.js       Poker-Handbewertung (App.Poker) — gemeinsam für alle Poker-Tische
   router.js           Hash-Router (funktioniert unter file://)
   app.js              Menü, Navigation, Views, Game-Over
   games/              je ein Modul pro Gambling-Spiel (registrieren sich in App.Games)
