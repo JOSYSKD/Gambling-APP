@@ -87,7 +87,26 @@
     }
     if (App.Audio) App.Audio.sfx('levelup');
   }
+  // Konfetti-Regen (leichtgewichtig, DOM, selbst-aufräumend).
+  function confetti(n) {
+    injectCss();
+    n = n || 34;
+    var host = el('div', { class: 'gj-confetti' });
+    var cols = ['#ff2d55', '#ff9d3c', '#ffd23f', '#39ff14', '#22d3ff', '#a855f7', '#ff6ac1'];
+    for (var i = 0; i < n; i++) {
+      var pieceStyle = 'left:' + (Math.round(i * 997 % 100)) + '%;' +
+        'background:' + cols[i % cols.length] + ';' +
+        'animation-delay:' + (i % 10 * 0.06).toFixed(2) + 's;' +
+        'animation-duration:' + (1.6 + (i % 7) * 0.18).toFixed(2) + 's;' +
+        'transform:rotate(' + (i * 47 % 360) + 'deg);';
+      host.appendChild(el('span', { class: 'gj-conf-p', style: pieceStyle }));
+    }
+    document.body.appendChild(host);
+    setTimeout(function () { if (host.parentNode) host.parentNode.removeChild(host); }, 3200);
+  }
+
   function celebrate(title, sub) {
+    confetti(46);
     injectCss();
     var card = el('div', { class: 'lvl-pop glass' }, [
       el('div', { class: 'lvl-pop-star' }, ['🎉']),
@@ -186,6 +205,8 @@
       state.stats.won += delta;
       if (delta > state.stats.biggestWin) state.stats.biggestWin = delta;
       addXp(Math.max(2, Math.round(delta / 25)));  // Bonus-XP fürs Gewinnen
+      if (delta >= 1000) confetti(Math.min(70, 24 + Math.round(delta / 400)));  // Konfetti bei großem Gewinn
+
     } else if (delta < 0) {
       state.stats.losses += 1;
       save(); emit();
@@ -350,7 +371,10 @@
       '.quest-p{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:3px;}',
       '.quest-rw{text-align:right;flex:0 0 auto;}',
       '.quest-rw-c{color:var(--gold);font-weight:900;font-size:13px;white-space:nowrap;}',
-      '.quest-rw-x{color:var(--aqua);font-weight:800;font-size:11px;}'
+      '.quest-rw-x{color:var(--aqua);font-weight:800;font-size:11px;}',
+      '.gj-confetti{position:fixed;inset:0;z-index:290;pointer-events:none;overflow:hidden;}',
+      '.gj-conf-p{position:absolute;top:-14px;width:10px;height:14px;border-radius:2px;opacity:.95;animation:gj-fall linear forwards;}',
+      '@keyframes gj-fall{0%{transform:translateY(-10px) rotate(0);opacity:1;}100%{transform:translateY(102vh) rotate(680deg);opacity:.9;}}'
     ].join(''));
   }
 
