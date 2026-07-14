@@ -435,6 +435,7 @@
           else if (res.type === 'checkmate' && res.winner === 'b') scores.b++;
           paint();
           var mine = res.type === 'checkmate' ? (res.winner === 'w' ? 'win' : 'lose') : 'draw';
+          if (mine === 'win' && App.Scores) App.Scores.winCurrent();
           after(650, function () {
             if (destroyed) return;
             overlay(refs, resultTexts(res.type, mine), [
@@ -553,6 +554,7 @@
           endShownGame = sh.gameId || 0;
           var mc = myColor(sh);
           var mine = sh.winner === 'draw' || !sh.winner ? 'draw' : (sh.winner === me.id ? 'win' : 'lose');
+          if (mine === 'win' && App.Scores) App.Scores.winCurrent();
           var actions;
           if (room.isHost()) actions = [
             el('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: rematch }, ['Revanche']),

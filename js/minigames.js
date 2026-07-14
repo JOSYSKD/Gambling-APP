@@ -47,6 +47,11 @@
       var g = App.Minigames[id];
       return el('button', { class: 'game-tile glass mg-tile', type: 'button', onclick: function () { go('/mini/' + id); } }, [
         el('div', { class: 'tile-glow' }),
+        el('span', {
+          class: 'mg-lb-btn', title: 'Bestenliste',
+          style: 'position:absolute;top:8px;right:8px;z-index:2;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;background:rgba(4,16,10,.72);border:1px solid var(--stroke);font-size:15px;cursor:pointer;',
+          onclick: function (e) { e.stopPropagation(); if (App.Scores) App.Scores.showBoard(id, g.title); }
+        }, ['🏆']),
         el('div', { class: 'tile-icon' }, [g.icon || '🎮']),
         el('div', { class: 'tile-title' }, [g.title]),
         el('div', { class: 'tile-sub' }, [g.subtitle || '']),
@@ -78,7 +83,8 @@
   function open(id) {
     var g = App.Minigames[id];
     if (!g) { UI.toast('Minispiel nicht gefunden', 'lose'); go('/minigames'); return; }
-    var backTo = g.coop ? '/coop' : '/minigames';
+    if (App.Scores) App.Scores.setContext(id);
+    var backTo = g.coop ? '/coop' : (g.group === 'live' ? '/live' : '/minigames');
 
     var container = el('div', { class: 'mg-wrap' });
     mount(container);

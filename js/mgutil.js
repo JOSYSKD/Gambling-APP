@@ -92,6 +92,15 @@
      opts.onAgain (optional), opts.onExit. */
   function endScreen(root, opts) {
     opts = opts || {};
+    // Automatisch die eigene Punktzahl in die Pro-Spiel-Bestenliste eintragen.
+    try {
+      if (App.Scores) {
+        if (opts.players) {
+          var m = opts.players.filter(function (p) { return p.id === opts.meId; })[0];
+          if (m && typeof m.score === 'number') App.Scores.submitCurrent(m.score);
+        } else if (typeof opts.score === 'number') App.Scores.submitCurrent(opts.score);
+      }
+    } catch (e) {}
     var body;
     if (opts.players) {
       var ps = opts.players.slice().sort(function (a, b) { return (b.score || 0) - (a.score || 0); });

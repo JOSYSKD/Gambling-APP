@@ -17,6 +17,13 @@
         'baccarat', 'videopoker', 'casinowar', 'dragontiger', 'andarbahar', 'sicbo', 'keno', 'plinko']
     },
     {
+      id: 'poker',
+      name: 'Poker & Casino',
+      icon: '🃏',
+      desc: 'Poker-Varianten und Casino-Klassiker – mit Freunden per Raum-Code (Solo gegen Bots).',
+      route: '/live'
+    },
+    {
       id: 'minigames',
       name: 'Online Minigames',
       icon: '🎮',
