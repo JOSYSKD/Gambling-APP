@@ -1,9 +1,10 @@
 /* leaderboard.js — Bestenliste (Peak-Kontostand pro Run).
  *
  * Modular gehalten: die gesamte Persistenz läuft über den internen
- * `driver`. Aktuell ein localStorage-Driver; für ein Online-Backend
- * (z. B. Firebase) einfach `App.Leaderboard.useDriver(firebaseDriver)`
- * mit denselben Methoden (load/save/subscribe) aufrufen.
+ * `driver`. Standard ist ein localStorage-Driver (nur dieses Gerät).
+ * Steht in js/firebase-config.js eine echte Firebase-Konfiguration,
+ * schaltet dieses Modul automatisch auf einen Firebase-Driver um —
+ * dann sehen alle Besucher der Seite dieselbe, geteilte Bestenliste.
  */
 (function () {
   'use strict';
@@ -12,8 +13,9 @@
   var KEY_ENTRIES = 'gj_leaderboard';
   var KEY_NAME = 'gj_player_name';
 
-  // --- Standard-Driver: localStorage ------------------------------------
+  // --- Standard-Driver: localStorage (nur dieses Gerät) ------------------
   var localDriver = {
+    kind: 'local',
     load: function () {
       return App.Storage.get(KEY_ENTRIES, []);
     },
@@ -31,11 +33,61 @@
     }
   }
 
+  // --- Firebase-Driver: geteilte Bestenliste über alle Besucher ---------
+  // Einträge werden additiv per push() geschrieben (statt die ganze Liste
+  // zu überschreiben) — sonst würden gleichzeitig spielende Besucher sich
+  // gegenseitig die Bestenliste überschreiben.
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      var s = document.createElement('script'); s.src = src; s.async = true;
+      s.onload = res; s.onerror = function () { rej(new Error('Ladefehler: ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+  var FB_VER = '10.12.0';
+  function loadFirebaseSDK() {
+    if (window.firebase && window.firebase.database) return Promise.resolve();
+    return loadScript('https://www.gstatic.com/firebasejs/' + FB_VER + '/firebase-app-compat.js')
+      .then(function () { return loadScript('https://www.gstatic.com/firebasejs/' + FB_VER + '/firebase-database-compat.js'); });
+  }
+  function fbConfigReal(cfg) {
+    return cfg && typeof cfg.apiKey === 'string' && cfg.apiKey.indexOf('DEIN_') !== 0 &&
+      typeof cfg.databaseURL === 'string' && cfg.databaseURL.indexOf('DEIN_') < 0 && cfg.databaseURL.indexOf('http') === 0;
+  }
+  function makeFirebaseDriver(cfg) {
+    if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(cfg);
+    var db = firebase.database();
+    var ref = db.ref('leaderboard/entries').orderByChild('peak').limitToLast(200);
+    var cache = [];
+    ref.on('value', function (snap) {
+      var val = snap.val() || {};
+      cache = Object.keys(val).map(function (k) { return val[k]; });
+      emit();
+    });
+    return {
+      kind: 'firebase',
+      load: function () { return cache; },
+      save: function () { /* wird nicht benutzt: record()/reset() schreiben additiv */ },
+      record: function (entry) { db.ref('leaderboard/entries').push(entry); },
+      reset: function () { db.ref('leaderboard/entries').remove(); }
+    };
+  }
+  if (fbConfigReal(window.FIREBASE_CONFIG)) {
+    loadFirebaseSDK()
+      .then(function () { Leaderboard.useDriver(makeFirebaseDriver(window.FIREBASE_CONFIG)); })
+      .catch(function () { /* bleibt beim localStorage-Driver */ });
+  }
+
   var Leaderboard = {
     /** Anderen Persistenz-Driver einsetzen (z. B. Firebase). */
     useDriver: function (d) {
       driver = d;
       emit();
+    },
+
+    /** true, wenn die Bestenliste geräteübergreifend (Firebase) läuft. */
+    isOnline: function () {
+      return driver.kind === 'firebase';
     },
 
     onChange: function (cb) {
@@ -78,13 +130,21 @@
 
     /** Einen abgeschlossenen Run eintragen (bei Game Over). */
     recordRun: function (name, peak, dateStr) {
-      var list = driver.load() || [];
-      list.push({
+      var entry = {
         name: String(name || 'Anonym').slice(0, 18),
         peak: Math.round(peak),
         date: dateStr,
         active: false
-      });
+      };
+      // Der Firebase-Driver schreibt additiv (push) statt die ganze Liste
+      // zu überschreiben — sonst würden gleichzeitige Spieler sich
+      // gegenseitig die Bestenliste kaputt machen.
+      if (driver.record) {
+        driver.record(entry);
+        return;
+      }
+      var list = driver.load() || [];
+      list.push(entry);
       list.sort(function (a, b) { return b.peak - a.peak; });
       // Wir bewahren mehr als 10 auf, damit alte Rekorde nicht verloren gehen,
       // aber deckeln großzügig, um localStorage nicht vollzumüllen.
@@ -94,6 +154,7 @@
     },
 
     reset: function () {
+      if (driver.reset) { driver.reset(); return; }
       driver.save([]);
       emit();
     }

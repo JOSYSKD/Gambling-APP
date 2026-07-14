@@ -163,7 +163,8 @@
         el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/'); } }, ['← Menü']),
         el('h2', { class: 'page-title neon' }, ['🏆 Bestenliste'])
       ]));
-      container.appendChild(el('p', { class: 'lb-hint' }, ['Höchster Coin-Stand pro Run (Peak). Lokal auf diesem Gerät gespeichert.']));
+      container.appendChild(el('p', { class: 'lb-hint' }, ['Höchster Coin-Stand pro Run (Peak). ' +
+        (App.Leaderboard.isOnline() ? 'Geteilte Bestenliste — alle Spieler dieser Seite.' : 'Lokal auf diesem Gerät gespeichert.')]));
       container.appendChild(el('div', { class: 'lb-list' }, rows));
       container.appendChild(el('div', { class: 'lb-actions' }, [
         el('button', { class: 'btn btn-danger', type: 'button', onclick: function () {

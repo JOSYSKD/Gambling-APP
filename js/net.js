@@ -65,6 +65,17 @@
 
   /* ===================== PeerJS-Backend (P2P, kein Setup) ===================== */
   var PEER_PREFIX = 'klettlogin-mini-';
+  // STUN allein reicht oft nicht (symmetrisches NAT, Mobilfunk, restriktives
+  // WLAN) — ohne TURN-Relay bleibt die WebRTC-Verbindung dann hängen und der
+  // Beitritt läuft in den Timeout ("Raum nicht gefunden", obwohl der Raum
+  // existiert). Deshalb zusätzlich ein öffentliches TURN-Relay einbinden.
+  var ICE_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+  ];
   function loadPeerJS() {
     if (window.Peer) return Promise.resolve();
     return loadScript('https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js')
@@ -107,7 +118,7 @@
           return new Promise(function (res, rej) {
             var settled = false;
             if (r === 'host') {
-              peer = new Peer(PEER_PREFIX + c, { debug: 0 });
+              peer = new Peer(PEER_PREFIX + c, { debug: 0, config: { iceServers: ICE_SERVERS } });
               peer.on('open', function () { if (!settled) { settled = true; res(); } });
               peer.on('error', function (e) { if (!settled) { settled = true; rej(new Error(e && e.type === 'unavailable-id' ? 'Code belegt' : 'Verbindung fehlgeschlagen')); } });
               peer.on('connection', function (conn) {
@@ -117,7 +128,7 @@
                 conn.on('error', function () { closeConn(conn); });
               });
             } else {
-              peer = new Peer({ debug: 0 });
+              peer = new Peer({ debug: 0, config: { iceServers: ICE_SERVERS } });
               peer.on('open', function () {
                 hostConn = peer.connect(PEER_PREFIX + c, { reliable: true });
                 hostConn.on('open', function () {/* warte auf erstes full */ });
@@ -130,10 +141,16 @@
                   }
                 });
                 hostConn.on('close', function () { store.notify(state); });
-                hostConn.on('error', function () { if (!settled) { settled = true; rej(new Error('Raum nicht gefunden')); } });
+                hostConn.on('error', function () { if (!settled) { settled = true; rej(new Error('Verbindung fehlgeschlagen')); } });
               });
-              peer.on('error', function () { if (!settled) { settled = true; rej(new Error('Raum nicht gefunden')); } });
-              setTimeout(function () { if (!settled) { settled = true; rej(new Error('Raum nicht gefunden')); } }, 9000);
+              // Nur 'peer-unavailable' bedeutet wirklich "Code existiert nicht" —
+              // alle anderen Fehlertypen (Netzwerk/Server/WebRTC) sind ein
+              // anderes Problem und sollten nicht fälschlich als "Raum nicht
+              // gefunden" angezeigt werden.
+              peer.on('error', function (e) {
+                if (!settled) { settled = true; rej(new Error(e && e.type === 'peer-unavailable' ? 'Raum nicht gefunden' : 'Verbindung fehlgeschlagen')); }
+              });
+              setTimeout(function () { if (!settled) { settled = true; rej(new Error('Verbindung fehlgeschlagen (Zeitüberschreitung)')); } }, 15000);
             }
           });
         });
