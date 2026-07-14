@@ -220,10 +220,20 @@
         }
       }
 
+      // WICHTIG: nur EINMAL ins Spiel wechseln. Das 'phase'-Event feuert bei
+      // jeder Raum-Änderung (Heartbeat, Zug, Score) erneut mit 'playing' — ohne
+      // diese Sperre würde startMulti() dauernd neu bauen (Flackern/alter Screen).
+      var started = false;
+      function onPhase(phase) {
+        if (phase === 'playing' && !started) {
+          started = true;
+          room.off('phase', onPhase);
+          room.off('players', renderPlayers);
+          startMulti();
+        }
+      }
       room.on('players', renderPlayers);
-      room.on('phase', function (phase) {
-        if (phase === 'playing') startMulti();
-      });
+      room.on('phase', onPhase);
       renderPlayers();
       current.cleanup = function () { /* leaveRoom übernimmt das Aufräumen */ };
     }
