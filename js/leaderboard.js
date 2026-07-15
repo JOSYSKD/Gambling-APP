@@ -104,11 +104,6 @@
         driver.save(list);
       }
       emit();
-    },
-
-    reset: function () {
-      driver.save([]);
-      emit();
     }
   };
 
