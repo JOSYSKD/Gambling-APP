@@ -157,6 +157,9 @@ js/
   net.js              Multiplayer-Räume (PeerJS/WebRTC, Fallback lokal) — Room-API
   cloud.js            Keyloser Cloud-Speicher (JSONBlob) — kein Google-/Firebase-Konto nötig
   account.js          Konten (Passwort-Login, Sitzungssperre) — lokal, Cloud-Speicher oder Firebase
+  admin.js            Admin-Panel im Gambling-Bereich (Login "ADMIN"/"911911")
+  presence.js         Online-Präsenz auch für Gäste ohne Konto (fürs Admin Panel)
+  chat.js             Live-Gruppen-Chat als Slide-over-Panel (App.Chat, Backend-Driver austauschbar)
   minigames.js        Minigame-Hub: Übersicht, Modus-Wahl, Lobby mit Raum-Code
   mgutil.js           gemeinsame Bausteine (App.MG): Countdown, Timer, Live-Rangliste, Podest
   minigames/          je ein Modul pro Minispiel (registrieren sich in App.Minigames)
@@ -228,10 +231,16 @@ Programmieren nötig):
      "rules": {
        "rooms": { ".read": true, ".write": true },
        "leaderboard": { ".read": true, ".write": true },
-       "accounts": { ".read": true, ".write": true }
+       "accounts": { ".read": true, ".write": true },
+       "presence": { ".read": true, ".write": true },
+       "scores": { ".read": true, ".write": true },
+       "chat": { ".read": true, ".write": true }
      }
    }
    ```
+   (siehe auch [`database.rules.json`](database.rules.json) im Repo — reine Dokumentation,
+   wird nicht automatisch deployt. Bei "permission denied" auf einer neuen Firebase-Instanz
+   fehlt meist ein neuerer Eintrag hier, der in der Konsole noch nachgezogen werden muss.)
    Bewusst offen (keine Logins/Server), da es eine Spaß-Seite ohne sensible Daten ist —
    siehe Sicherheits-Hinweis zu Passwörtern weiter oben.
 
@@ -261,6 +270,18 @@ dann ein Knopf **🛠 Admin Panel öffnen** (`#/admin`, siehe `js/admin.js`) mit
 > ist, kann die Werte auch direkt über die Firebase-REST-API lesen/ändern. Für eine
 > Spaß-Seite unter Freunden/in der Klasse ist das ein bewusst vertretbarer Kompromiss —
 > bitte keine echten/sensiblen Passwörter hier verwenden.
+
+## 💬 Gruppen-Chat
+Ein 💬-Knopf in der Kopfleiste (links neben Bestenliste/Profil) öffnet ein **Slide-over-
+Panel** von rechts — auf jeder Seite, egal welches Spiel gerade läuft (siehe `js/chat.js`).
+- **Live:** Nachrichten kommen bei allen Besuchern per **Realtime-Push** an (Firebase, aktuell
+  aktiv). Fallbacks: Cloud-Speicher per Polling (~10s) bzw. rein lokal per `BroadcastChannel`
+  (mehrere Tabs im selben Browser).
+- Nachrichten zeigen Spielername (aus dem Profil) + Uhrzeit, eigene Nachrichten sind optisch
+  hervorgehoben, die letzten 200 Nachrichten werden aufbewahrt.
+- Kleiner roter Punkt am 💬-Knopf für ungelesene Nachrichten, solange das Panel geschlossen ist.
+- Panel schließt per ✕-Knopf, Klick auf den abgedunkelten Hintergrund oder erneutem Klick auf
+  den 💬-Knopf.
 
 ## 🔄 Versions-Check (erzwungenes Neuladen)
 `js/version.js` vergleicht beim Start (und danach alle 25 Sek.) `window.APP_VERSION` mit

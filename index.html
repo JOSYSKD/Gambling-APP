@@ -26,6 +26,7 @@
         <span class="balance-value" id="balance-value">0</span>
       </div>
       <nav class="topnav">
+        <button type="button" class="topnav-link chat-toggle" id="chat-toggle-btn" title="Gruppen-Chat">💬<span class="chat-badge" id="chat-badge" hidden></span></button>
         <a href="#/leaderboard" class="topnav-link" title="Bestenliste">🏆</a>
         <a href="#/profile" class="topnav-link" title="Profil">👤</a>
       </nav>
@@ -81,6 +82,8 @@
   <script src="js/admin.js"></script>
   <!-- Online-Präsenz auch für Spieler ohne Konto ("Gäste"), damit das Admin Panel wirklich alle sieht -->
   <script src="js/presence.js"></script>
+  <!-- Live-Gruppen-Chat als Slide-over-Panel (💬-Knopf in der Kopfleiste) -->
+  <script src="js/chat.js"></script>
   <!-- Poker-Hand-Bewertung (gemeinsam für alle Poker-Spiele) -->
   <script src="js/poker-eval.js"></script>
   <!-- Gambling-Spiele -->
