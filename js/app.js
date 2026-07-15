@@ -230,14 +230,6 @@
         : 'Höchster Coin-Stand pro Run (Peak). Kein Cloud-Backend konfiguriert — aktuell nur Runs aus diesem Browser sichtbar.';
       container.appendChild(el('p', { class: 'lb-hint' }, [hint]));
       container.appendChild(el('div', { class: 'lb-list' }, rows));
-      container.appendChild(el('div', { class: 'lb-actions' }, [
-        el('button', { class: 'btn btn-danger', type: 'button', onclick: function () {
-          if (window.confirm('Bestenliste wirklich komplett löschen? Das kann nicht rückgängig gemacht werden.')) {
-            App.Leaderboard.reset();
-            UI.toast('Bestenliste zurückgesetzt', 'info');
-          }
-        } }, ['🗑️ Leaderboard zurücksetzen'])
-      ]));
     }
 
     draw();

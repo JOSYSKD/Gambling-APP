@@ -316,7 +316,6 @@ body {
 .lb-row.bronze .lb-rank { color: var(--bronze); }
 .lb-row.active { outline: 2px dashed var(--aqua); outline-offset: -2px; }
 .lb-empty { color: var(--muted); text-align: center; padding: 30px; }
-.lb-actions { margin-top: 20px; text-align: center; }
 
 /* ---------- Profil / Modal ---------- */
 .profile-card { padding: 26px; display: flex; flex-direction: column; gap: 12px; max-width: 460px; }
