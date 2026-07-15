@@ -159,16 +159,32 @@
       ]);
 
       /* ---------------- Einsatz + Drehen ---------------- */
-      var betPanel = UI.createBetPanel({ initial: 50 });
+      var betPanel = UI.createBetPanel({ initial: 50, onChange: updateSpinSub });
 
       var betLabelEl = el('span', { class: 'rl-cur-bet', text: 'keine' });
       var currentBet = el('div', { class: 'rl-cur' }, [
         el('span', { class: 'rl-cur-l' }, ['Gewählt:']), betLabelEl
       ]);
 
+      var spinSubTxt = el('span', {}, ['']);
+      var spinSubWin = el('span', { class: 'bs-win' }, ['']);
       var spinBtn = el('button', {
-        class: 'btn btn-primary btn-lg rl-spin', type: 'button', onclick: doSpin
-      }, ['🎡 Drehen']);
+        class: 'btn btn-primary btn-lg rl-spin btn-2l', type: 'button', onclick: doSpin
+      }, [
+        el('span', { class: 'btn-main' }, ['🎡 Drehen']),
+        el('span', { class: 'btn-sub' }, [spinSubTxt, spinSubWin])
+      ]);
+
+      function updateSpinSub() {
+        var bet = betPanel.getBet();
+        if (!selected) {
+          spinSubTxt.textContent = 'Einsatz ' + UI.formatCoins(bet) + ' 🪙 · Wette wählen';
+          spinSubWin.textContent = '';
+          return;
+        }
+        spinSubTxt.textContent = (selected.mult - 1) + ':1 · Einsatz ' + UI.formatCoins(bet) + ' 🪙 · ';
+        spinSubWin.textContent = '+' + UI.formatCoins(bet * selected.mult - bet);
+      }
 
       var controls = el('div', { class: 'game-panel glass rl-controls' }, [
         el('div', { class: 'controls-row' }, [betPanel.root, spinBtn]),
@@ -201,9 +217,14 @@
 
       /* ---------------- Ablauf ---------------- */
       function updateBetLabel() {
-        if (!selected) { betLabelEl.textContent = 'keine'; betLabelEl.className = 'rl-cur-bet'; return; }
+        if (!selected) {
+          betLabelEl.textContent = 'keine'; betLabelEl.className = 'rl-cur-bet';
+          updateSpinSub();
+          return;
+        }
         betLabelEl.textContent = selected.label + '  (' + (selected.mult - 1) + ':1)';
         betLabelEl.className = 'rl-cur-bet on';
+        updateSpinSub();
       }
 
       function setLocked(lock) {

@@ -78,9 +78,13 @@
       var overlay = el('div', { class: 'crash-overlay' }, [readout, status]);
       var stage = el('div', { class: 'game-stage crash-stage' }, [canvas, overlay]);
 
-      var betPanel = UI.createBetPanel({ initial: 50 });
+      var betPanel = UI.createBetPanel({ initial: 50, onChange: updateStartSub });
 
-      var startBtn = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button', onclick: startRound }, ['🚀 Start']);
+      var startSub = el('span', { class: 'btn-sub' }, ['']);
+      var startBtn = el('button', { class: 'btn btn-primary btn-lg btn-block btn-2l', type: 'button', onclick: startRound }, [
+        el('span', { class: 'btn-main' }, ['🚀 Start']),
+        startSub
+      ]);
       var cashBtn = el('button', { class: 'btn btn-aqua btn-lg btn-block', type: 'button', disabled: true, onclick: cashout }, ['CASHOUT']);
       var actions = el('div', { class: 'crash-actions' }, [startBtn, cashBtn]);
 
@@ -98,8 +102,13 @@
 
       renderHistory();
       drawScene();
+      updateStartSub();
 
       /* -------------------- Buttons/Anzeige -------------------- */
+      function updateStartSub() {
+        startSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🪙';
+      }
+
       function updateButtons() {
         startBtn.disabled = (state.phase !== 'idle');
         cashBtn.disabled = (state.phase !== 'running');

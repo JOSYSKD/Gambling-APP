@@ -136,14 +136,23 @@
         paytable
       ]);
 
-      var betPanel = UI.createBetPanel({ initial: 50, onChange: function () {} });
+      var betPanel = UI.createBetPanel({ initial: 50, onChange: updateSpinSub });
+      var spinSub = el('span', { class: 'btn-sub' }, ['']);
       var spinBtn = el('button', {
-        class: 'btn btn-primary btn-lg btn-block wh-spin', type: 'button',
+        class: 'btn btn-primary btn-lg btn-block wh-spin btn-2l', type: 'button',
         onclick: doSpin
-      }, ['🌀 Drehen']);
+      }, [
+        el('span', { class: 'btn-main' }, ['🌀 Drehen']),
+        spinSub
+      ]);
       var betRow = el('div', { class: 'wh-betrow' }, [betPanel.root, spinBtn]);
 
       root.appendChild(el('div', { class: 'wh-wrap' }, [stage, controlsPanel, betRow]));
+
+      function updateSpinSub() {
+        spinSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🪙';
+      }
+      updateSpinSub();
 
       function setControlsDisabled(d) {
         controlsDisabled = d;

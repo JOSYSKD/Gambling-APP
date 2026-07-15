@@ -146,7 +146,11 @@
       ]);
 
       /* ---- Aktions-Buttons ---- */
-      var startBtn = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button', onclick: startRound }, ['💣 Start']);
+      var startSub = el('span', { class: 'btn-sub' }, ['']);
+      var startBtn = el('button', { class: 'btn btn-primary btn-lg btn-block btn-2l', type: 'button', onclick: startRound }, [
+        el('span', { class: 'btn-main' }, ['💣 Start']),
+        startSub
+      ]);
       var cashBtn = el('button', { class: 'btn btn-aqua btn-lg btn-block', type: 'button', onclick: function () { cashOut(false); } }, ['💰 Cashout']);
       var newBtn = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button', onclick: resetToSetup }, ['🌱 Neue Runde']);
       cashBtn.hidden = true; newBtn.hidden = true;
@@ -335,6 +339,8 @@
           hintEl.textContent = m + ' Minen · pro Feld ab ×' + fmtMult(multFor(m, 1))
             + ' · alle ' + total + ' Felder → ×' + fmtMult(multFor(m, total));
         }
+
+        startSub.textContent = 'Einsatz ' + UI.formatCoins(betPreview) + ' 🪙 · ' + m + ' Minen';
       }
 
       // Startzustand

@@ -79,12 +79,18 @@
         { key: 'heads', label: '🙂 Kopf' },
         { key: 'tails', label: '🔢 Zahl' }
       ];
+      var sideWinSpans = [];
       var sideBtns = sideDefs.map(function (s) {
+        var winSpan = el('span', { class: 'bs-win' }, ['']);
+        sideWinSpans.push(winSpan);
         return el('button', {
-          class: 'btn cf-sidebtn' + (state.side === s.key ? ' active' : ''),
+          class: 'btn cf-sidebtn btn-2l' + (state.side === s.key ? ' active' : ''),
           type: 'button',
           onclick: function () { if (!controlsDisabled) selectSide(s.key); }
-        }, [s.label]);
+        }, [
+          el('span', { class: 'btn-main' }, [s.label]),
+          el('span', { class: 'btn-sub' }, ['×' + MULT.toFixed(2) + ' · ', winSpan])
+        ]);
       });
       var sideRow = el('div', { class: 'cf-sides' }, sideBtns);
 
@@ -106,10 +112,14 @@
 
       // ----- Einsatz + Werfen -----
       var betPanel = UI.createBetPanel({ initial: 50, onChange: updateInfo });
+      var flipSub = el('span', { class: 'btn-sub' }, ['']);
       var flipBtn = el('button', {
-        class: 'btn btn-primary btn-lg btn-block cf-flip', type: 'button',
+        class: 'btn btn-primary btn-lg btn-block cf-flip btn-2l', type: 'button',
         onclick: doFlip
-      }, ['🪙 Werfen']);
+      }, [
+        el('span', { class: 'btn-main' }, ['🪙 Werfen']),
+        flipSub
+      ]);
       var betRow = el('div', { class: 'cf-betrow' }, [betPanel.root, flipBtn]);
 
       root.appendChild(el('div', { class: 'cf-wrap' }, [stage, controlsPanel, betRow]));
@@ -122,7 +132,10 @@
 
       function updateInfo() {
         var bet = betPanel.getBet();
-        winV.textContent = '+' + UI.formatCoins(Math.round(bet * MULT) - bet);
+        var net = Math.round(bet * MULT) - bet;
+        winV.textContent = '+' + UI.formatCoins(net);
+        sideWinSpans.forEach(function (sp) { sp.textContent = '+' + UI.formatCoins(net); });
+        flipSub.textContent = 'Einsatz ' + UI.formatCoins(bet) + ' 🪙';
       }
 
       function setControlsDisabled(d) {

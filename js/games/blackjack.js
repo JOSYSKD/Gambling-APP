@@ -155,10 +155,20 @@
         onChange: function () { if (phase === 'idle') refreshButtons(); }
       });
 
-      var dealBtn = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, ['🍃 Geben']);
-      var hitBtn = el('button', { class: 'btn btn-aqua', type: 'button' }, ['Hit']);
-      var standBtn = el('button', { class: 'btn', type: 'button' }, ['Stand']);
-      var doubleBtn = el('button', { class: 'btn', type: 'button' }, ['Double']);
+      var dealSub = el('span', { class: 'btn-sub' }, ['']);
+      var dealBtn = el('button', { class: 'btn btn-primary btn-lg btn-block btn-2l', type: 'button' }, [
+        el('span', { class: 'btn-main' }, ['🍃 Geben']), dealSub
+      ]);
+      var hitBtn = el('button', { class: 'btn btn-aqua btn-2l', type: 'button' }, [
+        el('span', { class: 'btn-main' }, ['Hit']), el('span', { class: 'btn-sub' }, ['Karte'])
+      ]);
+      var standBtn = el('button', { class: 'btn btn-2l', type: 'button' }, [
+        el('span', { class: 'btn-main' }, ['Stand']), el('span', { class: 'btn-sub' }, ['Passen'])
+      ]);
+      var doubleSub = el('span', { class: 'btn-sub' }, ['']);
+      var doubleBtn = el('button', { class: 'btn btn-2l', type: 'button' }, [
+        el('span', { class: 'btn-main' }, ['Double']), doubleSub
+      ]);
 
       var panel = el('div', { class: 'game-panel glass bj-controls' }, [
         betPanel.root,
@@ -224,13 +234,18 @@
 
       /* ---------- Buttons ---------- */
       function refreshButtons() {
-        var canDeal = (phase === 'idle') && App.Coins.canBet(betPanel.getBet());
+        var bet = betPanel.getBet();
+        var canDeal = (phase === 'idle') && App.Coins.canBet(bet);
         dealBtn.disabled = !canDeal;
         betPanel.setDisabled(phase !== 'idle');
         var inTurn = (phase === 'player');
         hitBtn.disabled = !inTurn;
         standBtn.disabled = !inTurn;
         doubleBtn.disabled = !(inTurn && player.length === 2 && App.Coins.canBet(roundBet));
+        // Detail-Zeilen aktuell halten
+        dealSub.textContent = 'Einsatz ' + UI.formatCoins(bet) + ' 🪙 · BJ 3:2';
+        var dblBase = (phase === 'idle') ? bet : roundBet;
+        doubleSub.textContent = 'auf ' + UI.formatCoins(dblBase * 2) + ' 🪙';
       }
       function setPhase(p) { phase = p; refreshButtons(); }
 

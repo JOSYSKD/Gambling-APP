@@ -126,12 +126,19 @@
         { key: 'under', label: 'Unter X ▼' },
         { key: 'exact', label: 'Exakt N ◎' }
       ];
+      var typeSubData = [];
       var typeBtns = typeDefs.map(function (t) {
+        var multSpan = el('span', {}, ['']);
+        var winSpan = el('span', { class: 'bs-win' }, ['']);
+        typeSubData.push({ key: t.key, multSpan: multSpan, winSpan: winSpan });
         return el('button', {
-          class: 'btn cr-typebtn' + (state.type === t.key ? ' active' : ''),
+          class: 'btn cr-typebtn btn-2l' + (state.type === t.key ? ' active' : ''),
           type: 'button',
           onclick: function () { if (!controlsDisabled) selectType(t.key); }
-        }, [t.label]);
+        }, [
+          el('span', { class: 'btn-main' }, [t.label]),
+          el('span', { class: 'btn-sub' }, [multSpan, ' · ', winSpan])
+        ]);
       });
       var typeRow = el('div', { class: 'cr-types' }, typeBtns);
 
@@ -160,10 +167,14 @@
 
       // ----- Einsatz + Würfeln -----
       var betPanel = UI.createBetPanel({ initial: 50, onChange: updateInfo });
+      var rollSub = el('span', { class: 'btn-sub' }, ['']);
       var rollBtn = el('button', {
-        class: 'btn btn-primary btn-lg btn-block cr-roll', type: 'button',
+        class: 'btn btn-primary btn-lg btn-block cr-roll btn-2l', type: 'button',
         onclick: doRoll
-      }, ['🎲 Würfeln']);
+      }, [
+        el('span', { class: 'btn-main' }, ['🎲 Würfeln']),
+        rollSub
+      ]);
       var betRow = el('div', { class: 'cr-betrow' }, [betPanel.root, rollBtn]);
 
       root.appendChild(el('div', { class: 'cr-wrap' }, [stage, controlsPanel, betRow]));
@@ -177,6 +188,14 @@
         return 1; // exact
       }
       function multiplier() { return (6 / winningCount()) * HOUSE; }
+      // Multiplikator einer Wettart anhand ihrer eigenen gespeicherten Schwelle.
+      function multForType(key) {
+        var w;
+        if (key === 'over')  w = 6 - state.over;
+        else if (key === 'under') w = state.under - 1;
+        else w = 1;
+        return (6 / w) * HOUSE;
+      }
       function isWin(roll, snap) {
         if (snap.type === 'over')  return roll > snap.threshold;
         if (snap.type === 'under') return roll < snap.threshold;
@@ -223,6 +242,13 @@
         chanceV.textContent = Math.round(w / 6 * 100) + '% (' + w + '/6)';
         var bet = betPanel.getBet();
         winV.textContent = '+' + UI.formatCoins(Math.round(bet * mult) - bet);
+        // Quote + möglicher Netto-Gewinn je Wettart-Button aktuell halten.
+        typeSubData.forEach(function (d) {
+          var mt = multForType(d.key);
+          d.multSpan.textContent = '×' + mt.toFixed(2);
+          d.winSpan.textContent = '+' + UI.formatCoins(Math.round(bet * mt) - bet);
+        });
+        rollSub.textContent = 'Einsatz ' + UI.formatCoins(bet) + ' 🪙';
         var relation = state.type === 'over' ? 'größer als' : state.type === 'under' ? 'kleiner als' : 'genau';
         descEl.innerHTML = '';
         descEl.appendChild(document.createTextNode('Der Wurf muss ' + relation + ' '));

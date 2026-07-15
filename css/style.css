@@ -158,6 +158,14 @@ body {
 .btn-danger { color: #fff; background: linear-gradient(180deg, var(--danger-2), var(--danger)); border-color: var(--danger); box-shadow: 0 0 16px rgba(255,77,109,0.4); }
 .btn-block { width: 100%; }
 
+/* Zweizeiliger Button: Hauptlabel + kleine Detailzeile (Quote / möglicher Gewinn / Einsatz) */
+.btn-2l { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.12; gap: 2px; }
+.btn-2l .btn-main { font-weight: 800; }
+.btn-sub { font-size: 11px; font-weight: 700; opacity: .82; letter-spacing: .2px; }
+.btn-primary .btn-sub, .btn-aqua .btn-sub { opacity: .92; }
+.btn-sub .bs-win { color: var(--gold); }
+.btn-primary .btn-sub .bs-win, .btn-aqua .btn-sub .bs-win { color: inherit; }
+
 /* ---------- Menü / Hero ---------- */
 .menu-wrap { display: flex; flex-direction: column; gap: 28px; }
 .hero { text-align: center; padding: 24px 10px 6px; }

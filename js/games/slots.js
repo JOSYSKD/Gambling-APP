@@ -91,10 +91,19 @@
 
       var stage = el('div', { class: 'game-stage slots-stage' }, [readout, reelsRow]);
 
-      var betPanel = UI.createBetPanel({ initial: 50 });
+      var betPanel = UI.createBetPanel({ initial: 50, onChange: updateSpinSub });
+      var spinSub = el('span', { class: 'btn-sub' }, ['']);
       var spinBtn = el('button', {
-        class: 'btn btn-primary btn-lg slots-spin', type: 'button', onclick: onSpin
-      }, ['🎰 Drehen']);
+        class: 'btn btn-primary btn-lg slots-spin btn-2l', type: 'button', onclick: onSpin
+      }, [
+        el('span', { class: 'btn-main' }, ['🎰 Drehen']),
+        spinSub
+      ]);
+
+      function updateSpinSub() {
+        spinSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🪙';
+      }
+      updateSpinSub();
 
       var controls = el('div', { class: 'controls-row slots-controls' }, [
         betPanel.root, spinBtn
