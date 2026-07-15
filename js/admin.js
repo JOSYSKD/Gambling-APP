@@ -92,10 +92,17 @@
     // js/presence.js). Ein Gast, der sich später einloggt, wird über sein
     // `accountKey` im Präsenz-Eintrag erkannt und nicht doppelt gelistet.
     listPlayers: function () {
-      return Promise.all([
-        App.Account.adminListAccounts(),
-        App.Account.adminListPresence()
-      ]).then(function (r) {
+      // WICHTIG: Konten- und Gäste-Liste unabhängig voneinander laden. Auf der
+      // Live-DB ist die Regel für den 'presence'-Knoten evtl. noch nicht
+      // veröffentlicht (database.rules.json muss in Firebase publiziert werden)
+      // -> dann liefert adminListPresence() "Permission denied". Früher riss
+      // dieser eine Fehler via Promise.all die GANZE Liste mit runter, sodass
+      // das Panel nur noch eine Fehlermeldung zeigte. Jetzt fangen wir jeden
+      // Teil einzeln ab: Konten werden immer angezeigt, Gäste nur wenn möglich.
+      var presenceFailed = false;
+      var pAccounts = Promise.resolve(App.Account.adminListAccounts()).catch(function () { return {}; });
+      var pPresence = Promise.resolve(App.Account.adminListPresence()).catch(function () { presenceFailed = true; return {}; });
+      return Promise.all([pAccounts, pPresence]).then(function (r) {
         var accounts = r[0] || {}, presence = r[1] || {};
         var rows = [];
         Object.keys(accounts).forEach(function (key) {
@@ -119,6 +126,7 @@
             admin: p.admin || {}
           });
         });
+        rows.presenceFailed = presenceFailed;
         return rows;
       });
     },
@@ -246,6 +254,16 @@
           rows.length + ' Spieler insgesamt (Konten + Gäste) · 🟢 ' + onlineCount + ' gerade online.'
           + ' Chancen-Änderung wirkt als Gewinn-Faktor über alle Gambling-Spiele hinweg.'
         ]));
+        if (rows.presenceFailed) {
+          // Gäste (Spieler ohne Konto) brauchen Lese-/Schreibzugriff auf den
+          // 'presence'-Knoten in Firebase. Solange die Regeln (database.rules.json)
+          // dort nicht veröffentlicht sind, sieht der Admin nur Konten.
+          root.appendChild(el('p', { class: 'lb-hint', style: 'color:var(--gold);' }, [
+            '⚠️ Gäste ohne Konto können gerade nicht geladen werden '
+            + '(Firebase-Regel für „presence" noch nicht veröffentlicht). '
+            + 'Konten werden trotzdem angezeigt.'
+          ]));
+        }
         root.appendChild(el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
           Admin.logout();
           UI.toast('Admin-Modus beendet', 'info');
@@ -269,9 +287,16 @@
           loading = false;
           draw(rows || []);
         }).catch(function () {
+          // listPlayers() fängt Teil-Fehler inzwischen selbst ab und wirft
+          // praktisch nie mehr. Falls doch (kein Backend), NICHT die ganze Seite
+          // leerräumen — sonst verschwindet auch der Zurück-/Verlassen-Knopf und
+          // der Admin sitzt fest. Nur eine dezente Meldung anhängen.
           loading = false;
-          root.innerHTML = '';
-          root.appendChild(el('p', { class: 'err' }, ['Spieler konnten nicht geladen werden (kein geteiltes Backend konfiguriert?).']));
+          if (!root.querySelector('.admin-load-err')) {
+            root.appendChild(el('p', { class: 'lb-hint admin-load-err', style: 'color:var(--gold);' }, [
+              'Spieler konnten nicht geladen werden. Neuer Versuch in wenigen Sekunden …'
+            ]));
+          }
         });
       }
 
