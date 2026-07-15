@@ -67,32 +67,32 @@
       '.ts-gain{margin-left:auto;font-weight:800;color:var(--neon);}',
       '.ts-pts{font-weight:900;min-width:52px;text-align:right;}',
       /* Sieger */
-      '.tw-stage{position:relative;overflow:hidden;border-radius:18px;padding:40px 18px;text-align:center;',
+      '.tv-stage{position:relative;overflow:hidden;border-radius:18px;padding:40px 18px;text-align:center;',
       'background:radial-gradient(120% 90% at 50% 0%,rgba(255,190,40,.28),rgba(2,10,6,.9) 70%);',
       'border:1px solid rgba(255,199,64,.55);}',
-      '.tw-crown{font-size:70px;animation:tw-bob 2.2s ease-in-out infinite;}',
-      '@keyframes tw-bob{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-12px) rotate(4deg);}}',
-      '.tw-name{font-size:40px;font-weight:900;margin:6px 0;',
+      '.tv-crown{font-size:70px;animation:tv-bob 2.2s ease-in-out infinite;}',
+      '@keyframes tv-bob{0%,100%{transform:translateY(0) rotate(-4deg);}50%{transform:translateY(-12px) rotate(4deg);}}',
+      '.tv-name{font-size:40px;font-weight:900;margin:6px 0;',
       'background:linear-gradient(180deg,#fff6cc,#ffc740 45%,#ff8a00);-webkit-background-clip:text;background-clip:text;',
       '-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 18px rgba(255,180,40,.85));}',
-      '.tw-sub{font-size:15px;opacity:.9;}',
-      '.tw-prize{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:12px 20px;border-radius:999px;',
+      '.tv-sub{font-size:15px;opacity:.9;}',
+      '.tv-prize{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:12px 20px;border-radius:999px;',
       'font-size:17px;font-weight:800;color:#2a1500;background:linear-gradient(180deg,#ffe9a3,#ffc740);',
-      'box-shadow:0 0 26px rgba(255,190,50,.8);animation:tw-glow 1.5s ease-in-out infinite;}',
-      '@keyframes tw-glow{50%{box-shadow:0 0 46px rgba(255,210,90,1);transform:scale(1.04);}}',
-      '.tw-flame{position:absolute;bottom:-14px;width:14px;height:14px;border-radius:50%;pointer-events:none;',
-      'background:radial-gradient(circle,#fff3b0,#ffb020 55%,rgba(255,90,0,0));animation:tw-rise linear infinite;}',
-      '@keyframes tw-rise{0%{transform:translateY(0) scale(1);opacity:0;}',
+      'box-shadow:0 0 26px rgba(255,190,50,.8);animation:tv-glow 1.5s ease-in-out infinite;}',
+      '@keyframes tv-glow{50%{box-shadow:0 0 46px rgba(255,210,90,1);transform:scale(1.04);}}',
+      '.tv-flame{position:absolute;bottom:-14px;width:14px;height:14px;border-radius:50%;pointer-events:none;',
+      'background:radial-gradient(circle,#fff3b0,#ffb020 55%,rgba(255,90,0,0));animation:tv-rise linear infinite;}',
+      '@keyframes tv-rise{0%{transform:translateY(0) scale(1);opacity:0;}',
       '12%{opacity:1;}100%{transform:translateY(-320px) scale(.25);opacity:0;}}',
-      '.tw-spark{position:absolute;top:-12px;font-size:16px;pointer-events:none;animation:tw-fall linear infinite;}',
-      '@keyframes tw-fall{0%{transform:translateY(0) rotate(0);opacity:0;}10%{opacity:1;}',
+      '.tv-spark{position:absolute;top:-12px;font-size:16px;pointer-events:none;animation:tv-fall linear infinite;}',
+      '@keyframes tv-fall{0%{transform:translateY(0) rotate(0);opacity:0;}10%{opacity:1;}',
       '100%{transform:translateY(460px) rotate(420deg);opacity:0;}}',
-      '.tw-ray{position:absolute;top:50%;left:50%;width:2px;height:150%;transform-origin:top center;pointer-events:none;',
-      'background:linear-gradient(180deg,rgba(255,205,80,.5),rgba(255,205,80,0));animation:tw-spin 9s linear infinite;}',
-      '@keyframes tw-spin{100%{transform:rotate(360deg);}}',
-      '.reduce-motion .tw-flame,.reduce-motion .tw-spark,.reduce-motion .tw-ray,',
-      '.reduce-motion .tw-crown,.reduce-motion .tw-prize{animation:none;}',
-      '.tw-loser{font-size:19px;font-weight:800;margin:6px 0;}'
+      '.tv-ray{position:absolute;top:50%;left:50%;width:2px;height:150%;transform-origin:top center;pointer-events:none;',
+      'background:linear-gradient(180deg,rgba(255,205,80,.5),rgba(255,205,80,0));animation:tv-spin 9s linear infinite;}',
+      '@keyframes tv-spin{100%{transform:rotate(360deg);}}',
+      '.reduce-motion .tv-flame,.reduce-motion .tv-spark,.reduce-motion .tv-ray,',
+      '.reduce-motion .tv-crown,.reduce-motion .tv-prize{animation:none;}',
+      '.tv-loser{font-size:19px;font-weight:800;margin:6px 0;}'
     ].join(''));
   }
 
@@ -360,12 +360,12 @@
         var host2 = el('div', {});
         stage.appendChild(host2);
 
-        /* Duelle und Poker/Casino melden keinen Punktestand, sondern tragen bei
-         * einem Sieg in ihre Bestenliste ein (App.Scores.winCurrent, siehe
-         * js/scores.js). Für die Rundenwertung hängen wir uns genau dort ein:
-         * wer gewinnt, meldet eine 1. */
+        /* Duelle, Poker/Casino-Tische und Koop melden keinen Punktestand,
+         * sondern tragen bei einem Sieg in ihre Bestenliste ein
+         * (App.Scores.winCurrent, siehe js/scores.js). Für die Rundenwertung
+         * hängen wir uns genau dort ein: wer gewinnt, meldet eine 1. */
         var restoreWin = null;
-        if (kind === 'duel' || kind === 'coop' || (def && def.group === 'live')) {
+        if (T.isWinBased(kind)) {
           var orig = App.Scores.winCurrent;
           App.Scores.winCurrent = function () {
             try { if (gRoom) gRoom.reportScore(1); } catch (e) {}
@@ -464,19 +464,19 @@
       catch (e) { UI.toast('Preis konnte nicht gutgeschrieben werden: ' + e.message, 'lose'); }
     }
 
-    var stage = el('div', { class: 'glass tw-stage' });
+    var stage = el('div', { class: 'glass tv-stage' });
 
     // Rotierende Lichtstrahlen hinter allem
     for (var r = 0; r < 6; r++) {
       stage.appendChild(el('div', {
-        class: 'tw-ray',
+        class: 'tv-ray',
         style: 'transform:rotate(' + (r * 60) + 'deg);animation-delay:' + (-r * 1.5) + 's;'
       }));
     }
     // Goldene Flammen von unten
     for (var f = 0; f < 26; f++) {
       stage.appendChild(el('div', {
-        class: 'tw-flame',
+        class: 'tv-flame',
         style: 'left:' + (Math.random() * 100) + '%;animation-duration:' + (1.6 + Math.random() * 1.8) + 's;' +
           'animation-delay:' + (Math.random() * 2) + 's;width:' + (8 + Math.random() * 16) + 'px;' +
           'height:' + (8 + Math.random() * 16) + 'px;'
@@ -486,19 +486,19 @@
     var sparks = ['✨', '⭐', '🌟', '💫', '🔥'];
     for (var s2 = 0; s2 < 22; s2++) {
       stage.appendChild(el('div', {
-        class: 'tw-spark',
+        class: 'tv-spark',
         style: 'left:' + (Math.random() * 100) + '%;animation-duration:' + (2.4 + Math.random() * 2.6) + 's;' +
           'animation-delay:' + (Math.random() * 3) + 's;font-size:' + (12 + Math.random() * 14) + 'px;'
       }, [sparks[Math.floor(Math.random() * sparks.length)]]));
     }
 
-    stage.appendChild(el('div', { class: 'tw-crown' }, ['👑']));
-    stage.appendChild(el('div', { class: 'tw-sub' }, ['Turniersieger']));
-    stage.appendChild(el('div', { class: 'tw-name' }, [(w.avatar || '') + ' ' + w.name]));
-    stage.appendChild(el('div', { class: 'tw-sub' }, [w.points + ' Punkte · ' + (T.config() ? T.config().title : 'Turnier')]));
-    stage.appendChild(el('div', { class: 'tw-prize' }, ['⚡ ' + prizeText]));
+    stage.appendChild(el('div', { class: 'tv-crown' }, ['👑']));
+    stage.appendChild(el('div', { class: 'tv-sub' }, ['Turniersieger']));
+    stage.appendChild(el('div', { class: 'tv-name' }, [(w.avatar || '') + ' ' + w.name]));
+    stage.appendChild(el('div', { class: 'tv-sub' }, [w.points + ' Punkte · ' + (T.config() ? T.config().title : 'Turnier')]));
+    stage.appendChild(el('div', { class: 'tv-prize' }, ['⚡ ' + prizeText]));
     if (iWon) {
-      stage.appendChild(el('div', { class: 'tw-sub', style: 'margin-top:12px;font-weight:800;color:#ffe9a3;' }, [
+      stage.appendChild(el('div', { class: 'tv-sub', style: 'margin-top:12px;font-weight:800;color:#ffe9a3;' }, [
         claimed ? '🎉 Dein Power-Up ist aktiv!' : '🎉 Glückwunsch!'
       ]));
     }
@@ -513,7 +513,7 @@
       var mine = T.ranking().filter(function (p) { return p.pid === me; })[0];
       var place = T.ranking().findIndex(function (p) { return p.pid === me; }) + 1;
       if (mine) {
-        root.appendChild(el('p', { class: 'tw-loser', style: 'text-align:center;' }, [
+        root.appendChild(el('p', { class: 'tv-loser', style: 'text-align:center;' }, [
           'Du wurdest ' + place + '. mit ' + mine.points + ' Punkten.'
         ]));
       }

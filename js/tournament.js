@@ -56,8 +56,13 @@
    *
    *  'score'  Wettbewerb: alle spielen gleichzeitig, room.reportScore() zählt.
    *  'duel'   1-gegen-1: Spieler werden gepaart, jedes Paar spielt für sich.
+   *  'live'   Poker/Casino-Tisch: alle an einem Tisch, gewertet wird der Sieg.
    *  'coop'   Team: alle zusammen, Erfolg zählt für alle gleich.
    *  'gamble' Solo-Gambling: gewertet wird der Coin-Gewinn im Zeitfenster.
+   *
+   * 'duel', 'live' und 'coop' melden keinen Punktestand, sondern tragen bei
+   * einem Sieg in ihre Bestenliste ein (App.Scores.winCurrent) — dort hängt sich
+   * die Rundenwertung ein (siehe js/tournament-ui.js).
    */
   var DUEL_IDS = { tictactoe: 1, connect4: 1, chess: 1, pong: 1 };
 
@@ -66,11 +71,14 @@
     if (mg) {
       if (DUEL_IDS[gameId] || mg.maxPlayers === 2) return 'duel';
       if (mg.coop) return 'coop';
+      if (mg.group === 'live') return 'live';
       return 'score';
     }
     if (App.Games && App.Games[gameId]) return 'gamble';
     return null;
   }
+  /** true, wenn die Runde über Siege statt über Punkte gewertet wird. */
+  function isWinBased(kind) { return kind === 'duel' || kind === 'live' || kind === 'coop'; }
 
   function gameDef(gameId) {
     return (App.Minigames && App.Minigames[gameId]) || (App.Games && App.Games[gameId]) || null;
@@ -78,7 +86,7 @@
 
   /** Alle turnierfähigen Spiele, gruppiert — Vorlage für das Admin-Menü. */
   function catalog() {
-    var out = { score: [], duel: [], coop: [], gamble: [] };
+    var out = { score: [], duel: [], live: [], coop: [], gamble: [] };
     Object.keys(App.Minigames || {}).forEach(function (id) {
       var k = kindOf(id);
       if (k && out[k]) out[k].push({ id: id, title: App.Minigames[id].title, icon: App.Minigames[id].icon || '🎮', kind: k });
@@ -641,6 +649,7 @@
     claimPrizeIfWinner: claimPrizeIfWinner,
 
     kindOf: kindOf,
+    isWinBased: isWinBased,
     gameDef: gameDef,
     catalog: catalog,
     lowerIsBetter: lowerIsBetter,

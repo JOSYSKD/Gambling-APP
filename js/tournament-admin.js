@@ -16,9 +16,12 @@
   var KIND_LABEL = {
     score: '🏁 Wettbewerb — alle gleichzeitig, Punkte entscheiden',
     duel: '⚔️ Duell — Spieler werden paarweise gegeneinander gesetzt',
+    live: '🃏 Poker & Casino — alle an einem Tisch, gewertet wird der Sieg',
     coop: '🤝 Koop — alle im Team, Erfolg zählt für alle',
     gamble: '🎰 Gambling — gewertet wird der Coin-Gewinn in der Rundenzeit'
   };
+  // Kurzform für die Zeilen im Rundenplan
+  var KIND_SHORT = { score: 'Wettbewerb', duel: 'Duell', live: 'Poker/Casino', coop: 'Koop', gamble: 'Gambling' };
 
   function injectCss() {
     UI.injectStyle('tournament-admin-css', [
@@ -115,7 +118,7 @@
           el('span', { class: 'ta-num' }, [(i + 1) + '.']),
           el('span', {}, [(g && g.icon) || '🎮']),
           el('b', {}, [(g && g.title) || gid]),
-          el('span', { class: 'cf-info-l' }, [T.kindOf(gid) === 'gamble' ? 'Gambling' : T.kindOf(gid) === 'duel' ? 'Duell' : T.kindOf(gid) === 'coop' ? 'Koop' : 'Wettbewerb']),
+          el('span', { class: 'cf-info-l' }, [KIND_SHORT[T.kindOf(gid)] || 'Wettbewerb']),
           el('button', {
             class: 'btn btn-ghost ta-x', type: 'button', title: 'Runde entfernen',
             onclick: function () { plan.splice(i, 1); drawPlan(); }
@@ -128,7 +131,7 @@
     function drawPool() {
       pool.innerHTML = '';
       var cat = T.catalog();
-      ['score', 'duel', 'gamble', 'coop'].forEach(function (kind) {
+      ['score', 'duel', 'live', 'gamble', 'coop'].forEach(function (kind) {
         var items = cat[kind] || [];
         if (!items.length) return;
         pool.appendChild(el('div', { class: 'ta-kind-head' }, [KIND_LABEL[kind] + ' (' + items.length + ')']));
