@@ -21,7 +21,9 @@
   var KEY_SESSION = 'gj_session';
   var KEY_LOCAL_ACCOUNTS = 'gj_accounts_local';
   var KEY_LOCAL_LB = 'gj_lb_store_local';
+  var KEY_LOCAL_CHAT = 'gj_chat_local';
   var KEY_MIGRATED = 'gj_migrated_lb_v1';
+  var CHAT_MAX = 200;
 
   var HEARTBEAT_MS = 8000;
   var SESSION_STALE_MS = 20000; // Sitzung eines anderen Geräts gilt danach als "weg"
@@ -53,6 +55,11 @@
   }
 
   /* ---------- Backends ---------- */
+  // Nur für den lokalen Chat-Driver: BroadcastChannel, damit mehrere Tabs im
+  // selben Browser wenigstens untereinander "live" wirken (kein echter Server).
+  var chatBC = ('BroadcastChannel' in window) ? new BroadcastChannel('gj-chat-local') : null;
+  if (chatBC) chatBC.onmessage = function () { if (App.Chat) App.Chat.refresh(); };
+
   function localBackend() {
     function readAll() { return App.Storage.get(KEY_LOCAL_ACCOUNTS, {}); }
     function writeAll(o) { App.Storage.set(KEY_LOCAL_ACCOUNTS, o); }
@@ -72,6 +79,19 @@
             App.Leaderboard.refresh();
           },
           save: function (entries) { App.Storage.set(KEY_LOCAL_LB, entries || []); App.Leaderboard.refresh(); }
+        };
+      },
+      chatDriver: function () {
+        return {
+          load: function () { return App.Storage.get(KEY_LOCAL_CHAT, []); },
+          push: function (entry) {
+            var list = App.Storage.get(KEY_LOCAL_CHAT, []);
+            list.push(entry);
+            if (list.length > CHAT_MAX) list = list.slice(list.length - CHAT_MAX);
+            App.Storage.set(KEY_LOCAL_CHAT, list);
+            if (chatBC) chatBC.postMessage(1);
+            App.Chat.refresh();
+          }
         };
       }
     };
@@ -96,6 +116,21 @@
           push: function (entry) { ref.push(entry); },
           save: function (entries) { ref.set(entries && entries.length ? entries : null); }
         };
+      },
+      // Echter Realtime-Listener: neue Nachrichten kommen bei ALLEN Besuchern
+      // per Push an (kein Polling), genau wie bei der Bestenliste.
+      chatDriver: function () {
+        var cache = [];
+        var ref = db.ref('chat');
+        ref.limitToLast(CHAT_MAX).on('value', function (snap) {
+          var val = snap.val() || {};
+          cache = Object.keys(val).map(function (k) { return val[k]; }).sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
+          App.Chat.refresh();
+        });
+        return {
+          load: function () { return cache; },
+          push: function (entry) { ref.push(entry); }
+        };
       }
     };
   }
@@ -107,6 +142,11 @@
     function syncLbCache(state) { lbCache = (state && state.leaderboard) || []; App.Leaderboard.refresh(); }
     App.Cloud.onChange(syncLbCache);
     App.Cloud.load().then(syncLbCache).catch(function () {});
+
+    var chatCache = [];
+    function syncChatCache(state) { chatCache = (state && state.chat) || []; App.Chat.refresh(); }
+    App.Cloud.onChange(syncChatCache);
+    App.Cloud.load().then(syncChatCache).catch(function () {});
 
     return {
       kind: 'cloud',
@@ -134,6 +174,20 @@
           },
           save: function (entries) {
             return App.Cloud.mutate(function (state) { state.leaderboard = entries || []; }).then(syncLbCache).catch(function () {});
+          }
+        };
+      },
+      // Kein Push wie bei Firebase — neue Nachrichten kommen per Polling
+      // (~10s, siehe App.Cloud.startPolling oben) bei allen Besuchern an.
+      chatDriver: function () {
+        return {
+          load: function () { return chatCache; },
+          push: function (entry) {
+            return App.Cloud.mutate(function (state) {
+              state.chat = state.chat || [];
+              state.chat.push(entry);
+              if (state.chat.length > CHAT_MAX) state.chat = state.chat.slice(state.chat.length - CHAT_MAX);
+            }).then(syncChatCache).catch(function () {});
           }
         };
       }
@@ -255,6 +309,7 @@
       var lbDriver = be.leaderboardDriver();
       App.Leaderboard.useDriver(lbDriver);
       migrateOldLeaderboardOnce(lbDriver);
+      if (App.Chat) App.Chat.useDriver(be.chatDriver());
       return resumeSession();
     }).then(function () {
       state.ready = true;

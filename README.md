@@ -107,6 +107,9 @@ Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level scha
   neu vergeben. Pro Konto ist immer nur **eine aktive Sitzung gleichzeitig** erlaubt (ein
   zweites Login wird abgelehnt, solange die erste Sitzung noch aktiv ist).
 - Spielername im Profil änderbar.
+- **Live-Gruppen-Chat** (`js/chat.js`, 💬-Knopf in der Kopfleiste): öffnet sich als
+  Slide-over-Panel auf **jeder** Seite. Nachrichten aller Besucher landen in Echtzeit
+  bei allen anderen (Firebase-Push, siehe unten) — funktioniert wie ein echter Gruppenchat.
 - Responsive für Desktop und Handy.
 
 ### 🔐 Konten — geräteübergreifend (Firebase ist aktiv ✅)
@@ -151,6 +154,8 @@ js/
   daily.js            Täglicher Bonus mit Streak (App.Daily): 🎁 im Header
   scores.js           Pro-Spiel-Bestenliste (App.Scores): Highscore/Sieg-Zähler je Spiel
   poker-eval.js       Poker-Handbewertung (App.Poker) — gemeinsam für alle Poker-Tische
+  admin.js            Admin-Panel (App.Admin): Online-Übersicht, Chancen, Bann, Nachrichten
+  chat.js             Live-Gruppen-Chat (App.Chat): Slide-over-Panel, 💬 in der Kopfleiste
   router.js           Hash-Router (funktioniert unter file://)
   app.js              Menü, Navigation, Views, Game-Over
   games/              je ein Modul pro Gambling-Spiel (registrieren sich in App.Games)
@@ -228,7 +233,9 @@ Programmieren nötig):
      "rules": {
        "rooms": { ".read": true, ".write": true },
        "leaderboard": { ".read": true, ".write": true },
-       "accounts": { ".read": true, ".write": true }
+       "accounts": { ".read": true, ".write": true },
+       "scores": { ".read": true, ".write": true },
+       "chat": { ".read": true, ".write": true }
      }
    }
    ```
@@ -257,6 +264,24 @@ dann ein Knopf **🛠 Admin Panel öffnen** (`#/admin`, siehe `js/admin.js`) mit
 > ist, kann die Werte auch direkt über die Firebase-REST-API lesen/ändern. Für eine
 > Spaß-Seite unter Freunden/in der Klasse ist das ein bewusst vertretbarer Kompromiss —
 > bitte keine echten/sensiblen Passwörter hier verwenden.
+
+## 💬 Gruppen-Chat
+Der 💬-Knopf in der Kopfleiste (neben Bestenliste/Profil) öffnet ein Slide-over-Panel
+von rechts — auf **jeder** Seite, egal welches Spiel gerade läuft. Nachrichten zeigen
+Spielername (aus dem Profil, siehe `js/leaderboard.js`) + Uhrzeit und werden bei allen
+Besuchern live angezeigt:
+- **Firebase aktiv (Standard):** echter Realtime-Push, Nachrichten erscheinen sofort.
+- **Cloud-Speicher-Fallback:** Polling (~10s), wie die geteilte Bestenliste.
+- **Ganz ohne Backend (`file://`):** nur in diesem Browser, aber per `BroadcastChannel`
+  über mehrere Tabs synchron.
+
+Die letzten 200 Nachrichten werden aufbewahrt. Ein kleiner roter Punkt am 💬-Knopf zeigt
+ungelesene Nachrichten an, solange das Panel geschlossen ist.
+
+> ⚠️ Falls das Firebase-Projekt **schon vor diesem Feature** eingerichtet wurde, müssen die
+> veröffentlichten Datenbank-Regeln im Firebase-Konsolen-Reiter **Regeln** einmalig um den
+> `"chat": { ".read": true, ".write": true }`-Eintrag ergänzt werden (siehe `database.rules.json`
+> in diesem Repo) — sonst blockt Firebase den neuen `chat`-Pfad.
 
 ## 🛠️ Neue Spiele/Kategorien hinzufügen
 - Neues Spiel: eine Datei `js/games/<id>.js` anlegen, in `App.Games.<id>` registrieren
