@@ -1,7 +1,10 @@
 /* videopoker.js — "Video Poker" (Jacks or Better) im Neon-Dschungel.
  *
+ * Einziges Gambling-Spiel, das mit Pokerchips statt Coins gespielt wird
+ * (App.Chips) — Chips zuerst in der Kasse (#/chips) gegen Coins kaufen.
+ *
  * Ablauf (Zustandsmaschine):
- *   'bet'    -> Einsatz setzen, "Geben" teilt 5 Karten aus (App.Coins.add(-bet)).
+ *   'bet'    -> Einsatz setzen, "Geben" teilt 5 Karten aus (App.Chips.add(-bet)).
  *   'draw'   -> Karten anklicken = HALTEN togglen, "Tauschen" ersetzt die
  *               nicht gehaltenen Karten aus dem Restdeck.
  *   'result' -> Endblatt mit P.eval5 bewerten, Auszahlung gutschreiben,
@@ -52,10 +55,68 @@
   function rankLabel(card) { var r = card[0]; return r === 'T' ? '10' : r; }
   function isRed(card) { var s = P.suitOf(card); return s === 'h' || s === 'd'; }
 
+  /* Einsatz-Panel wie App.UI.createBetPanel, aber in Pokerchips (App.Chips) statt Coins. */
+  function buildChipBetPanel(options) {
+    options = options || {};
+    var MIN = App.Chips.MIN_BET;
+
+    var input = el('input', {
+      class: 'bet-input', type: 'number', min: MIN, step: 1,
+      value: Math.min(Math.max(MIN, options.initial || 1), Math.max(MIN, App.Chips.get())),
+      inputmode: 'numeric'
+    });
+
+    var quick = [1, 5, 10, 25, 100];
+    var quickBtns = quick.map(function (v) {
+      return el('button', { class: 'chip', type: 'button', onclick: function () { setBet(v); } }, [String(v)]);
+    });
+    var maxBtn = el('button', { class: 'chip chip-alt', type: 'button', onclick: function () {
+      setBet(App.Chips.get());
+    } }, ['Max']);
+
+    var chips = el('div', { class: 'bet-chips' }, quickBtns.concat([maxBtn]));
+
+    var label = el('label', { class: 'bet-label' }, ['Einsatz (Pokerchips)']);
+    var inputWrap = el('div', { class: 'bet-input-wrap' }, [
+      el('span', { class: 'bet-coin' }, ['🎟️']), input
+    ]);
+
+    var root = el('div', { class: 'bet-panel' }, [label, inputWrap, chips]);
+
+    function clamp(v) {
+      v = Math.floor(Number(v) || 0);
+      var bal = App.Chips.get();
+      if (v > bal) v = bal;
+      if (v < MIN) v = MIN;
+      return v;
+    }
+    function setBet(v) {
+      input.value = clamp(v);
+      if (options.onChange) options.onChange(getBet());
+    }
+    function getBet() { return clamp(input.value); }
+
+    input.addEventListener('change', function () { setBet(input.value); });
+    input.addEventListener('input', function () { if (options.onChange) options.onChange(getBet()); });
+
+    return {
+      root: root,
+      getBet: getBet,
+      setBet: setBet,
+      refresh: function () { if (getBet() > App.Chips.get()) setBet(App.Chips.get()); },
+      setDisabled: function (d) {
+        input.disabled = !!d;
+        [].concat(quickBtns, [maxBtn]).forEach(function (b) { b.disabled = !!d; });
+        root.classList.toggle('disabled', !!d);
+      }
+    };
+  }
+
   function injectCss() {
     UI.injectStyle('game-videopoker-css', [
       '.vp-wrap{display:flex;flex-direction:column;gap:18px;}',
       '.vp-stage{gap:18px;padding:22px 16px;}',
+      '@media (min-width:860px){.vp-wrap{display:grid;grid-template-columns:1fr 340px;align-items:start;}.vp-stage{grid-column:1 / -1;}.vp-paytable{grid-column:1;}.vp-controls{grid-column:2;}}',
       '.vp-banner{min-height:28px;font-weight:900;font-size:clamp(16px,4.6vw,24px);letter-spacing:1px;text-align:center;transition:.2s;color:var(--muted);}',
       '.vp-banner.win{color:var(--neon);text-shadow:0 0 14px rgba(57,255,20,.6);}',
       '.vp-banner.lose{color:var(--danger-2);text-shadow:0 0 12px rgba(255,77,109,.5);}',
@@ -70,7 +131,7 @@
         'padding:2px 9px;border-radius:999px;box-shadow:var(--glow);transition:opacity .16s,transform .16s;white-space:nowrap;}',
       '.vp-slot.held .vp-badge{opacity:1;transform:translateX(-50%) translateY(0);}',
       /* Karte */
-      '.vp-card{position:relative;width:clamp(54px,15.5vw,74px);height:clamp(78px,22vw,104px);border-radius:10px;',
+      '.vp-card{position:relative;width:clamp(68px,20vw,96px);height:clamp(98px,29vw,136px);border-radius:12px;',
         'background:linear-gradient(158deg,#ffffff,#e6f1ea);border:1px solid rgba(0,0,0,.28);',
         'box-shadow:0 6px 15px rgba(0,0,0,.45);color:#14202b;font-weight:800;flex:0 0 auto;padding:0;',
         'font-family:inherit;cursor:default;user-select:none;-webkit-user-select:none;transition:transform .16s,box-shadow .16s,border-color .16s;}',
@@ -81,12 +142,12 @@
       '.vp-slot.held .vp-card{transform:translateY(-8px);border-color:var(--neon);',
         'box-shadow:0 10px 22px rgba(0,0,0,.5),0 0 0 2px var(--neon),0 0 18px rgba(57,255,20,.55);}',
       '.vp-can-hold .vp-slot.held .vp-card:hover{transform:translateY(-11px);}',
-      '.vp-corner{position:absolute;font-size:clamp(11px,3.3vw,14px);line-height:.9;text-align:center;font-weight:900;}',
-      '.vp-corner.tl{top:6px;left:6px;}',
-      '.vp-corner.br{bottom:6px;right:6px;transform:rotate(180deg);}',
+      '.vp-corner{position:absolute;font-size:clamp(13px,3.8vw,17px);line-height:.9;text-align:center;font-weight:900;}',
+      '.vp-corner.tl{top:7px;left:7px;}',
+      '.vp-corner.br{bottom:7px;right:7px;transform:rotate(180deg);}',
       '.vp-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}',
-      '.vp-c-rank{font-size:clamp(20px,6vw,28px);line-height:1;font-weight:900;}',
-      '.vp-c-suit{font-size:clamp(16px,4.6vw,22px);line-height:1;}',
+      '.vp-c-rank{font-size:clamp(24px,7vw,34px);line-height:1;font-weight:900;}',
+      '.vp-c-suit{font-size:clamp(19px,5.4vw,26px);line-height:1;}',
       /* Rückseite */
       '.vp-card.back{color:var(--leaf);display:grid;place-items:center;border-color:rgba(57,255,20,.5);',
         'background:repeating-linear-gradient(45deg,rgba(57,255,20,.12) 0 7px,transparent 7px 14px),radial-gradient(circle at 50% 42%,#0e4a2c,#05271a);',
@@ -108,6 +169,7 @@
       /* Steuerung */
       '.vp-controls{display:flex;flex-direction:column;gap:14px;align-items:center;}',
       '.vp-action{max-width:340px;}',
+      '.vp-chip-hint{color:var(--gold);font-weight:800;text-align:center;}',
       '@media (max-width:520px){.vp-c-suit{font-size:16px;}}',
       '@media (prefers-reduced-motion:reduce){.vp-deal{animation:none;}.vp-card{transition:none;}}'
     ].join(''));
@@ -167,16 +229,16 @@
         payRows[row.key] = { tr: tr, coins: coins };
         payBody.appendChild(tr);
       });
-      var payTable = el('div', { class: 'glass game-panel' }, [
+      var payTable = el('div', { class: 'glass game-panel vp-paytable' }, [
         el('table', { class: 'vp-pay' }, [
-          el('caption', {}, ['Auszahlung (Einsatz × Faktor)']),
+          el('caption', {}, ['Auszahlung (Einsatz × Faktor, in Pokerchips 🎟️)']),
           payBody
         ])
       ]);
 
-      /* ---------- DOM: Steuerung ---------- */
-      var betPanel = UI.createBetPanel({
-        initial: 50,
+      /* ---------- DOM: Steuerung (Einsatz in Pokerchips, nicht Coins) ---------- */
+      var betPanel = buildChipBetPanel({
+        initial: 1,
         onChange: function () { updatePayCoins(); if (phase === 'bet') refreshControls(); }
       });
       var actionMain = el('span', { class: 'btn-main' }, ['🍃 Geben']);
@@ -188,10 +250,15 @@
         else if (phase === 'result') newRound();
       });
 
+      var chipHint = el('p', { class: 'hint-text vp-chip-hint' }, ['']);
+      var buyChipsBtn = el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { App.Router.go('/chips'); } }, ['🎟️ Zur Chip-Kasse']);
+
       var controls = el('div', { class: 'game-panel glass vp-controls' }, [
         betPanel.root,
         actionBtn,
-        el('p', { class: 'hint-text' }, ['Karten anklicken zum Halten · Paar Buben o. besser zahlt aus'])
+        el('p', { class: 'hint-text' }, ['Karten anklicken zum Halten · Paar Buben o. besser zahlt aus']),
+        chipHint,
+        buyChipsBtn
       ]);
 
       root.appendChild(el('div', { class: 'vp-wrap' }, [stage, payTable, controls]));
@@ -235,7 +302,7 @@
       function updatePayCoins() {
         var bet = betPanel.getBet();
         PAYTABLE.forEach(function (row) {
-          payRows[row.key].coins.textContent = UI.formatCoins(bet * row.factor) + ' 🪙';
+          payRows[row.key].coins.textContent = UI.formatCoins(bet * row.factor) + ' 🎟️';
         });
       }
       function highlightPay(key) {
@@ -252,19 +319,22 @@
       function refreshControls() {
         betPanel.setDisabled(phase !== 'bet');
         handRow.classList.toggle('vp-can-hold', phase === 'draw');
+        var noChips = App.Chips.get() < App.Chips.MIN_BET;
+        chipHint.textContent = noChips ? 'Keine Pokerchips — erst in der Kasse gegen Coins tauschen.' : '';
+        buyChipsBtn.style.display = noChips ? '' : 'none';
         if (phase === 'bet') {
           actionMain.textContent = '🍃 Geben';
-          actionSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🪙';
+          actionSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🎟️';
           actionBtn.className = 'btn btn-primary btn-lg btn-block vp-action btn-2l';
-          actionBtn.disabled = !App.Coins.canBet(betPanel.getBet());
+          actionBtn.disabled = noChips || !App.Chips.canBet(betPanel.getBet());
         } else if (phase === 'draw') {
           actionMain.textContent = '🔄 Tauschen';
-          actionSub.textContent = 'Einsatz ' + UI.formatCoins(roundBet) + ' 🪙';
+          actionSub.textContent = 'Einsatz ' + UI.formatCoins(roundBet) + ' 🎟️';
           actionBtn.className = 'btn btn-aqua btn-lg btn-block vp-action btn-2l';
           actionBtn.disabled = false;
         } else if (phase === 'result') {
           actionMain.textContent = '🃏 Neue Runde';
-          actionSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🪙';
+          actionSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🎟️';
           actionBtn.className = 'btn btn-primary btn-lg btn-block vp-action btn-2l';
           actionBtn.disabled = false;
         } else { // busy
@@ -276,11 +346,11 @@
       function deal() {
         if (phase !== 'bet') return;
         var bet = betPanel.getBet();
-        if (!App.Coins.canBet(bet)) { UI.toast('Nicht genug Coins', 'lose'); return; }
+        if (!App.Chips.canBet(bet)) { UI.toast('Nicht genug Pokerchips', 'lose'); return; }
 
         phase = 'busy';
         refreshControls();
-        App.Coins.add(-bet);
+        App.Chips.add(-bet);
         roundBet = bet;
 
         deck = P.shuffle(P.makeDeck());
@@ -335,7 +405,10 @@
         var payout = roundBet * factor;
         var net = payout - roundBet;
 
-        if (payout > 0) App.Coins.add(payout);
+        // Bruttoauszahlung gutschreiben (der Einsatz wurde bereits bei deal() abgebucht) und
+        // das Netto-Ergebnis separat für Level/Quests melden (wie UI.flash bei den Coin-Spielen).
+        if (payout > 0) App.Chips.credit(payout);
+        App.Chips.reportOutcome(net);
         highlightPay(key);
 
         var cls, toastKind, head;
@@ -346,16 +419,14 @@
 
         setBanner(head + ' · ' + name, cls);
         subline.textContent = factor >= 1
-          ? 'Auszahlung ×' + factor + ' = ' + UI.formatCoins(payout) + ' 🪙' + (net > 0 ? ' (+' + UI.formatCoins(net) + ')' : (net === 0 ? ' (Einsatz zurück)' : ''))
+          ? 'Auszahlung ×' + factor + ' = ' + UI.formatShort(payout) + ' 🎟️' + (net > 0 ? ' (+' + UI.formatShort(net) + ')' : (net === 0 ? ' (Einsatz zurück)' : ''))
           : 'Kein Gewinn — mindestens ein Paar Buben nötig.';
 
-        UI.flash(net, { label: name });
         UI.toast(head + ' · ' + name, toastKind);
 
         phase = 'result';
         betPanel.refresh();
         updatePayCoins();
-        App.Coins.settle();
         refreshControls();
       }
 
