@@ -73,10 +73,20 @@
 
       var status = el('div', { class: 'pk-status' }, ['Wähle deinen Einsatz und lass die Kugel fallen 🎯']);
 
-      var betPanel = UI.createBetPanel({ initial: 50 });
+      var MULT_MIN = Math.min.apply(null, MULTS);
+      var MULT_MAX = Math.max.apply(null, MULTS);
+      function updateDropInfo() {
+        dropSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🪙 · ' + MULT_MIN + '×–' + MULT_MAX + '×';
+      }
+
+      var betPanel = UI.createBetPanel({ initial: 50, onChange: updateDropInfo });
+      var dropSub = el('span', { class: 'btn-sub' }, ['']);
       var dropBtn = el('button', {
-        class: 'btn btn-primary btn-lg btn-block pk-drop', type: 'button', onclick: doDrop
-      }, ['🎯 Fallen lassen']);
+        class: 'btn btn-primary btn-lg btn-block pk-drop btn-2l', type: 'button', onclick: doDrop
+      }, [
+        el('span', { class: 'btn-main' }, ['🎯 Fallen lassen']),
+        dropSub
+      ]);
       var controls = el('div', { class: 'pk-controls' }, [betPanel.root, dropBtn]);
 
       var histWrap = el('div', { class: 'pk-hist' });
@@ -88,6 +98,7 @@
       root.appendChild(el('div', { class: 'pk-wrap' }, [stage, status, controls, histWrap, hint]));
 
       renderHistory();
+      updateDropInfo();
       // Erst nach Layout zeichnen, damit die Canvas-Groesse steht.
       requestAnimationFrame(function () { drawIdle(); });
 
@@ -244,6 +255,7 @@
         dropping = false;
         setControlsDisabled(false);
         betPanel.refresh();
+        updateDropInfo();
         App.Coins.settle();
       }
 

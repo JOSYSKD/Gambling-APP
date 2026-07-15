@@ -179,7 +179,9 @@
         initial: 50,
         onChange: function () { updatePayCoins(); if (phase === 'bet') refreshControls(); }
       });
-      var actionBtn = el('button', { class: 'btn btn-primary btn-lg btn-block vp-action', type: 'button' }, ['🍃 Geben']);
+      var actionMain = el('span', { class: 'btn-main' }, ['🍃 Geben']);
+      var actionSub = el('span', { class: 'btn-sub' }, ['']);
+      var actionBtn = el('button', { class: 'btn btn-primary btn-lg btn-block vp-action btn-2l', type: 'button' }, [actionMain, actionSub]);
       actionBtn.addEventListener('click', function () {
         if (phase === 'bet') deal();
         else if (phase === 'draw') drawSwap();
@@ -251,16 +253,19 @@
         betPanel.setDisabled(phase !== 'bet');
         handRow.classList.toggle('vp-can-hold', phase === 'draw');
         if (phase === 'bet') {
-          actionBtn.textContent = '🍃 Geben';
-          actionBtn.className = 'btn btn-primary btn-lg btn-block vp-action';
+          actionMain.textContent = '🍃 Geben';
+          actionSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🪙';
+          actionBtn.className = 'btn btn-primary btn-lg btn-block vp-action btn-2l';
           actionBtn.disabled = !App.Coins.canBet(betPanel.getBet());
         } else if (phase === 'draw') {
-          actionBtn.textContent = '🔄 Tauschen';
-          actionBtn.className = 'btn btn-aqua btn-lg btn-block vp-action';
+          actionMain.textContent = '🔄 Tauschen';
+          actionSub.textContent = 'Einsatz ' + UI.formatCoins(roundBet) + ' 🪙';
+          actionBtn.className = 'btn btn-aqua btn-lg btn-block vp-action btn-2l';
           actionBtn.disabled = false;
         } else if (phase === 'result') {
-          actionBtn.textContent = '🃏 Neue Runde';
-          actionBtn.className = 'btn btn-primary btn-lg btn-block vp-action';
+          actionMain.textContent = '🃏 Neue Runde';
+          actionSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🪙';
+          actionBtn.className = 'btn btn-primary btn-lg btn-block vp-action btn-2l';
           actionBtn.disabled = false;
         } else { // busy
           actionBtn.disabled = true;

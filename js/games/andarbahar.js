@@ -184,14 +184,17 @@
         { key: 'andar', label: 'Andar (links)', cls: 'andar' },
         { key: 'bahar', label: 'Bahar (rechts)', cls: 'bahar' }
       ];
+      var sideWinSpans = [];
       var sideBtns = sideDefs.map(function (s) {
+        var winSpan = el('span', { class: 'bs-win' }, ['']);
+        sideWinSpans.push(winSpan);
         return el('button', {
-          class: 'btn ab-sidebtn ' + s.cls + (chosen === s.key ? ' active' : ''),
+          class: 'btn ab-sidebtn btn-2l ' + s.cls + (chosen === s.key ? ' active' : ''),
           type: 'button',
           onclick: function () { if (phase === 'idle') selectSide(s.key); }
         }, [
-          el('span', {}, [s.label]),
-          el('span', { class: 'ab-side-mult' }, [MULT[s.key].toFixed(1) + '×'])
+          el('span', { class: 'btn-main' }, [s.label]),
+          el('span', { class: 'btn-sub' }, [MULT[s.key].toFixed(1) + '× · ', winSpan])
         ]);
       });
       var sideRow = el('div', { class: 'ab-sides' }, sideBtns);
@@ -211,10 +214,14 @@
 
       /* ---------- Einsatz + Start ---------- */
       var betPanel = UI.createBetPanel({ initial: 50, onChange: updateInfo });
+      var startSub = el('span', { class: 'btn-sub' }, ['']);
       var startBtn = el('button', {
-        class: 'btn btn-primary btn-lg btn-block ab-start', type: 'button',
+        class: 'btn btn-primary btn-lg btn-block ab-start btn-2l', type: 'button',
         onclick: startRound
-      }, ['🪔 Runde starten']);
+      }, [
+        el('span', { class: 'btn-main' }, ['🪔 Runde starten']),
+        startSub
+      ]);
       var betRow = el('div', { class: 'ab-betrow' }, [betPanel.root, startBtn]);
 
       var hint = el('p', { class: 'hint-text' }, [
@@ -234,6 +241,10 @@
         var bet = betPanel.getBet();
         multV.textContent = MULT[chosen].toFixed(1) + '×';
         winV.textContent = '+' + UI.formatCoins(Math.round(bet * MULT[chosen]) - bet);
+        sideDefs.forEach(function (s, i) {
+          sideWinSpans[i].textContent = '+' + UI.formatCoins(Math.round(bet * MULT[s.key]) - bet);
+        });
+        startSub.textContent = 'Einsatz ' + UI.formatCoins(bet) + ' 🪙';
       }
 
       function setControlsDisabled(d) {

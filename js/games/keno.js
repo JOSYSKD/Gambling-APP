@@ -161,7 +161,9 @@
 
       var randomBtn = el('button', { class: 'btn', type: 'button', onclick: quickPick }, ['🎲 Zufällig']);
       var clearBtn  = el('button', { class: 'btn', type: 'button', onclick: clearSelection }, ['✕ Leeren']);
-      var drawBtn   = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button', onclick: doDraw }, ['🔢 Ziehen']);
+      var drawMain  = el('span', { class: 'btn-main' }, ['🔢 Ziehen']);
+      var drawSub   = el('span', { class: 'btn-sub' }, ['']);
+      var drawBtn   = el('button', { class: 'btn btn-primary btn-lg btn-block btn-2l', type: 'button', onclick: doDraw }, [drawMain, drawSub]);
       var actions = el('div', { class: 'kn-actions' }, [
         el('div', { class: 'kn-actions-row' }, [randomBtn, clearBtn]),
         drawBtn
@@ -336,7 +338,7 @@
         randomBtn.disabled = drawing;
         clearBtn.disabled = drawing;
         drawBtn.disabled = drawing || spotCount() < 1;
-        drawBtn.textContent = phase === 'result' ? '🔁 Nochmal ziehen' : '🔢 Ziehen';
+        drawMain.textContent = phase === 'result' ? '🔁 Nochmal ziehen' : '🔢 Ziehen';
       }
 
       function updateCounts() {
@@ -347,9 +349,11 @@
           var mf = factorFor(count, count);
           maxMultiV.textContent = '×' + mf;
           possWinV.textContent = '+' + UI.formatCoins(Math.round(bet * mf) - bet) + ' 🪙';
+          drawSub.textContent = 'Einsatz ' + UI.formatCoins(bet) + ' 🪙 · bis ×' + mf;
         } else {
           maxMultiV.textContent = '×–';
           possWinV.textContent = '–';
+          drawSub.textContent = 'Einsatz ' + UI.formatCoins(bet) + ' 🪙';
         }
         drawBtn.disabled = phase === 'drawing' || count < 1;
         if (phase === 'select') {

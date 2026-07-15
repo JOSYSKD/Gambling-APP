@@ -173,9 +173,18 @@
         onChange: function () { updateInfo(); if (phase === 'idle') refreshButtons(); }
       });
 
-      var dealBtn = el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, ['🍃 Karten geben']);
-      var warBtn = el('button', { class: 'btn btn-primary', type: 'button' }, ['⚔️ Krieg']);
-      var surrenderBtn = el('button', { class: 'btn btn-danger', type: 'button' }, ['🏳️ Aufgeben']);
+      var dealSub = el('span', { class: 'btn-sub' }, ['']);
+      var dealBtn = el('button', { class: 'btn btn-primary btn-lg btn-block btn-2l', type: 'button' }, [
+        el('span', { class: 'btn-main' }, ['🍃 Karten geben']), dealSub
+      ]);
+      var warSub = el('span', { class: 'btn-sub' }, ['']);
+      var warBtn = el('button', { class: 'btn btn-primary btn-2l', type: 'button' }, [
+        el('span', { class: 'btn-main' }, ['⚔️ Krieg']), warSub
+      ]);
+      var surrenderSub = el('span', { class: 'btn-sub' }, ['halber Einsatz zurück']);
+      var surrenderBtn = el('button', { class: 'btn btn-danger btn-2l', type: 'button' }, [
+        el('span', { class: 'btn-main' }, ['🏳️ Aufgeben']), surrenderSub
+      ]);
       var warActions = el('div', { class: 'cw-war-actions' }, [warBtn, surrenderBtn]);
 
       var panel = el('div', { class: 'game-panel glass cw-controls' }, [
@@ -221,6 +230,7 @@
       function updateInfo() {
         var bet = betPanel.getBet();
         winV.textContent = '+' + UI.formatCoins(bet);
+        dealSub.textContent = 'Einsatz ' + UI.formatCoins(bet) + ' 🪙';
       }
 
       /* ---------- Buttons / Phasen ---------- */
@@ -276,6 +286,8 @@
 
       function enterWar() {
         setPhase('war');
+        warSub.textContent = '+' + UI.formatCoins(roundBet) + ' 🪙 Einsatz';
+        surrenderSub.textContent = '+' + UI.formatCoins(Math.floor(roundBet / 2)) + ' 🪙 zurück';
         if (App.Audio) App.Audio.sweep(560, 180, 0.45, { type: 'sawtooth', peak: 0.09, filter: 1500 }); // dramatischer Kriegs-Sweep
         banner.className = 'cw-banner war';
         if (App.Coins.canBet(roundBet)) {

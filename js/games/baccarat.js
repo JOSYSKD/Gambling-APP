@@ -133,6 +133,8 @@
       '.bac-choice .bac-c-label{font-weight:800;font-size:14px;}',
       '.bac-choice .bac-c-pay{font-size:11px;color:var(--muted);letter-spacing:.5px;}',
       '.bac-choice.active .bac-c-pay{color:inherit;opacity:.85;}',
+      '.bac-choice .bac-c-win{font-size:12px;font-weight:900;color:var(--gold);letter-spacing:.3px;font-variant-numeric:tabular-nums;}',
+      '.bac-choice.active .bac-c-win{color:inherit;}',
       '.bac-choice.active.player{color:#04160c;background:linear-gradient(180deg,var(--aqua-soft),var(--aqua));border-color:var(--aqua);box-shadow:0 0 16px rgba(45,226,230,.5);}',
       '.bac-choice.active.banker{color:#1a1200;background:linear-gradient(180deg,var(--gold),#d9a521);border-color:var(--gold);box-shadow:0 0 16px rgba(255,210,63,.5);}',
       '.bac-choice.active.tie{color:#04160c;background:linear-gradient(180deg,var(--neon-soft),var(--neon));border-color:var(--neon);box-shadow:var(--glow);}',
@@ -205,14 +207,18 @@
       ]);
 
       /* ---------- DOM: Wettauswahl ---------- */
+      var choiceWinSpans = {};
       var choiceBtns = CHOICES.map(function (c) {
+        var winSpan = el('span', { class: 'bac-c-win' }, ['']);
+        choiceWinSpans[c.key] = winSpan;
         return el('button', {
           class: 'btn bac-choice ' + c.key + (choice === c.key ? ' active' : ''),
           type: 'button',
           onclick: function () { if (phase === 'idle') selectChoice(c.key); }
         }, [
           el('span', { class: 'bac-c-label', text: c.label }),
-          el('span', { class: 'bac-c-pay', text: c.pay })
+          el('span', { class: 'bac-c-pay', text: c.pay }),
+          winSpan
         ]);
       });
       var choiceRow = el('div', { class: 'bac-choices' }, choiceBtns);
@@ -232,9 +238,13 @@
         initial: 50,
         onChange: function () { updateInfo(); if (phase === 'idle') refreshControls(); }
       });
+      var dealSub = el('span', { class: 'btn-sub' }, ['']);
       var dealBtn = el('button', {
-        class: 'btn btn-primary btn-lg bac-deal', type: 'button', onclick: deal
-      }, ['🍃 Geben']);
+        class: 'btn btn-primary btn-lg bac-deal btn-2l', type: 'button', onclick: deal
+      }, [
+        el('span', { class: 'btn-main' }, ['🍃 Geben']),
+        dealSub
+      ]);
       var betRow = el('div', { class: 'bac-betrow' }, [betPanel.root, dealBtn]);
 
       var controls = el('div', { class: 'game-panel glass bac-controls' }, [
@@ -293,6 +303,10 @@
         multV.textContent = def.mult.toFixed(2) + '×';
         chanceV.textContent = def.chance;
         winV.textContent = '+' + UI.formatCoins(netWinFor(choice, bet));
+        CHOICES.forEach(function (c) {
+          choiceWinSpans[c.key].textContent = '+' + UI.formatCoins(netWinFor(c.key, bet));
+        });
+        dealSub.textContent = 'Einsatz ' + UI.formatCoins(bet) + ' 🪙';
       }
 
       /* ---------- Steuerung ---------- */

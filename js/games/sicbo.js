@@ -70,14 +70,16 @@
       '.sb-b-sub{font-size:11px;color:var(--muted);letter-spacing:.5px;}',
       '.sb-b-x{font-size:12px;color:var(--gold);font-weight:900;}',
       // Einzelzahl / bestimmter Pasch (Mini-Würfel)
-      '.sb-numbtn{padding:7px;display:flex;align-items:center;justify-content:center;}',
+      '.sb-numbtn{padding:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;}',
       '.sb-numbtn.active{background:linear-gradient(180deg,rgba(57,255,20,0.22),rgba(57,255,20,0.05));}',
+      '.sb-cap{font-size:10px;font-weight:800;color:var(--gold);line-height:1.05;white-space:nowrap;text-align:center;font-variant-numeric:tabular-nums;}',
       '.sb-mini{width:42px;height:42px;border-radius:9px;padding:6px;gap:1px;box-shadow:0 3px 8px rgba(0,0,0,0.4),inset 0 0 6px rgba(0,0,0,0.08);}',
       '.sb-mini .sb-pip{width:8px;height:8px;}',
       // Summe
-      '.sb-totalbtn{width:54px;padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:1px;}',
+      '.sb-totalbtn{min-width:54px;padding:6px 5px;display:flex;flex-direction:column;align-items:center;gap:1px;}',
       '.sb-total-n{font-size:17px;font-weight:900;line-height:1;}',
       '.sb-total-x{font-size:10px;color:var(--gold);font-weight:900;}',
+      '.sb-total-win{font-size:9px;font-weight:800;color:var(--gold);line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums;}',
       // Pasch
       '.sb-paschbtn{flex:1 1 100%;padding:11px;display:flex;justify-content:center;gap:8px;align-items:baseline;}',
       // Info
@@ -135,6 +137,7 @@
       var controlsDisabled = false;
       var spinTimer = null, rollTimer = null;
       var allBets = []; // { btn, type, value }
+      var winCells = []; // { span, mult } — Netto-Gewinn-Anzeige je Wett-Button
 
       // ----- Würfel-Bühne -----
       var dieEls = [el('div', { class: 'sb-die' }), el('div', { class: 'sb-die' }), el('div', { class: 'sb-die' })];
@@ -159,15 +162,17 @@
       }
 
       // Gruppe: Groß / Klein
+      var kleinWin = el('span', { class: 'bs-win' }, ['']); winCells.push({ span: kleinWin, mult: 2 });
       var kleinBtn = betButton('sb-bigsmall', [
         el('span', { class: 'sb-b-t' }, ['Klein']),
         el('span', { class: 'sb-b-sub' }, ['Summe 4–10']),
-        el('span', { class: 'sb-b-x' }, ['2×'])
+        el('span', { class: 'sb-b-x' }, ['2× · ', kleinWin])
       ], 'small', null);
+      var grossWin = el('span', { class: 'bs-win' }, ['']); winCells.push({ span: grossWin, mult: 2 });
       var grossBtn = betButton('sb-bigsmall', [
         el('span', { class: 'sb-b-t' }, ['Groß']),
         el('span', { class: 'sb-b-sub' }, ['Summe 11–17']),
-        el('span', { class: 'sb-b-x' }, ['2×'])
+        el('span', { class: 'sb-b-x' }, ['2× · ', grossWin])
       ], 'big', null);
       var bigSmallSection = el('div', { class: 'sb-section' }, [
         el('div', { class: 'sb-section-title' }, ['Groß / Klein  ·  verliert bei jedem Pasch']),
@@ -177,7 +182,11 @@
       // Gruppe: Einzelzahl 1–6
       var singleRow = el('div', { class: 'sb-row center' });
       for (var n = 1; n <= 6; n++) {
-        singleRow.appendChild(betButton('sb-numbtn', [miniDie(n)], 'single', n));
+        var sWin = el('span', { class: 'bs-win' }, ['']); winCells.push({ span: sWin, mult: 4 });
+        singleRow.appendChild(betButton('sb-numbtn', [
+          miniDie(n),
+          el('span', { class: 'sb-cap' }, ['2–4× · ', sWin])
+        ], 'single', n));
       }
       var singleSection = el('div', { class: 'sb-section' }, [
         el('div', { class: 'sb-section-title' }, ['Einzelzahl  ·  2× / 3× / 4× je Vorkommen']),
@@ -187,9 +196,11 @@
       // Gruppe: Summe 4–17
       var totalRow = el('div', { class: 'sb-row center' });
       for (var t = 4; t <= 17; t++) {
+        var tWin = el('span', { class: 'sb-total-win' }, ['']); winCells.push({ span: tWin, mult: TOTAL_MULT[t] });
         totalRow.appendChild(betButton('sb-totalbtn', [
           el('span', { class: 'sb-total-n' }, [String(t)]),
-          el('span', { class: 'sb-total-x' }, [TOTAL_MULT[t] + '×'])
+          el('span', { class: 'sb-total-x' }, [TOTAL_MULT[t] + '×']),
+          tWin
         ], 'total', t));
       }
       var totalSection = el('div', { class: 'sb-section' }, [
@@ -198,13 +209,18 @@
       ]);
 
       // Gruppe: Pasch
+      var anyWin = el('span', { class: 'bs-win' }, ['']); winCells.push({ span: anyWin, mult: 31 });
       var anyBtn = betButton('sb-paschbtn', [
         el('span', { class: 'sb-b-t' }, ['Beliebiger Pasch']),
-        el('span', { class: 'sb-b-x' }, ['31×'])
+        el('span', { class: 'sb-b-x' }, ['31× · ', anyWin])
       ], 'anytriple', null);
       var specRow = el('div', { class: 'sb-row center' });
       for (var p = 1; p <= 6; p++) {
-        specRow.appendChild(betButton('sb-numbtn', [miniDie(p)], 'spectriple', p));
+        var pWin = el('span', { class: 'bs-win' }, ['']); winCells.push({ span: pWin, mult: 181 });
+        specRow.appendChild(betButton('sb-numbtn', [
+          miniDie(p),
+          el('span', { class: 'sb-cap' }, ['181× · ', pWin])
+        ], 'spectriple', p));
       }
       var paschSection = el('div', { class: 'sb-section' }, [
         el('div', { class: 'sb-section-title' }, ['Pasch']),
@@ -231,9 +247,13 @@
 
       // ----- Einsatz + Würfeln -----
       var betPanel = UI.createBetPanel({ initial: 50, onChange: updateInfo });
+      var rollSub = el('span', { class: 'btn-sub' }, ['']);
       var rollBtn = el('button', {
-        class: 'btn btn-primary btn-lg btn-block sb-roll', type: 'button', onclick: doRoll
-      }, ['🎲 Würfeln']);
+        class: 'btn btn-primary btn-lg btn-block sb-roll btn-2l', type: 'button', onclick: doRoll
+      }, [
+        el('span', { class: 'btn-main' }, ['🎲 Würfeln']),
+        rollSub
+      ]);
       var betRow = el('div', { class: 'sb-betrow' }, [betPanel.root, rollBtn]);
 
       root.appendChild(el('div', { class: 'sb-wrap' }, [stage, controlsPanel, infoPanel, betRow]));
@@ -268,6 +288,10 @@
         chanceV.textContent = (Math.round(info.chance * 1000) / 10) + '%';
         var bet = betPanel.getBet();
         winV.textContent = '+' + UI.formatCoins(Math.round(bet * info.maxMult) - bet);
+        winCells.forEach(function (c) {
+          c.span.textContent = '+' + UI.formatCoins(Math.round(bet * c.mult) - bet);
+        });
+        rollSub.textContent = 'Einsatz ' + UI.formatCoins(bet) + ' 🪙';
 
         var d = { };
         d.small = 'Klein — Gesamtsumme 4 bis 10 (verliert bei jedem Dreierpasch)';

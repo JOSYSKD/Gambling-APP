@@ -189,12 +189,18 @@
       ]);
 
       /* ---------- Wett-Buttons ---------- */
+      var betWinSpans = [];
       var betBtns = BETS.map(function (b) {
+        var winSpan = el('span', { class: 'bs-win' }, ['']);
+        betWinSpans.push(winSpan);
         return el('button', {
-          class: 'btn dt-betbtn ' + b.side + (pick === b.key ? ' active' : ''),
+          class: 'btn dt-betbtn btn-2l ' + b.side + (pick === b.key ? ' active' : ''),
           type: 'button',
           onclick: function () { if (!busy) selectBet(b.key); }
-        }, [b.label]);
+        }, [
+          el('span', { class: 'btn-main' }, [b.label]),
+          el('span', { class: 'btn-sub' }, ['×' + b.mult + ' · ', winSpan])
+        ]);
       });
       var betRow = el('div', { class: 'dt-bets' }, betBtns);
 
@@ -214,9 +220,13 @@
 
       /* ---------- Einsatz + Deal ---------- */
       var betPanel = UI.createBetPanel({ initial: 50, onChange: updateInfo });
+      var dealSub = el('span', { class: 'btn-sub' }, ['']);
       var dealBtn = el('button', {
-        class: 'btn btn-primary btn-lg btn-block dt-deal', type: 'button', onclick: doDeal
-      }, ['🍃 Deal']);
+        class: 'btn btn-primary btn-lg btn-block dt-deal btn-2l', type: 'button', onclick: doDeal
+      }, [
+        el('span', { class: 'btn-main' }, ['🍃 Deal']),
+        dealSub
+      ]);
       var dealRow = el('div', { class: 'dt-betrow' }, [betPanel.root, dealBtn]);
 
       root.appendChild(el('div', { class: 'dt-wrap' }, [stage, controlsPanel, dealRow]));
@@ -252,6 +262,10 @@
         var bet = betPanel.getBet();
         multV.textContent = def.mult + '× (' + (def.mult - 1) + ':1)';
         winV.textContent = '+' + UI.formatCoins(bet * def.mult - bet);
+        BETS.forEach(function (b, i) {
+          betWinSpans[i].textContent = '+' + UI.formatCoins(bet * b.mult - bet);
+        });
+        dealSub.textContent = 'Einsatz ' + UI.formatCoins(bet) + ' 🪙';
       }
 
       function setDisabled(d) {
