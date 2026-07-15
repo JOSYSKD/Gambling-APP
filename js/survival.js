@@ -126,14 +126,16 @@
 
   /* Ein Firebase-Pfad wird nur benutzt, wenn er dort auch WIRKLICH freigegeben ist:
    * Regeln aus database.rules.json wirken erst nach `firebase deploy --only database`.
-   * Ohne das lehnt die Datenbank still ab und die Rangliste bliebe für immer leer —
-   * deshalb vor der Wahl ein echter Lesetest. Reihenfolge:
-   *   1. 'survival'                 — der saubere eigene Pfad (sobald die Regel deployt ist)
-   *   2. 'scores/__survival_board'  — 'scores' ist bereits freigegeben, funktioniert sofort;
+   * Ohne das lehnt die Datenbank still ab (ohne Fehlermeldung!) und die Rangliste bliebe
+   * für immer leer — deshalb vor der Wahl ein echter Lesetest. Reihenfolge:
+   *   1. 'survival'                 — der saubere eigene Pfad; seit 15.07.2026 deployt
+   *                                   und der aktiv genutzte
+   *   2. 'scores/__survival_board'  — Sicherheitsnetz: 'scores' ist ebenfalls freigegeben;
    *                                   scores.js liest immer nur scores/<spielId>, der
    *                                   Unterschlüssel stört dort also nicht
    *   3. Cloud-Speicher / lokal     — letzte Rückfallebenen
-   * Sobald die Regeln deployt sind, wandert die Rangliste von allein auf Pfad 1. */
+   * Sollte die Regel je verlorengehen (neu aufgesetzte DB, vergessener Deploy), läuft die
+   * Rangliste damit weiter, statt kommentarlos leer zu bleiben. */
   var FB_PATHS = ['survival', 'scores/__survival_board'];
   function tryFirebasePath(db, i) {
     if (i >= FB_PATHS.length) return Promise.reject(new Error('kein freigegebener Firebase-Pfad'));

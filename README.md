@@ -275,22 +275,23 @@ Sobald das erledigt ist, erkennen `js/net.js` (Raum-Code) **und** `js/account.js
 (Konten + Bestenliste) automatisch die echte Konfiguration — am Code muss nichts weiter
 geändert werden.
 
-> ### ⚠️ Die Regeln in der Datenbank hinken `database.rules.json` hinterher
-> Geprüft am 15.07.2026: in der **laufenden** Datenbank sind nur `rooms`, `leaderboard`,
-> `accounts` und `scores` freigegeben. Die Pfade **`presence` und `survival` fehlen dort** —
-> die Datei `database.rules.json` im Repo ist nur eine Vorlage, sie wirkt erst nach einem
-> Deploy (`firebase deploy --only database`, oder Regeln in der Firebase-Konsole unter
-> **Realtime Database → Regeln** einfügen und veröffentlichen).
+> ### ⚠️ Regeln wirken erst nach dem Deploy
+> `database.rules.json` im Repo ist nur eine **Vorlage** — sie wirkt erst nach
+> `firebase deploy --only database` (oder: Firebase-Konsole → **Realtime Database → Regeln**
+> einfügen und veröffentlichen). Wer hier einen Pfad ergänzt und das Deployen vergisst,
+> bekommt **keinen Fehler**, sondern ein stilles `Permission denied` zur Laufzeit — das
+> Feature bleibt dann einfach leer.
 >
-> Folgen, solange das nicht deployt ist:
-> - **Survival-Rangliste:** läuft trotzdem live — `js/survival.js` testet die Pfade der Reihe
->   nach durch und weicht automatisch auf `scores/__survival_board` aus (dort ist Schreiben
->   erlaubt). Nach einem Regel-Deploy wandert sie von allein auf den sauberen Pfad `survival`.
-> - **`js/presence.js`** (Gäste-Anzeige im Admin Panel) kann dagegen **nicht** ausweichen und
->   funktioniert erst nach dem Deploy.
+> **Stand 15.07.2026: deployt und geprüft ✅** — freigegeben sind `rooms`, `leaderboard`,
+> `accounts`, `scores`, `presence`, `survival` und `tournament`; der Root bleibt dicht.
+> Nachprüfen ohne Konsole geht per REST, z. B.:
+> ```bash
+> curl -s "https://klettlogin-3d1ed-default-rtdb.europe-west1.firebasedatabase.app/survival.json?shallow=true"
+> # "Permission denied" = Regel fehlt/nicht deployt · "null" oder Daten = offen
+> ```
 >
 > Ebenfalls tot: die Cloud-Speicher-ID in `js/cloud-config.js` liefert inzwischen `404`
-> (JSONBlob löscht ungenutzte Datensätze). Variante A ist damit aktuell keine echte
+> (JSONBlob löscht ungenutzte Datensätze). Variante A ist damit **keine** echte
 > Rückfallebene mehr — Firebase trägt alles.
 
 ## 🛡️ Admin Panel
