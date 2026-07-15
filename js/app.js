@@ -14,7 +14,25 @@
       icon: '🎰',
       desc: '16 Solo-Klassiker + Poker & Casino mit Freunden. Setze deine Coins und jage den Highscore.',
       games: ['blackjack', 'crash', 'cuberoll', 'slots', 'roulette', 'mines', 'coinflip', 'wheel',
-        'baccarat', 'videopoker', 'casinowar', 'dragontiger', 'andarbahar', 'sicbo', 'keno', 'plinko']
+        'baccarat', 'videopoker', 'casinowar', 'dragontiger', 'andarbahar', 'sicbo', 'keno', 'plinko'],
+      // Aus dem Menü heraus wird immer im Casino (Silber) gezockt. In den
+      // Survival-Modus kommt man ausschließlich über dessen eigene Kachel.
+      mode: 'casino'
+    },
+    {
+      id: 'survival',
+      name: 'Survival',
+      icon: '🥇',
+      desc: 'Eigener Spielstand mit Gold-Coins: pleite heißt alles auf null — Level, Quests, Depot. Danach eine Stunde Pause. Live-Rangliste inklusive.',
+      route: '/survival'
+    },
+    {
+      id: 'stocks',
+      name: 'Aktien',
+      icon: '📈',
+      desc: '20 Aktien von 100 bis 1.000 Coins. Alle 25 Sekunden ein neuer Kurs — kaufen, halten, im richtigen Moment verkaufen.',
+      route: '/stocks',
+      mode: 'casino'
     },
     {
       id: 'minigames',
@@ -85,14 +103,30 @@
   }
   App.Coins.onChange(syncBalance);
 
+  /* Status-Zeile der Survival-Kachel: läuft gerade ein Run, ist er gesperrt? */
+  function survivalTeaser() {
+    if (!App.Survival) return 'Spielen →';
+    if (App.Survival.isActive()) return '● Run läuft · ' + UI.formatShort(App.Survival.assets()) + ' 🥇 →';
+    if (App.Survival.isLocked()) return '⏳ Gesperrt — gleich wieder →';
+    return 'Run starten →';
+  }
+
   /* ---------- MENÜ ---------- */
   function renderMenu() {
     var cards = CATEGORIES.map(function (c) {
-      return el('button', { class: 'cat-card glass', type: 'button', onclick: function () { go(c.route || ('/category/' + c.id)); } }, [
+      var isSv = c.id === 'survival';
+      return el('button', {
+        class: 'cat-card glass' + (isSv ? ' cat-survival' : ''), type: 'button',
+        onclick: function () {
+          // Kachel bestimmt die Währung: Gambling/Aktien aus dem Menü = Silber.
+          if (c.mode && App.Mode) App.Mode.set(c.mode);
+          go(c.route || ('/category/' + c.id));
+        }
+      }, [
         el('div', { class: 'cat-icon' }, [c.icon]),
-        el('div', { class: 'cat-name neon' }, [c.name]),
+        el('div', { class: 'cat-name ' + (isSv ? 'sv-cat-name' : 'neon') }, [c.name]),
         el('div', { class: 'cat-desc' }, [c.desc]),
-        el('span', { class: 'cat-go' }, ['Spielen →'])
+        el('span', { class: 'cat-go' + (isSv ? ' sv-cat-go' : '') }, [isSv ? survivalTeaser() : 'Spielen →'])
       ]);
     });
 
@@ -129,18 +163,35 @@
       ]);
     }).filter(Boolean);
 
+    var survival = App.Mode && App.Mode.is('survival');
     var sections = [
       el('div', { class: 'page-head' }, [
-        el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/'); } }, ['← Menü']),
-        el('h2', { class: 'page-title neon' }, [c.icon + ' ' + c.name])
+        el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go(survival ? '/survival' : '/'); } },
+          [survival ? '← Survival' : '← Menü']),
+        el('h2', { class: 'page-title ' + (survival ? 'sv-cat-name' : 'neon') }, [c.icon + ' ' + c.name])
       ])
     ];
 
-    // Gambling-Menü bekommt zusätzlich den Gratis-Coins-Knopf.
+    // Im Survival-Modus wird mit Gold gespielt — das muss unübersehbar sein.
+    if (survival) {
+      sections.push(el('div', { class: 'sv-banner glass' }, [
+        el('span', { class: 'sv-banner-ic' }, ['🥇']),
+        el('div', {}, [
+          el('div', { class: 'sv-banner-t' }, ['Survival — du spielst mit Gold']),
+          el('div', { class: 'sv-banner-d' }, ['Pleite bedeutet: alles auf null und eine Stunde Pause. Kein Auffüllen, keine Gratis-Coins.'])
+        ])
+      ]));
+    }
+
+    // Gambling-Menü bekommt zusätzlich den Gratis-Coins-Knopf — im Survival-Modus
+    // aber NICHT: eine Gratis-Coin-Quelle würde den ganzen Modus aushebeln
+    // (man könnte sich unbegrenzt zurück ins Spiel klicken).
     var claim = null;
     if (c.id === 'gambling') {
-      claim = buildCoinClaimButton();
-      sections.push(claim.root);
+      if (!survival) {
+        claim = buildCoinClaimButton();
+        sections.push(claim.root);
+      }
       if (App.Admin && App.Admin.isAdmin()) {
         sections.push(el('button', {
           class: 'btn btn-primary btn-lg btn-block', type: 'button',
@@ -209,7 +260,10 @@
     mount(container);
 
     function draw() {
-      var board = App.Leaderboard.getBoard(App.Coins.getPeak(), 10);
+      // Diese Bestenliste ist die des Casinos (Silber). Läuft gerade ein Survival-Run,
+      // gehört dessen Gold-Peak NICHT hierher — Survival hat seine eigene Rangliste.
+      var activePeak = (App.Mode && App.Mode.is('survival')) ? null : App.Coins.getPeak();
+      var board = App.Leaderboard.getBoard(activePeak, 10);
       var rows = board.map(function (entry, i) {
         var rank = i + 1;
         var dateTxt = entry.active ? 'läuft gerade' : (entry.date || '—');
@@ -401,6 +455,9 @@
   var gameOverActive = false;
   App.Coins.onGameOver(function (info) {
     if (gameOverActive) return;
+    // Im Survival-Modus gibt es kein Auffüllen: dort übernimmt js/survival.js
+    // (Alles auf null + eine Stunde Sperre statt Neustart-Knopf).
+    if (App.Mode && App.Mode.is('survival')) { App.Survival.onBust(info); return; }
     gameOverActive = true;
     var peak = info && info.peak != null ? info.peak : App.Coins.getPeak();
     var name = App.Leaderboard.getPlayerName() || 'Anonym';
@@ -436,6 +493,8 @@
     .add('/live', function () { return App.MinigameHub.list({ group: 'live', title: '🃏 Poker & Casino', intro: 'Mit Freunden per Raum-Code – Poker-Varianten und Casino-Klassiker. Solo geht gegen Bots.' }); })
     .add('/mini/:id', function (p) { return App.MinigameHub.open(p.id); })
     .add('/leaderboard', renderLeaderboard)
+    .add('/survival', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Survival.renderPage(d); })
+    .add('/stocks', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Stocks.renderPage(d); })
     .add('/quests', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Progress.renderPage(d); })
     .add('/chips', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chips.renderPage(d); })
     .add('/settings', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Settings.renderPage(d); })

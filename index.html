@@ -53,6 +53,9 @@
 
   <!-- Module: Reihenfolge = Abhängigkeitsreihenfolge (klassische Scripts, file://-tauglich) -->
   <script src="js/storage.js"></script>
+  <!-- Casino (Silber) vs. Survival (Gold): trennt die Spielstände im Storage.
+       MUSS vor coins.js/chips.js/progress.js stehen — die lesen beim Laden. -->
+  <script src="js/mode.js"></script>
   <script src="js/leaderboard.js"></script>
   <script src="js/coins.js"></script>
   <script src="js/ui.js"></script>
@@ -81,6 +84,10 @@
   <script src="js/admin.js"></script>
   <!-- Online-Präsenz auch für Spieler ohne Konto ("Gäste"), damit das Admin Panel wirklich alle sieht -->
   <script src="js/presence.js"></script>
+  <!-- Aktienmarkt: 20 Aktien, alle 25s ein neuer Kurs (nach coins.js, vor survival.js) -->
+  <script src="js/stocks.js"></script>
+  <!-- Survival-Modus: Gold-Coins, Reset auf null bei Pleite, Live-Rangliste -->
+  <script src="js/survival.js"></script>
   <!-- Poker-Hand-Bewertung (gemeinsam für alle Poker-Spiele) -->
   <script src="js/poker-eval.js"></script>
   <!-- Gambling-Spiele -->

@@ -53,6 +53,9 @@
     return e;
   }
 
+  /** Münz-Symbol der aktiven Währung: Silber im Casino, Gold im Survival-Modus. */
+  function coinIcon() { return App.Mode ? App.Mode.coinIcon() : '🪙'; }
+
   /** Schwebende +X / -X Coin-Animation über dem Bildschirm. */
   function flash(amount, opts) {
     opts = opts || {};
@@ -62,7 +65,7 @@
     var sign = win ? '+' : (amount < 0 ? '−' : '');
     var node = el('div', {
       class: 'flash ' + (win ? 'flash-win' : (amount < 0 ? 'flash-lose' : 'flash-neutral'))
-    }, [sign + formatShort(Math.abs(amount)) + ' 🪙']);
+    }, [sign + formatShort(Math.abs(amount)) + ' ' + coinIcon()]);
     if (opts.label) node.title = opts.label;
     layer.appendChild(node);
     setTimeout(function () { node.classList.add('flash-go'); }, 20);
@@ -111,7 +114,7 @@
 
     var label = el('label', { class: 'bet-label' }, ['Einsatz']);
     var inputWrap = el('div', { class: 'bet-input-wrap' }, [
-      el('span', { class: 'bet-coin' }, ['🪙']), input
+      el('span', { class: 'bet-coin' }, [coinIcon()]), input
     ]);
 
     var root = el('div', { class: 'bet-panel' }, [label, inputWrap, chips]);
@@ -166,8 +169,12 @@
   App.UI = {
     formatCoins: formatCoins,
     formatShort: formatShort,
+    coinIcon: coinIcon,
     el: el,
     flash: flash,
+    /** Wie flash(), aber ohne Quest-/XP-Wertung: progress.js hookt nur flash().
+     *  Für Coin-Bewegungen, die keine Spielrunde sind (z. B. Aktienhandel). */
+    flashRaw: flash,
     toast: toast,
     createBetPanel: createBetPanel,
     gameHeader: gameHeader,

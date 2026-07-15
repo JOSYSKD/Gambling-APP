@@ -98,6 +98,12 @@
       emit('outcome', net);
     },
 
+    /** Neu aus dem Storage laden (Konto-Login oder Wechsel Casino <-> Survival, siehe js/mode.js). */
+    reloadFromStorage: function () {
+      balance = loadBalance();
+      emit('change', balance);
+    },
+
     /** amount Chips gegen Coins kaufen (kostet amount*RATE Coins). */
     buy: function (amount) {
       amount = Math.max(0, Math.floor(Number(amount) || 0));

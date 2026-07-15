@@ -3,6 +3,10 @@
  * Besitzt Guthaben (balance) und den Peak-Kontostand des aktuellen Runs
  * (runPeak). Ein "Run" läuft von 1000 Start-Coins bis zum Game Over.
  *
+ * Welche Währung das ist, entscheidet App.Mode: im Casino Silber-Coins, im
+ * Survival-Modus Gold-Coins. Beide Stände liegen getrennt im Storage (mode.js),
+ * dieses Modul arbeitet immer nur mit dem gerade aktiven.
+ *
  * Spielablauf-Konvention:
  *   - Einsatz abziehen:   App.Coins.add(-bet)
  *   - Gewinn gutschreiben: App.Coins.add(payout)
@@ -76,6 +80,33 @@
     App.Storage.set(KEY_PEAK, runPeak);
   }
 
+  /** Guthaben ändern — ohne Rigging und ohne Quest-/XP-Erfassung. */
+  function apply(delta) {
+    delta = Math.round(Number(delta) || 0);
+    balance += delta;
+    if (balance < 0) balance = 0;
+    if (balance > runPeak) {
+      runPeak = balance;
+      // Peak live an die Bestenliste melden (aktiver Run).
+      App.Leaderboard && App.Leaderboard.onChange && emitLeaderboardTick();
+    }
+    save();
+    emit('change', balance);
+    return balance;
+  }
+
+  /* Vermögen außerhalb des Guthabens (Aktien-Depot, Pokerchips). Solange davon
+   * noch etwas da ist, ist der Spieler NICHT pleite — er muss nur verkaufen bzw.
+   * eintauschen. Ohne diesen Schutz gäbe es ein Game Over, obwohl das Depot voll ist. */
+  var reserveFns = [];
+  function reserve() {
+    var total = 0;
+    for (var i = 0; i < reserveFns.length; i++) {
+      try { total += Number(reserveFns[i]()) || 0; } catch (e) {}
+    }
+    return total;
+  }
+
   var Coins = {
     START: START,
     MIN_BET: MIN_BET,
@@ -95,21 +126,23 @@
     add: function (delta) {
       delta = Math.round(Number(delta) || 0);
       if (delta > 0) delta = Math.round(delta * rigFactor());
-      balance += delta;
-      if (balance < 0) balance = 0;
-      if (balance > runPeak) {
-        runPeak = balance;
-        // Peak live an die Bestenliste melden (aktiver Run).
-        App.Leaderboard && App.Leaderboard.onChange && emitLeaderboardTick();
-      }
-      save();
-      emit('change', balance);
-      return balance;
+      return apply(delta);
     },
+
+    /** Wie add(), aber ohne Rigging und ohne Einsatz-/Gewinn-Wertung (Aktienhandel,
+     *  Ein-/Auszahlungen). progress.js hookt nur add(), daher zählt das hier nicht
+     *  als Einsatz — sonst gäbe es XP fürs bloße Hin- und Herschieben von Coins. */
+    addRaw: function (delta) { return apply(delta); },
+
+    /** Quelle für "Vermögen außerhalb des Guthabens" anmelden (siehe reserve()). */
+    addReserveSource: function (fn) {
+      if (typeof fn === 'function') reserveFns.push(fn);
+    },
+    reserve: reserve,
 
     /** Runde abschließen: Game Over prüfen. Gibt true zurück bei Game Over. */
     settle: function () {
-      if (balance < MIN_BET) {
+      if (balance < MIN_BET && reserve() < MIN_BET) {
         emit('gameover', { peak: runPeak });
         return true;
       }

@@ -81,6 +81,20 @@ Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level scha
 **Zusammen spielen:** Ein Spieler öffnet ein Minispiel → *Zusammen* → *Raum erstellen* und teilt den 4‑stelligen Code. Die anderen tippen den Code ein — fertig. Läuft über die **Firebase Realtime Database** (siehe unten), sodass die Räume von **überall über das Internet** funktionieren; ohne Firebase-Konfiguration fällt es automatisch auf **WebRTC (PeerJS)** bzw. den lokalen Modus zurück. Tab-Wechsel wirft niemanden raus (alle Timer laufen über die Wall-Clock).
 
 ## ✨ Features
+- **🥇 Survival-Modus** (`js/survival.js`, `/survival`): zweiter, komplett eigener Spielstand neben dem
+  Casino — gezockt wird dort mit **Gold-Coins** statt Silber, immer oben in der Kopfleiste sichtbar.
+  Silber gilt nur im Casino, Gold nur in Survival. **Pleite heißt wirklich pleite**: Level, XP, Quests,
+  Stats und Aktien-Depot fallen auf null zurück (der Casino-Spielstand bleibt komplett unangetastet),
+  danach **ein Versuch pro Stunde** — erst nach Ablauf startet ein neuer Run mit 1.000 Gold bei null.
+  Kein Auffüllen, kein Gratis-Coins-Knopf, kein Tagesbonus. Dazu eine **Live-Rangliste über alle
+  Spieler** (Gold + Depotwert, in Echtzeit über Firebase).
+- **📈 Aktienmarkt** (`js/stocks.js`, `/stocks`): 20 Aktien mit Kursen zwischen 100 und 1.000.
+  **Alle 25 Sekunden ein neuer Tick** — der Kurs steigt, fällt oder bleibt gleich (gemessen: ~43 % /
+  ~43 % / ~14 %). Kurs-Chart je Aktie (Mini-Kurve in der Übersicht, großer Verlauf im Detail),
+  Kaufen und Verkaufen jeweils mit **1 / 10 / 100 / 1000 / MAX**. Läuft im Casino mit Silber und im
+  Survival-Modus mit Gold — mit getrennten Depots. Wer Aktien hält, gilt nicht als pleite.
+  Der Markt braucht **keinen Server**: der Kurs ist eine reine Funktion aus (Aktie, Tick-Nummer),
+  daher sehen alle Spieler denselben Kurs und der Markt läuft auch bei geschlossener Seite weiter.
 - **Ein Gambling-Menü** für alles: die 16 Solo-Klassiker **und** die 7 Poker/Casino-Tische, alle mit demselben Coin-Konto.
 - **1000 Start-Coins**, übergreifend für alle Gambling-Spiele.
 - Guthaben immer sichtbar in der festen Kopfleiste.
@@ -141,7 +155,10 @@ index.html            SPA-Shell (feste Kopfleiste, View-Container, Overlays)
 css/style.css         Neon-Dschungel-Design + gemeinsame Komponenten
 js/
   storage.js          localStorage-Wrapper (mit Fallback)
+  mode.js             Casino (Silber) vs. Survival (Gold): trennt die Spielstände im Storage
   coins.js            Coin-System: Guthaben, Peak-Tracking, Game Over
+  stocks.js           Aktienmarkt (App.Stocks): 20 Aktien, 25s-Tick, Chart, Depot
+  survival.js         Survival-Modus (App.Survival): Gold, Reset auf null, 1h-Sperre, Live-Rangliste
   leaderboard.js      Bestenliste (modular — Backend-Driver austauschbar)
   ui.js               UI-Helfer: Einsatz-Panel, Flash/Toast, DOM-Helfer
   audio.js            Sound & Musik (App.Audio): Menü-Musik + pro-Spiel-SFX, hold/blip/sweep, Mute
@@ -162,8 +179,21 @@ js/
   minigames/          je ein Modul pro Minispiel (registrieren sich in App.Minigames)
 ```
 Die App ist eine **Single-Page-App mit Hash-Routing** (`#/`, `#/category/gambling`,
-`#/game/slots`, `#/leaderboard`, `#/profile`). Bewusst **klassische `<script>`-Tags**
-statt ES-Module, damit das direkte Öffnen von `index.html` (`file://`) ohne Server funktioniert.
+`#/game/slots`, `#/survival`, `#/stocks`, `#/leaderboard`, `#/profile`). Bewusst **klassische
+`<script>`-Tags** statt ES-Module, damit das direkte Öffnen von `index.html` (`file://`) ohne
+Server funktioniert.
+
+> ⚠️ **Reihenfolge beachten:** `js/mode.js` muss **vor** `coins.js`, `chips.js`, `progress.js`
+> und `stocks.js` geladen werden — es biegt den Storage-Zugriff auf den aktiven Modus um, und
+> die anderen Module lesen ihren Zustand bereits beim Laden.
+
+### 🥇 Wie die Trennung Casino/Survival funktioniert
+Beide Modi benutzen dieselben Spiele, denselben Aktienmarkt und dasselbe Level-System — getrennt
+werden nur die **Daten**. `js/mode.js` stellt den Storage-Schlüsseln im Survival-Modus ein `sv_`
+voran (`gj_balance`, `gj_run_peak`, `gj_progress`, `gj_stocks`, `gj_chips`). Dadurch bekommt
+Survival einen komplett eigenen Spielstand, **ohne** dass die ~30 Spiele davon etwas wissen
+müssen — und ein Survival-Reset auf null kann den Casino-Stand gar nicht erst treffen.
+Alles andere (Konto, Spielername, Themes, Einstellungen) bleibt bewusst geteilt.
 
 ## ▶️ Lokal ausprobieren
 Einfach **`index.html` im Browser öffnen** (Doppelklick). Fertig — kein Server nötig.
@@ -238,6 +268,24 @@ Programmieren nötig):
 Sobald das erledigt ist, erkennen `js/net.js` (Raum-Code) **und** `js/account.js`/`js/leaderboard.js`
 (Konten + Bestenliste) automatisch die echte Konfiguration — am Code muss nichts weiter
 geändert werden.
+
+> ### ⚠️ Die Regeln in der Datenbank hinken `database.rules.json` hinterher
+> Geprüft am 15.07.2026: in der **laufenden** Datenbank sind nur `rooms`, `leaderboard`,
+> `accounts` und `scores` freigegeben. Die Pfade **`presence` und `survival` fehlen dort** —
+> die Datei `database.rules.json` im Repo ist nur eine Vorlage, sie wirkt erst nach einem
+> Deploy (`firebase deploy --only database`, oder Regeln in der Firebase-Konsole unter
+> **Realtime Database → Regeln** einfügen und veröffentlichen).
+>
+> Folgen, solange das nicht deployt ist:
+> - **Survival-Rangliste:** läuft trotzdem live — `js/survival.js` testet die Pfade der Reihe
+>   nach durch und weicht automatisch auf `scores/__survival_board` aus (dort ist Schreiben
+>   erlaubt). Nach einem Regel-Deploy wandert sie von allein auf den sauberen Pfad `survival`.
+> - **`js/presence.js`** (Gäste-Anzeige im Admin Panel) kann dagegen **nicht** ausweichen und
+>   funktioniert erst nach dem Deploy.
+>
+> Ebenfalls tot: die Cloud-Speicher-ID in `js/cloud-config.js` liefert inzwischen `404`
+> (JSONBlob löscht ungenutzte Datensätze). Variante A ist damit aktuell keine echte
+> Rückfallebene mehr — Firebase trägt alles.
 
 ## 🛡️ Admin Panel
 Im Konto-Login (Profil-Seite) mit Kontoname `ADMIN` und Passwort `911911` anmelden —

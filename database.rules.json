@@ -4,6 +4,7 @@
     "leaderboard": { ".read": true, ".write": true },
     "accounts": { ".read": true, ".write": true },
     "presence": { ".read": true, ".write": true },
+    "survival": { ".read": true, ".write": true },
     "scores": { ".read": true, ".write": true }
   }
 }

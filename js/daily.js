@@ -40,6 +40,12 @@
 
   function claim() {
     if (!claimable()) return;
+    // Der Tagesbonus gehört zum Casino. Im Survival-Modus gäbe es sonst geschenktes
+    // Gold — und der Streak würde für den Casino-Stand verbraucht.
+    if (App.Mode && App.Mode.is('survival')) {
+      UI.toast('Der Tagesbonus gibt es nur im Casino — hier zählt nur, was du dir erspielst.', 'info');
+      return;
+    }
     var st = nextStreak();
     var amt = amountFor(st);
     state.last = today(); state.streak = st; save();
@@ -138,8 +144,11 @@
 
   function boot() {
     installNav();
-    // Beim ersten Besuch des Tages dezent aufs Geschenk hinweisen.
-    if (claimable()) setTimeout(function () { if (App.UI && App.UI.toast) UI.toast('🎁 Täglicher Bonus wartet!', 'win'); }, 1400);
+    // Beim ersten Besuch des Tages dezent aufs Geschenk hinweisen (nicht im Survival-Modus,
+    // dort gibt es keinen Bonus).
+    if (claimable() && !(App.Mode && App.Mode.is('survival'))) {
+      setTimeout(function () { if (App.UI && App.UI.toast) UI.toast('🎁 Täglicher Bonus wartet!', 'win'); }, 1400);
+    }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

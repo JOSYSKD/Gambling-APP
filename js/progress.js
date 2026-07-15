@@ -475,7 +475,16 @@
     startBalance: startBalance, addXp: addXp,
     stats: function () { return statsView(); },
     quests: function () { return QUESTS.slice(); },
-    onChange: onChange, renderPage: renderPage
+    onChange: onChange, renderPage: renderPage,
+
+    /** Fortschritt neu aus dem Storage laden — nach Konto-Login oder beim Wechsel
+     *  zwischen Casino und Survival, die getrennte Stände haben (siehe js/mode.js). */
+    reloadFromStorage: function () {
+      state = load();
+      peakBalance = App.Coins ? App.Coins.get() : 0;
+      updateChip();
+      emit();
+    }
   };
   // Chip live aktualisieren
   onChange(updateChip);

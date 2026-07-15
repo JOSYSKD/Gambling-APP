@@ -189,11 +189,52 @@
     }
   }
 
+  /* Das Konto trägt BEIDE Spielstände: den Casino-Stand (Silber) und den
+   * Survival-Stand (Gold) unter acct.sv. Deshalb wird hier gezielt in den
+   * jeweiligen Modus geschrieben (App.Mode.writeIn) statt in den gerade
+   * aktiven — sonst landete beim Anmelden während eines Survival-Runs das
+   * Casino-Guthaben im Gold-Stand. */
   function applyAccountToLocalState(acct) {
-    if (typeof acct.balance === 'number') App.Storage.set('gj_balance', acct.balance);
-    if (typeof acct.runPeak === 'number') App.Storage.set('gj_run_peak', Math.max(acct.runPeak, acct.balance || 0));
-    App.Coins.reloadFromStorage();
+    var M = App.Mode;
+    if (typeof acct.balance === 'number') M.writeIn('casino', 'gj_balance', acct.balance);
+    if (typeof acct.runPeak === 'number') M.writeIn('casino', 'gj_run_peak', Math.max(acct.runPeak, acct.balance || 0));
+    if (typeof acct.chips === 'number') M.writeIn('casino', 'gj_chips', acct.chips);
+
+    var sv = acct.sv;
+    if (sv && typeof sv === 'object') {
+      if (typeof sv.balance === 'number') M.writeIn('survival', 'gj_balance', sv.balance);
+      if (typeof sv.runPeak === 'number') M.writeIn('survival', 'gj_run_peak', sv.runPeak);
+      if (typeof sv.chips === 'number') M.writeIn('survival', 'gj_chips', sv.chips);
+      if (sv.progress) M.writeIn('survival', 'gj_progress', sv.progress);
+      if (sv.stocks) M.writeIn('survival', 'gj_stocks', sv.stocks);
+      // Run-Zustand & Sperre sind modus-unabhängig -> normaler Storage.
+      if (typeof sv.nextTry === 'number') App.Storage.set('gj_sv_next_try', sv.nextTry);
+      if (typeof sv.runActive === 'boolean') App.Storage.set('gj_sv_run', sv.runActive);
+      if (typeof sv.peakEver === 'number') App.Storage.set('gj_sv_peak_ever', sv.peakEver);
+    }
+    M.refresh();     // Coins/Chips/Progress/Depot des AKTIVEN Modus neu laden
     if (acct.playerName) App.Leaderboard.setPlayerName(acct.playerName);
+  }
+
+  /** Aktuellen Stand beider Modi ins Konto-Objekt schreiben. Liest bewusst aus dem
+   *  Storage statt aus App.Coins, damit auch der gerade inaktive Modus mitkommt. */
+  function snapshotToAccount(acct) {
+    var M = App.Mode;
+    acct.balance = M.readIn('casino', 'gj_balance', App.Coins.START);
+    acct.runPeak = M.readIn('casino', 'gj_run_peak', acct.balance);
+    acct.chips = M.readIn('casino', 'gj_chips', 0);
+    acct.sv = {
+      balance: M.readIn('survival', 'gj_balance', 0),
+      runPeak: M.readIn('survival', 'gj_run_peak', 0),
+      chips: M.readIn('survival', 'gj_chips', 0),
+      progress: M.readIn('survival', 'gj_progress', null),
+      stocks: M.readIn('survival', 'gj_stocks', null),
+      nextTry: App.Storage.get('gj_sv_next_try', 0),
+      runActive: App.Storage.get('gj_sv_run', false),
+      peakEver: App.Storage.get('gj_sv_peak_ever', 0)
+    };
+    acct.playerName = App.Leaderboard.getPlayerName();
+    return acct;
   }
 
   // Admin-Nachrichten (siehe js/admin.js): einmalig je Nachrichten-ID als Modal zeigen.
@@ -239,9 +280,7 @@
         }
         checkAdminMessage(acct);
         acct.session.lastSeen = Date.now();
-        acct.balance = App.Coins.get();
-        acct.runPeak = App.Coins.getPeak();
-        acct.playerName = App.Leaderboard.getPlayerName();
+        snapshotToAccount(acct);
         state.account = acct;
         state.backend.setAccount(state.key, acct);
       }).catch(function () {});
@@ -304,13 +343,13 @@
         var salt = randHex(16);
         return hashPassword(password, salt).then(function (hash) {
           var token = randHex(16), now = Date.now();
-          var acct = {
+          // Beide Spielstände (Casino + Survival) aus dem Storage ins neue Konto übernehmen.
+          var acct = snapshotToAccount({
             displayName: String(name).trim().slice(0, 18),
             salt: salt, hash: hash, createdAt: now,
-            balance: App.Coins.get(), runPeak: App.Coins.getPeak(),
-            playerName: App.Leaderboard.getPlayerName() || String(name).trim().slice(0, 18),
             session: { token: token, lastSeen: now }
-          };
+          });
+          if (!acct.playerName) acct.playerName = String(name).trim().slice(0, 18);
           return state.backend.setAccount(key, acct).then(function () {
             App.Storage.set(KEY_SESSION, { key: key, token: token });
             state.key = key; state.account = acct; state.token = token;
@@ -430,15 +469,14 @@
       if (!state.key || !state.backend) return;
       state.backend.getAccount(state.key).then(function (acct) {
         if (!acct) return;
-        acct.balance = App.Coins.get();
-        acct.runPeak = App.Coins.getPeak();
-        acct.playerName = App.Leaderboard.getPlayerName();
+        snapshotToAccount(acct);
         state.account = acct;
         state.backend.setAccount(state.key, acct);
       }).catch(function () {});
     }, 1500);
   }
   App.Coins.onChange(scheduleSync);
+  App.Chips.onChange(scheduleSync);
   App.Leaderboard.onChange(scheduleSync);
 
   App.Account = Account;
