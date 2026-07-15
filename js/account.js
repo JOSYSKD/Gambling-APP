@@ -60,6 +60,7 @@
       kind: 'local',
       getAccount: function (key) { return Promise.resolve(readAll()[key] || null); },
       setAccount: function (key, data) { var all = readAll(); all[key] = data; writeAll(all); return Promise.resolve(); },
+      listAll: function () { return Promise.resolve(readAll()); },
       leaderboardDriver: function () {
         return {
           load: function () { return App.Storage.get(KEY_LOCAL_LB, []); },
@@ -81,6 +82,7 @@
       kind: 'firebase',
       getAccount: function (key) { return db.ref('accounts/' + key).get().then(function (s) { return s.val(); }); },
       setAccount: function (key, data) { return db.ref('accounts/' + key).set(data); },
+      listAll: function () { return db.ref('accounts').get().then(function (s) { return s.val() || {}; }); },
       leaderboardDriver: function () {
         var cache = [];
         var ref = db.ref('leaderboard');
@@ -116,6 +118,9 @@
           state.accounts = state.accounts || {};
           state.accounts[key] = data;
         });
+      },
+      listAll: function () {
+        return App.Cloud.load(true).then(function (state) { return state.accounts || {}; });
       },
       leaderboardDriver: function () {
         return {
@@ -170,6 +175,33 @@
     if (acct.playerName) App.Leaderboard.setPlayerName(acct.playerName);
   }
 
+  // Admin-Nachrichten (siehe js/admin.js): einmalig je Nachrichten-ID als Modal zeigen.
+  var KEY_ADMIN_MSG_SEEN = 'gj_admin_msg_seen';
+  function checkAdminMessage(acct) {
+    var msg = acct.admin && acct.admin.msg;
+    if (!msg || !msg.id) return;
+    if (App.Storage.get(KEY_ADMIN_MSG_SEEN, null) === msg.id) return;
+    App.Storage.set(KEY_ADMIN_MSG_SEEN, msg.id);
+    if (!App.UI || !App.UI.el) return;
+    var elx = App.UI.el;
+    var overlay = elx('div', { class: 'modal-overlay' }, [
+      elx('div', { class: 'modal glass' }, [
+        elx('div', { class: 'modal-leaf' }, ['📢']),
+        elx('h2', { class: 'neon' }, ['Nachricht vom Admin']),
+        elx('p', {}, [msg.text]),
+        elx('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: function () {
+          document.body.removeChild(overlay);
+        } }, ['Verstanden'])
+      ])
+    ]);
+    document.body.appendChild(overlay);
+  }
+
+  function banMessage(banUntil) {
+    var t = new Date(banUntil).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return '🚫 Von einem Admin gesperrt bis ' + t + '.';
+  }
+
   function stopHeartbeat() { if (state.hbTimer) clearInterval(state.hbTimer); state.hbTimer = null; }
   function startHeartbeat() {
     stopHeartbeat();
@@ -180,6 +212,11 @@
           forceLocalLogout('Von einem anderen Gerät angemeldet — du wurdest hier abgemeldet.');
           return;
         }
+        if (acct.admin && acct.admin.banUntil && acct.admin.banUntil > Date.now()) {
+          forceLocalLogout(banMessage(acct.admin.banUntil));
+          return;
+        }
+        checkAdminMessage(acct);
         acct.session.lastSeen = Date.now();
         acct.balance = App.Coins.get();
         acct.runPeak = App.Coins.getPeak();
@@ -270,6 +307,9 @@
         if (!acct) throw new Error('Kein Konto mit diesem Namen gefunden.');
         return hashPassword(password, acct.salt).then(function (hash) {
           if (hash !== acct.hash) throw new Error('Falsches Passwort.');
+          if (acct.admin && acct.admin.banUntil && acct.admin.banUntil > Date.now()) {
+            throw new Error(banMessage(acct.admin.banUntil));
+          }
           var now = Date.now();
           if (acct.session && acct.session.token && acct.session.lastSeen && (now - acct.session.lastSeen) < SESSION_STALE_MS) {
             throw new Error('Dieses Konto ist gerade auf einem anderen Gerät aktiv. Bitte kurz warten (~20 Sek. nach Schließen dort) oder dort abmelden.');
@@ -313,6 +353,23 @@
             return be.setAccount(key, acct).then(function () { state.account = acct; emit(); });
           });
         });
+      });
+    },
+
+    /* ---------- Admin-API (siehe js/admin.js) ---------- */
+    // Aktuell eingeloggtes Konto: { rig, banUntil, msg } oder null. Wird spätestens
+    // alle HEARTBEAT_MS aktualisiert (siehe startHeartbeat), reicht für coins.js.
+    adminMeta: function () { return (state.account && state.account.admin) || null; },
+    adminListAccounts: function () {
+      if (!state.backend || !state.backend.listAll) return Promise.resolve({});
+      return state.backend.listAll();
+    },
+    adminPatch: function (key, mutator) {
+      if (!state.backend) return Promise.reject(new Error('Kein Backend verfügbar.'));
+      return state.backend.getAccount(key).then(function (acct) {
+        if (!acct) throw new Error('Konto nicht gefunden.');
+        mutator(acct);
+        return state.backend.setAccount(key, acct);
       });
     }
   };

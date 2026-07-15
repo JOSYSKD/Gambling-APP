@@ -141,6 +141,12 @@
     if (c.id === 'gambling') {
       claim = buildCoinClaimButton();
       sections.push(claim.root);
+      if (App.Admin && App.Admin.isAdmin()) {
+        sections.push(el('button', {
+          class: 'btn btn-primary btn-lg btn-block', type: 'button',
+          style: 'margin-bottom:4px;', onclick: function () { go('/admin'); }
+        }, ['🛠 Admin Panel öffnen']));
+      }
     }
     sections.push(el('div', { class: 'tile-grid' }, tiles));
 
@@ -326,6 +332,11 @@
       var loginForm = el('div', { class: 'profile-account-form' }, [
         loginName, loginPw,
         el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
+          if (App.Admin && App.Admin.tryLogin(loginName.value, loginPw.value)) {
+            UI.toast('🛠 Admin-Modus aktiviert', 'win');
+            go('/category/gambling');
+            return;
+          }
           App.Account.login(loginName.value, loginPw.value).then(function () {
             UI.toast('Angemeldet als ' + loginName.value, 'win');
             draw();
@@ -429,6 +440,11 @@
     .add('/chips', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chips.renderPage(d); })
     .add('/settings', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Settings.renderPage(d); })
     .add('/profile', renderProfile)
+    .add('/admin', function () {
+      if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; }
+      var d = el('div', { class: 'view-page' }); mount(d);
+      return App.Admin.renderPage(d);
+    })
     .setNotFound(renderMenu);
 
   function boot() {

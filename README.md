@@ -239,6 +239,25 @@ Sobald das erledigt ist, erkennen `js/net.js` (Raum-Code) **und** `js/account.js
 (Konten + Bestenliste) automatisch die echte Konfiguration — am Code muss nichts weiter
 geändert werden.
 
+## 🛡️ Admin Panel
+Im Konto-Login (Profil-Seite) mit Kontoname `ADMIN` und Passwort `911911` anmelden —
+statt eines normalen Kontos öffnet sich der Admin-Modus. Im Gambling-Menü erscheint
+dann ein Knopf **🛠 Admin Panel öffnen** (`#/admin`, siehe `js/admin.js`) mit:
+- **Online-Übersicht:** alle Konten mit Guthaben, zuletzt aktiv vor < 20 Sek. = 🟢 online.
+- **Chancen verändern:** ein Glücks-/Pech-Level pro Spieler (wirkt als Auszahlungs-Faktor
+  auf künftige Gewinne dieses Spielers, zentral in `js/coins.js` — deckt automatisch **alle**
+  Gambling-Spiele ab, ohne jedes einzelne Spiel anzufassen).
+- **Zeitlich befristeter Bann:** blockt den Login und kickt eine laufende Sitzung
+  spätestens beim nächsten Heartbeat (≤ 8 Sek.).
+- **Admin-Nachrichten:** erscheinen beim Zielspieler als Modal-Fenster.
+
+> ⚠️ Wie der Rest der Konten-Logik (siehe oben) ist das **Casual-Schutz, keine echte
+> Zugriffskontrolle**: Es gibt keinen eigenen Server, der Login-Check läuft im Browser
+> und die Datenbank-Regeln erlauben offenen Lese-/Schreibzugriff. Wer technisch versiert
+> ist, kann die Werte auch direkt über die Firebase-REST-API lesen/ändern. Für eine
+> Spaß-Seite unter Freunden/in der Klasse ist das ein bewusst vertretbarer Kompromiss —
+> bitte keine echten/sensiblen Passwörter hier verwenden.
+
 ## 🛠️ Neue Spiele/Kategorien hinzufügen
 - Neues Spiel: eine Datei `js/games/<id>.js` anlegen, in `App.Games.<id>` registrieren
   (`render(root)` liefert die UI), das `<script>` in `index.html` einhängen und die `<id>` in
