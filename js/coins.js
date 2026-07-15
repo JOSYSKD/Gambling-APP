@@ -31,9 +31,13 @@
   // einziger Eingriffspunkt statt Änderungen in jedem einzelnen Spiel).
   var RIG_FACTORS = { '-2': 0.15, '-1': 0.5, '1': 1.6, '2': 2.5 };
   function rigFactor() {
-    if (!App.Account || !App.Account.adminMeta) return 1;
-    var meta = App.Account.adminMeta();
-    var level = meta && meta.rig;
+    var level = 0;
+    if (App.Account && App.Account.adminMeta) {
+      var meta = App.Account.adminMeta();
+      level = (meta && meta.rig) || 0;
+    }
+    // Kein Konto eingeloggt (Gast, siehe js/presence.js) -> eigenen Präsenz-Eintrag prüfen.
+    if (!level && App.Presence && App.Presence.rig) level = App.Presence.rig();
     return (level && RIG_FACTORS[String(level)]) || 1;
   }
 

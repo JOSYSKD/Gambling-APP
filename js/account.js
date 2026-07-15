@@ -20,6 +20,7 @@
 
   var KEY_SESSION = 'gj_session';
   var KEY_LOCAL_ACCOUNTS = 'gj_accounts_local';
+  var KEY_LOCAL_PRESENCE = 'gj_presence_local';
   var KEY_LOCAL_LB = 'gj_lb_store_local';
   var KEY_MIGRATED = 'gj_migrated_lb_v1';
 
@@ -56,11 +57,16 @@
   function localBackend() {
     function readAll() { return App.Storage.get(KEY_LOCAL_ACCOUNTS, {}); }
     function writeAll(o) { App.Storage.set(KEY_LOCAL_ACCOUNTS, o); }
+    function readAllPresence() { return App.Storage.get(KEY_LOCAL_PRESENCE, {}); }
+    function writeAllPresence(o) { App.Storage.set(KEY_LOCAL_PRESENCE, o); }
     return {
       kind: 'local',
       getAccount: function (key) { return Promise.resolve(readAll()[key] || null); },
       setAccount: function (key, data) { var all = readAll(); all[key] = data; writeAll(all); return Promise.resolve(); },
       listAll: function () { return Promise.resolve(readAll()); },
+      getPresence: function (key) { return Promise.resolve(readAllPresence()[key] || null); },
+      setPresence: function (key, data) { var all = readAllPresence(); all[key] = data; writeAllPresence(all); return Promise.resolve(); },
+      listPresence: function () { return Promise.resolve(readAllPresence()); },
       leaderboardDriver: function () {
         return {
           load: function () { return App.Storage.get(KEY_LOCAL_LB, []); },
@@ -83,6 +89,9 @@
       getAccount: function (key) { return db.ref('accounts/' + key).get().then(function (s) { return s.val(); }); },
       setAccount: function (key, data) { return db.ref('accounts/' + key).set(data); },
       listAll: function () { return db.ref('accounts').get().then(function (s) { return s.val() || {}; }); },
+      getPresence: function (key) { return db.ref('presence/' + key).get().then(function (s) { return s.val(); }); },
+      setPresence: function (key, data) { return db.ref('presence/' + key).set(data); },
+      listPresence: function () { return db.ref('presence').get().then(function (s) { return s.val() || {}; }); },
       leaderboardDriver: function () {
         var cache = [];
         var ref = db.ref('leaderboard');
@@ -121,6 +130,18 @@
       },
       listAll: function () {
         return App.Cloud.load(true).then(function (state) { return state.accounts || {}; });
+      },
+      getPresence: function (key) {
+        return App.Cloud.load(true).then(function (state) { return (state.presence || {})[key] || null; });
+      },
+      setPresence: function (key, data) {
+        return App.Cloud.mutate(function (state) {
+          state.presence = state.presence || {};
+          state.presence[key] = data;
+        });
+      },
+      listPresence: function () {
+        return App.Cloud.load(true).then(function (state) { return state.presence || {}; });
       },
       leaderboardDriver: function () {
         return {
@@ -356,6 +377,19 @@
       });
     },
 
+    currentKey: function () { return state.key; },
+
+    /* ---------- Präsenz (siehe js/presence.js) ---------- */
+    // Wie adminPatch/getAccount, aber für den 'presence'-Bucket, in dem sich JEDER
+    // Besucher meldet (mit oder ohne Konto) — Grundlage dafür, dass das Admin Panel
+    // wirklich alle Spieler sieht, nicht nur die mit eigenem Konto.
+    presenceGet: function (key) {
+      return (state.backend && state.backend.getPresence) ? state.backend.getPresence(key) : Promise.resolve(null);
+    },
+    presenceSet: function (key, data) {
+      return (state.backend && state.backend.setPresence) ? state.backend.setPresence(key, data) : Promise.resolve();
+    },
+
     /* ---------- Admin-API (siehe js/admin.js) ---------- */
     // Aktuell eingeloggtes Konto: { rig, banUntil, msg } oder null. Wird spätestens
     // alle HEARTBEAT_MS aktualisiert (siehe startHeartbeat), reicht für coins.js.
@@ -364,12 +398,25 @@
       if (!state.backend || !state.backend.listAll) return Promise.resolve({});
       return state.backend.listAll();
     },
+    adminListPresence: function () {
+      if (!state.backend || !state.backend.listPresence) return Promise.resolve({});
+      return state.backend.listPresence();
+    },
     adminPatch: function (key, mutator) {
       if (!state.backend) return Promise.reject(new Error('Kein Backend verfügbar.'));
       return state.backend.getAccount(key).then(function (acct) {
         if (!acct) throw new Error('Konto nicht gefunden.');
         mutator(acct);
         return state.backend.setAccount(key, acct);
+      });
+    },
+    adminPatchPresence: function (key, mutator) {
+      if (!state.backend || !state.backend.setPresence) return Promise.reject(new Error('Kein Backend verfügbar.'));
+      var getP = state.backend.getPresence ? state.backend.getPresence(key) : Promise.resolve(null);
+      return getP.then(function (rec) {
+        rec = rec || {};
+        mutator(rec);
+        return state.backend.setPresence(key, rec);
       });
     }
   };

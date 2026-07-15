@@ -243,13 +243,17 @@ geändert werden.
 Im Konto-Login (Profil-Seite) mit Kontoname `ADMIN` und Passwort `911911` anmelden —
 statt eines normalen Kontos öffnet sich der Admin-Modus. Im Gambling-Menü erscheint
 dann ein Knopf **🛠 Admin Panel öffnen** (`#/admin`, siehe `js/admin.js`) mit:
-- **Online-Übersicht:** alle Konten mit Guthaben, zuletzt aktiv vor < 20 Sek. = 🟢 online.
+- **Online-Übersicht:** WIRKLICH alle Spieler, nicht nur Konten — auch Gäste ohne eigenes
+  Konto werden gelistet (siehe `js/presence.js`, das jeden Besucher regelmäßig im geteilten
+  Backend meldet). Zuletzt aktiv vor < 20 Sek. = 🟢 online. Die Liste ist stabil sortiert
+  (online zuerst, dann alphabetisch) und springt dadurch nicht mehr bei jedem Refresh (4 Sek.).
 - **Chancen verändern:** ein Glücks-/Pech-Level pro Spieler (wirkt als Auszahlungs-Faktor
   auf künftige Gewinne dieses Spielers, zentral in `js/coins.js` — deckt automatisch **alle**
-  Gambling-Spiele ab, ohne jedes einzelne Spiel anzufassen).
-- **Zeitlich befristeter Bann:** blockt den Login und kickt eine laufende Sitzung
-  spätestens beim nächsten Heartbeat (≤ 8 Sek.).
-- **Admin-Nachrichten:** erscheinen beim Zielspieler als Modal-Fenster.
+  Gambling-Spiele ab, ohne jedes einzelne Spiel anzufassen). Funktioniert auch für Gäste ohne Konto.
+- **Zeitlich befristeter Bann:** blockt bei Konten den Login und kickt eine laufende Sitzung
+  spätestens beim nächsten Heartbeat (≤ 8 Sek.); bei Gästen wird direkt aus dem Gambling-Bereich
+  geworfen.
+- **Admin-Nachrichten:** erscheinen beim Zielspieler (Konto oder Gast) als Modal-Fenster.
 
 > ⚠️ Wie der Rest der Konten-Logik (siehe oben) ist das **Casual-Schutz, keine echte
 > Zugriffskontrolle**: Es gibt keinen eigenen Server, der Login-Check läuft im Browser
@@ -257,6 +261,16 @@ dann ein Knopf **🛠 Admin Panel öffnen** (`#/admin`, siehe `js/admin.js`) mit
 > ist, kann die Werte auch direkt über die Firebase-REST-API lesen/ändern. Für eine
 > Spaß-Seite unter Freunden/in der Klasse ist das ein bewusst vertretbarer Kompromiss —
 > bitte keine echten/sensiblen Passwörter hier verwenden.
+
+## 🔄 Versions-Check (erzwungenes Neuladen)
+`js/version.js` vergleicht beim Start (und danach alle 25 Sek.) `window.APP_VERSION` mit
+`version.json`. Weichen die Werte voneinander ab, zeigt die Seite eine blockierende
+Meldung ("Neue Version verfügbar — bitte neu laden") und lässt erst nach dem Neuladen
+wieder spielen. So bekommt niemand versehentlich mit veraltetem, gecachtem Code (z. B.
+mit alten Admin-/Bugfix-Ständen) weiter mit.
+
+> Beim Deployen **immer beide** Stellen zusammen auf einen neuen Wert setzen (z. B. das
+> Release-Datum): `window.APP_VERSION` in `js/version.js` UND `"version"` in `version.json`.
 
 ## 🛠️ Neue Spiele/Kategorien hinzufügen
 - Neues Spiel: eine Datei `js/games/<id>.js` anlegen, in `App.Games.<id>` registrieren
