@@ -120,7 +120,7 @@
 
   /* ---------------- Quests ---------------- */
   // prog(s) -> aktueller Fortschritt (Zahl), target -> Ziel. reward {coins,xp}.
-  var QUESTS = [
+  var BASE_QUESTS = [
     { id: 'rounds10', icon: '🎰', title: 'Warmspielen', desc: 'Spiele 10 Runden', target: 10, prog: function (s) { return s.rounds; }, reward: { coins: 500, xp: 40 } },
     { id: 'wins10', icon: '🍀', title: 'Glückssträhne', desc: 'Gewinne 10 Runden', target: 10, prog: function (s) { return s.wins; }, reward: { coins: 1000, xp: 80 } },
     { id: 'wager20k', icon: '💸', title: 'High Roller', desc: 'Setze insgesamt 20.000 Coins', target: 20000, prog: function (s) { return s.wagered; }, reward: { coins: 2000, xp: 120 } },
@@ -132,6 +132,76 @@
     { id: 'bigwin10k', icon: '🚀', title: 'Jackpot-Jäger', desc: 'Gewinne 10.000+ in einer Runde', target: 10000, prog: function (s) { return s.biggestWin; }, reward: { coins: 10000, xp: 500 } },
     { id: 'bal50k', icon: '👑', title: 'Millionär in spe', desc: 'Erreiche 50.000 Coins Guthaben', target: 50000, prog: function (s) { return s.peakBalance || 0; }, reward: { coins: 12000, xp: 600 } }
   ];
+
+  // Belohnung anhand der Zielgröße herleiten (Coins wachsen mit dem Ziel, XP nur logarithmisch,
+  // damit die Level-Kurve auch bei den ganz großen Zielen sinnvoll bleibt).
+  function questReward(target) {
+    return {
+      coins: Math.max(200, Math.round(target * 0.25)),
+      xp: Math.max(30, Math.round(40 * Math.log10(target + 10)))
+    };
+  }
+  function tierQuests(prefix, icon, targets, titleFn, descFn, progFn) {
+    return targets.map(function (t) {
+      return { id: prefix + t, icon: icon, title: titleFn(t), desc: descFn(t), target: t, prog: progFn, reward: questReward(t) };
+    });
+  }
+  var fmt = function (n) { return UI.formatShort(n); };
+
+  // 16 Solo-Gambling-Spiele + 4 Poker-Tische (Multiplayer per Raum-Code) — je einmal antreten.
+  var PLAY_GAMES = [
+    { id: 'blackjack', icon: '🃏', name: 'Blackjack' }, { id: 'crash', icon: '🚀', name: 'Crash' },
+    { id: 'cuberoll', icon: '🎲', name: 'Cube-Roll' }, { id: 'slots', icon: '🎰', name: 'Slots' },
+    { id: 'roulette', icon: '🎡', name: 'Roulette' }, { id: 'mines', icon: '💣', name: 'Mines' },
+    { id: 'coinflip', icon: '🪙', name: 'Coinflip' }, { id: 'wheel', icon: '🌀', name: 'Glücksrad' },
+    { id: 'baccarat', icon: '🎴', name: 'Baccarat' }, { id: 'videopoker', icon: '🃏', name: 'Video Poker' },
+    { id: 'casinowar', icon: '⚔️', name: 'Casino War' }, { id: 'dragontiger', icon: '🐲', name: 'Dragon Tiger' },
+    { id: 'andarbahar', icon: '🪔', name: 'Andar Bahar' }, { id: 'sicbo', icon: '🎲', name: 'Sic Bo' },
+    { id: 'keno', icon: '🔢', name: 'Keno' }, { id: 'plinko', icon: '🎯', name: 'Plinko' },
+    { id: 'holdem', icon: '♠️', name: 'Texas Hold’em' }, { id: 'omaha', icon: '🃏', name: 'Omaha' },
+    { id: 'stud', icon: '🂭', name: 'Seven-Card Stud' }, { id: 'fivedraw', icon: '🎴', name: 'Five-Card Draw' }
+  ];
+
+  var EXTRA_QUESTS = []
+    .concat(tierQuests('rounds', '🎰', [50, 150, 400, 1000, 2500, 6000, 15000, 40000, 100000],
+      function (t) { return 'Marathon ' + fmt(t); }, function (t) { return 'Spiele ' + fmt(t) + ' Runden'; },
+      function (s) { return s.rounds; }))
+    .concat(tierQuests('wins', '🍀', [150, 400, 1000, 2500, 6000, 15000, 40000, 100000],
+      function (t) { return 'Siegesserie ' + fmt(t); }, function (t) { return 'Gewinne ' + fmt(t) + ' Runden'; },
+      function (s) { return s.wins; }))
+    .concat(tierQuests('wager', '💸', [500000, 2000000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000],
+      function (t) { return 'Kapitaleinsatz ' + fmt(t); }, function (t) { return 'Setze insgesamt ' + fmt(t) + ' Coins'; },
+      function (s) { return s.wagered; }))
+    .concat(tierQuests('bigwin', '💥', [50000, 250000, 1000000, 5000000, 25000000, 100000000, 500000000, 2000000000],
+      function (t) { return 'Mega-Coup ' + fmt(t); }, function (t) { return 'Gewinne ' + fmt(t) + '+ in einer Runde'; },
+      function (s) { return s.biggestWin; }))
+    .concat(tierQuests('bal', '👑', [250000, 1000000, 5000000, 25000000, 100000000, 500000000, 2500000000, 10000000000, 50000000000, 250000000000, 1000000000000],
+      function (t) { return t >= 1000000000000 ? 'Trillionär' : 'Vermögen ' + fmt(t); },
+      function (t) { return 'Erreiche ' + fmt(t) + ' Coins Guthaben' + (t >= 1000000000000 ? ' — die schwerste Quest überhaupt!' : ''); },
+      function (s) { return s.peakBalance || 0; }))
+    .concat(tierQuests('games', '🕹️', [10, 15, 20, 25],
+      function (t) { return 'Vielspieler ' + t; }, function (t) { return 'Spiele ' + t + ' verschiedene Spiele'; },
+      function (s) { return Object.keys(s.games || {}).length; }))
+    .concat(tierQuests('losses', '🛡️', [10, 50, 150, 400, 1000],
+      function (t) { return 'Durchhalten ' + fmt(t); }, function (t) { return 'Verliere ' + fmt(t) + ' Runden — Kopf hoch!'; },
+      function (s) { return s.losses; }))
+    .concat(tierQuests('level', '⭐', [5, 10, 15, 20, 25, 30, 35, 40],
+      function (t) { return 'Level ' + t + ' erreicht'; }, function (t) { return 'Erreiche Level ' + t; },
+      function () { return level(); }))
+    .concat(PLAY_GAMES.map(function (g) {
+      return {
+        id: 'play_' + g.id, icon: g.icon, title: 'Erstmal ' + g.name, desc: 'Spiele einmal ' + g.name,
+        target: 1, prog: function (s) { return (s.games && s.games[g.id]) ? 1 : 0; }, reward: questReward(1)
+      };
+    }))
+    .concat((App.Chips ? App.Chips.DENOMS : []).slice().reverse().map(function (d) {
+      return {
+        id: 'chip_' + d.v, icon: '🎟️', title: d.label + '-Chip', desc: 'Besitze Pokerchips im Wert von ' + fmt(d.v),
+        target: d.v, prog: function () { return App.Chips ? App.Chips.get() : 0; }, reward: questReward(d.v)
+      };
+    }));
+
+  var QUESTS = BASE_QUESTS.concat(EXTRA_QUESTS);
   function questById(id) { for (var i = 0; i < QUESTS.length; i++) if (QUESTS[i].id === id) return QUESTS[i]; return null; }
   function questDone(q) { return q.prog(statsView()) >= q.target; }
   function statsView() {
@@ -168,7 +238,7 @@
       el('div', { class: 'quest-pop-ic' }, [q.icon]),
       el('div', {}, [
         el('div', { class: 'quest-pop-t' }, ['Quest geschafft: ' + q.title]),
-        el('div', { class: 'quest-pop-r' }, ['+' + UI.formatCoins(q.reward.coins) + ' 🪙 · +' + q.reward.xp + ' XP'])
+        el('div', { class: 'quest-pop-r' }, ['+' + UI.formatShort(q.reward.coins) + ' 🪙 · +' + q.reward.xp + ' XP'])
       ])
     ]);
     document.body.appendChild(card);
@@ -233,6 +303,12 @@
       App.UI.flash = function (amount) { try { onOutcome(Number(amount) || 0); } catch (e) {} return _flash.apply(this, arguments); };
       App.UI.__progHooked = true;
     }
+    // Pokerchip-Einsätze/-Gewinne zählen umgerechnet (× Kurs) genauso für XP & Quests.
+    if (App.Chips && !App.Chips.__progHooked) {
+      App.Chips.onWager(function (amt) { onWager(amt * App.Chips.RATE); });
+      App.Chips.onOutcome(function (amt) { onOutcome(amt * App.Chips.RATE); });
+      App.Chips.__progHooked = true;
+    }
     window.addEventListener('hashchange', function () { noteGame(hashGame()); });
     noteGame(hashGame());
   }
@@ -294,10 +370,10 @@
           el('div', { class: 'quest-t' }, [q.title]),
           el('div', { class: 'quest-d' }, [q.desc]),
           el('div', { class: 'quest-bar' }, [el('div', { class: 'quest-bar-fill', style: 'width:' + p + '%' })]),
-          el('div', { class: 'quest-p' }, [UI.formatCoins(cur) + ' / ' + UI.formatCoins(q.target)])
+          el('div', { class: 'quest-p' }, [UI.formatShort(cur) + ' / ' + UI.formatShort(q.target)])
         ]),
         el('div', { class: 'quest-rw' }, [
-          el('div', { class: 'quest-rw-c' }, ['+' + UI.formatCoins(q.reward.coins) + ' 🪙']),
+          el('div', { class: 'quest-rw-c' }, ['+' + UI.formatShort(q.reward.coins) + ' 🪙']),
           el('div', { class: 'quest-rw-x' }, ['+' + q.reward.xp + ' XP'])
         ])
       ]);

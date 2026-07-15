@@ -694,6 +694,8 @@
 
       /* Karten */
       '.om-card{width:clamp(40px,11vw,58px);height:clamp(56px,15.4vw,82px);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:#f4fbf5;border:1px solid rgba(0,0,0,.2);box-shadow:0 3px 8px rgba(0,0,0,.4);user-select:none;-webkit-user-select:none;position:relative;transition:transform .12s;}',
+      // Eigene Hole-Cards deutlich größer als die der Mitspieler — leichter lesbar.
+      '.om-seat.me .om-seat-cards .om-card{width:clamp(52px,15vw,72px);height:clamp(73px,21vw,101px);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.5),0 0 0 1px rgba(57,255,20,.25);}',
       '.om-card.om-mini{width:clamp(30px,8.2vw,42px);height:clamp(42px,11.4vw,60px);border-radius:7px;}',
       '.om-c-r{font-weight:900;font-size:clamp(16px,4.6vw,24px);line-height:1;}',
       '.om-card.om-mini .om-c-r{font-size:clamp(13px,3.6vw,18px);}',
@@ -726,7 +728,7 @@
       /* Sitze */
       '.om-seats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}',
       '.om-seat{display:flex;flex-direction:column;gap:7px;padding:10px 11px;border-radius:14px;background:rgba(9,32,21,.6);border:1px solid var(--stroke);transition:border-color .18s,box-shadow .18s,opacity .18s;}',
-      '.om-seat.me{border-color:var(--stroke-2);box-shadow:var(--glow-soft);}',
+      '.om-seat.me{border-color:var(--stroke-2);box-shadow:var(--glow-soft);background:rgba(9,32,21,.85);}',
       '.om-seat.act{border-color:var(--neon);box-shadow:0 0 0 1px var(--neon),0 0 16px rgba(57,255,20,.32);}',
       '.om-seat.folded{opacity:.5;}',
       '.om-seat.isallin{border-color:var(--gold);}',

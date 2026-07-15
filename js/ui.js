@@ -8,6 +8,26 @@
     return n.toLocaleString('de-DE');
   }
 
+  /** Große Zahlen abgekürzt: 1.234 -> "1,23K", 2.500.000 -> "2,5M", … bis "T" (Billion). */
+  var SHORT_UNITS = [
+    { v: 1e12, s: 'T' }, { v: 1e9, s: 'B' }, { v: 1e6, s: 'M' }, { v: 1e3, s: 'K' }
+  ];
+  function formatShort(n) {
+    n = Number(n) || 0;
+    var sign = n < 0 ? '-' : '';
+    n = Math.abs(n);
+    if (n < 1000) return sign + Math.round(n).toLocaleString('de-DE');
+    for (var i = 0; i < SHORT_UNITS.length; i++) {
+      var u = SHORT_UNITS[i];
+      if (n >= u.v) {
+        var v = n / u.v;
+        var txt = (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10).toLocaleString('de-DE');
+        return sign + txt + u.s;
+      }
+    }
+    return sign + Math.round(n).toLocaleString('de-DE');
+  }
+
   /** Mini-DOM-Helfer: el('div', {class:'x', onclick:fn}, [kind|'text']) */
   function el(tag, attrs, children) {
     var e = document.createElement(tag);
@@ -42,7 +62,7 @@
     var sign = win ? '+' : (amount < 0 ? '−' : '');
     var node = el('div', {
       class: 'flash ' + (win ? 'flash-win' : (amount < 0 ? 'flash-lose' : 'flash-neutral'))
-    }, [sign + formatCoins(Math.abs(amount)) + ' 🪙']);
+    }, [sign + formatShort(Math.abs(amount)) + ' 🪙']);
     if (opts.label) node.title = opts.label;
     layer.appendChild(node);
     setTimeout(function () { node.classList.add('flash-go'); }, 20);
@@ -145,6 +165,7 @@
 
   App.UI = {
     formatCoins: formatCoins,
+    formatShort: formatShort,
     el: el,
     flash: flash,
     toast: toast,

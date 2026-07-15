@@ -830,7 +830,7 @@
 
       '.st-seats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;}',
       '.st-seat{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:14px;background:rgba(9,32,21,.6);border:1px solid var(--stroke);transition:border-color .15s,box-shadow .2s,opacity .2s;}',
-      '.st-seat.me{border-color:var(--stroke-2);box-shadow:var(--glow-soft);}',
+      '.st-seat.me{border-color:var(--stroke-2);box-shadow:var(--glow-soft);background:rgba(9,32,21,.85);}',
       '.st-seat.active{border-color:var(--neon);box-shadow:0 0 0 1px var(--neon),0 0 16px rgba(57,255,20,.3);}',
       '.st-seat.folded{opacity:.42;}',
       '.st-seat.winner{border-color:var(--gold);box-shadow:0 0 18px rgba(255,210,63,.5);}',
@@ -851,6 +851,8 @@
 
       /* Karten */
       '.st-card{width:34px;height:48px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-weight:900;background:linear-gradient(160deg,#fbfff8,#e7f2ea);box-shadow:0 2px 6px rgba(0,0,0,.4);border:1px solid rgba(0,0,0,.15);user-select:none;-webkit-user-select:none;}',
+      // Eigene Karten (Hole- & offene Karten) deutlich größer als die der Mitspieler.
+      '.st-seat.me .st-card{width:clamp(42px,12vw,54px);height:clamp(59px,17vw,76px);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.5),0 0 0 1px rgba(57,255,20,.25);}',
       '.st-card .st-r{font-size:15px;line-height:1;}',
       '.st-card .st-s{font-size:14px;line-height:1;}',
       '.st-card.red{color:#d3283d;}',

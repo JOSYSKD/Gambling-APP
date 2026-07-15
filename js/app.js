@@ -37,6 +37,33 @@
     return null;
   }
 
+  /* ---------- Gratis-Coins-Knopf (Gambling-Seite) ---------- */
+  var COIN_CLAIM_KEY = 'gj_coin_claim_last';
+  var COIN_CLAIM_AMOUNT = 50;
+  var COIN_CLAIM_COOLDOWN = 60000; // 60s zwischen zwei Claims
+  function buildCoinClaimButton() {
+    var btn = el('button', { class: 'btn btn-primary btn-lg coin-claim-btn', type: 'button', onclick: claim }, ['']);
+    function remaining() {
+      var last = App.Storage.get(COIN_CLAIM_KEY, 0) || 0;
+      return Math.max(0, COIN_CLAIM_COOLDOWN - (Date.now() - last));
+    }
+    function claim() {
+      if (remaining() > 0) return;
+      App.Storage.set(COIN_CLAIM_KEY, Date.now());
+      App.Coins.add(COIN_CLAIM_AMOUNT);
+      UI.toast('+' + COIN_CLAIM_AMOUNT + ' 🪙 eingesammelt!', 'win');
+      update();
+    }
+    function update() {
+      var r = remaining();
+      btn.disabled = r > 0;
+      btn.textContent = r > 0 ? ('🪙 Nächste in ' + Math.ceil(r / 1000) + 's') : ('🪙 +' + COIN_CLAIM_AMOUNT + ' Coins einsammeln');
+    }
+    update();
+    var timer = setInterval(update, 1000);
+    return { root: el('div', { class: 'coin-claim-wrap' }, [btn]), cleanup: function () { clearInterval(timer); } };
+  }
+
   var viewEl = function () { return document.getElementById('view'); };
   function mount(node) {
     var v = viewEl();
@@ -78,6 +105,7 @@
       el('div', { class: 'cat-grid' }, cards),
       el('div', { class: 'menu-links' }, [
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/quests'); } }, ['⭐ Level & Quests']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chips'); } }, ['🎟️ Pokerchips-Kasse']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/leaderboard'); } }, ['🏆 Bestenliste']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/profile'); } }, ['👤 Profil']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/settings'); } }, ['⚙️ Einstellungen'])
@@ -105,9 +133,16 @@
       el('div', { class: 'page-head' }, [
         el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/'); } }, ['← Menü']),
         el('h2', { class: 'page-title neon' }, [c.icon + ' ' + c.name])
-      ]),
-      el('div', { class: 'tile-grid' }, tiles)
+      ])
     ];
+
+    // Gambling-Menü bekommt zusätzlich den Gratis-Coins-Knopf.
+    var claim = null;
+    if (c.id === 'gambling') {
+      claim = buildCoinClaimButton();
+      sections.push(claim.root);
+    }
+    sections.push(el('div', { class: 'tile-grid' }, tiles));
 
     // Gambling-Menü enthält zusätzlich die Poker- & Casino-Tische (Multiplayer per Raum-Code).
     if (c.id === 'gambling' && App.Minigames) {
@@ -130,6 +165,7 @@
     }
 
     mount(el('div', { class: 'cat-page' }, sections));
+    return claim ? claim.cleanup : null;
   }
 
   /* ---------- SPIEL-ANSICHT ---------- */
@@ -398,6 +434,7 @@
     .add('/mini/:id', function (p) { return App.MinigameHub.open(p.id); })
     .add('/leaderboard', renderLeaderboard)
     .add('/quests', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Progress.renderPage(d); })
+    .add('/chips', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chips.renderPage(d); })
     .add('/settings', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Settings.renderPage(d); })
     .add('/profile', renderProfile)
     .setNotFound(renderMenu);
