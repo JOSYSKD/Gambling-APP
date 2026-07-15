@@ -26,6 +26,17 @@
     return (App.Progress && App.Progress.startBalance) ? App.Progress.startBalance() : START;
   }
 
+  // Admin-"Rigging" (siehe js/admin.js): wirkt als Faktor auf Gewinn-Gutschriften
+  // des aktuell eingeloggten Spielers, über alle Gambling-Spiele hinweg (ein
+  // einziger Eingriffspunkt statt Änderungen in jedem einzelnen Spiel).
+  var RIG_FACTORS = { '-2': 0.15, '-1': 0.5, '1': 1.6, '2': 2.5 };
+  function rigFactor() {
+    if (!App.Account || !App.Account.adminMeta) return 1;
+    var meta = App.Account.adminMeta();
+    var level = meta && meta.rig;
+    return (level && RIG_FACTORS[String(level)]) || 1;
+  }
+
   var listeners = { change: [], gameover: [] };
 
   function on(evt, cb) {
@@ -79,6 +90,7 @@
     /** Guthaben um delta ändern (Einsatz negativ, Gewinn positiv). */
     add: function (delta) {
       delta = Math.round(Number(delta) || 0);
+      if (delta > 0) delta = Math.round(delta * rigFactor());
       balance += delta;
       if (balance < 0) balance = 0;
       if (balance > runPeak) {
