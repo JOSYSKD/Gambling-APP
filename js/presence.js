@@ -77,9 +77,13 @@
         showMessage(admin.msg);
       }
       lastRig = admin.rig || 0;
+      // Turnier-Tickets, die der Admin verschenkt hat, genau einmal einlösen
+      // (gleiche Mechanik wie die Admin-Nachricht oben).
+      if (App.Tickets && admin.ticketGrant) App.Tickets.applyGrant(admin.ticketGrant);
       var next = {
         name: (App.Leaderboard && App.Leaderboard.getPlayerName()) || 'Gast',
         balance: App.Coins ? App.Coins.get() : 0,
+        tickets: App.Tickets ? App.Tickets.get() : 0,
         lastSeen: Date.now(),
         accountKey: loggedIn ? App.Account.currentKey() : null,
         admin: admin

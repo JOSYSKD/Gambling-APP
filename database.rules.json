@@ -5,6 +5,7 @@
     "accounts": { ".read": true, ".write": true },
     "presence": { ".read": true, ".write": true },
     "survival": { ".read": true, ".write": true },
-    "scores": { ".read": true, ".write": true }
+    "scores": { ".read": true, ".write": true },
+    "tournament": { ".read": true, ".write": true }
   }
 }

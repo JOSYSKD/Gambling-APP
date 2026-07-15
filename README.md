@@ -101,7 +101,8 @@ Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level scha
 - Einsatz-Schnellbuttons: 10, 50, 100, 500, ½, Max (Mindesteinsatz 10).
 - **Nie festgefahren**: fällt das Guthaben unter den Mindesteinsatz, wird es wieder aufgefüllt — der Betrag steigt mit dem Level (1000 → bis 15.000+).
 - **Level & XP** (`js/progress.js`): Beim Gambeln sammelst du XP (fürs Spielen + fürs Gewinnen) und steigst im Level auf — mit Level-Up-Bonus, Titel und höherem Auffüllbetrag. Level-Chip + XP-Leiste in der Kopfleiste.
-- **10 Quests** (`/quests`): z. B. „Gewinne 10 Runden", „Setze 20.000 Coins", „Erreiche 10.000 Guthaben", „Jackpot-Jäger" — geben Coins + XP, lösen automatisch aus.
+- **10 Quests** (`/quests`): z. B. „Gewinne 10 Runden", „Setze 20.000 Coins", „Erreiche 10.000 Guthaben", „Jackpot-Jäger" — geben Coins + XP + **Turnier-Tickets**, lösen automatisch aus.
+- **🏆 Turniermodus** (`/tournament`, siehe eigener Abschnitt unten): vom Admin angesetzte Turniere über mehrere Runden, Eintritt kostet Tickets, der Sieger gewinnt ein Power-Up.
 - **Farb-Styles / Themes** (`js/settings.js`, `/settings`): 10 wählbare Farbwelten (Neon-Dschungel, Cyber-Pink, Ozean, Sunset, Royal, Eis, Blutmond, Matrix, Gold, Candy) — Live-Wechsel, gemerkt. Plus „Bewegung reduzieren" für schwache Geräte.
 - **Anpassbare Profilkarte** (`js/profile-card.js`): Avatar, Rahmen (inkl. animiert), Banner und Titel — **schalten sich mit steigendem Level frei**.
 - **Täglicher Bonus mit Streak** (`js/daily.js`, 🎁 in der Kopfleiste): einmal pro Tag Gratis-Coins, der Betrag steigt mit Level und 7-Tage-Streak.
@@ -177,6 +178,11 @@ js/
   minigames.js        Minigame-Hub: Übersicht, Modus-Wahl, Lobby mit Raum-Code
   mgutil.js           gemeinsame Bausteine (App.MG): Countdown, Timer, Live-Rangliste, Podest
   minigames/          je ein Modul pro Minispiel (registrieren sich in App.Minigames)
+  tickets.js          Turnier-Tickets (App.Tickets) — kommen aus Quests
+  powerups.js         zeitlich begrenzte Power-Ups (App.Powerups) — Preis für Turniersieger
+  tournament.js       Turnier: Modell, Ablauf-Steuerung, Spiel-Anbindung (App.Tournament)
+  tournament-ui.js    Turnier-Oberfläche: Queue, Runden, Zwischenstand, Siegerehrung
+  tournament-admin.js Turnier-Menü im Admin Panel: Konfiguration, Live, Siegerliste
 ```
 Die App ist eine **Single-Page-App mit Hash-Routing** (`#/`, `#/category/gambling`,
 `#/game/slots`, `#/survival`, `#/stocks`, `#/leaderboard`, `#/profile`). Bewusst **klassische
@@ -302,6 +308,8 @@ dann ein Knopf **🛠 Admin Panel öffnen** (`#/admin`, siehe `js/admin.js`) mit
   spätestens beim nächsten Heartbeat (≤ 8 Sek.); bei Gästen wird direkt aus dem Gambling-Bereich
   geworfen.
 - **Admin-Nachrichten:** erscheinen beim Zielspieler (Konto oder Gast) als Modal-Fenster.
+- **Turnier-Tickets verschenken:** 🎟️ +1/+3/+10 je Spieler (wird beim nächsten Heartbeat gutgeschrieben).
+- **🏆 Turniere & Sieger:** eigener Bereich unter `#/admin/tournament` — siehe nächster Abschnitt.
 
 > ⚠️ Wie der Rest der Konten-Logik (siehe oben) ist das **Casual-Schutz, keine echte
 > Zugriffskontrolle**: Es gibt keinen eigenen Server, der Login-Check läuft im Browser
@@ -309,6 +317,47 @@ dann ein Knopf **🛠 Admin Panel öffnen** (`#/admin`, siehe `js/admin.js`) mit
 > ist, kann die Werte auch direkt über die Firebase-REST-API lesen/ändern. Für eine
 > Spaß-Seite unter Freunden/in der Klasse ist das ein bewusst vertretbarer Kompromiss —
 > bitte keine echten/sensiblen Passwörter hier verwenden.
+
+## 🏆 Turniermodus
+Vom Admin angesetzte Turniere über mehrere Runden — Spieler-Seite `#/tournament`
+(4. Karte im Hauptmenü), Admin-Seite `#/admin/tournament`.
+
+**Als Admin ansetzen** (`js/tournament-admin.js`): Name, **Startzeit** (Uhrzeit; ist sie
+heute schon vorbei, gilt sie für morgen), **Rundenplan** aus **allen ~51 Spielen**
+zusammenklicken (ein Spiel darf mehrfach vorkommen), Dauer pro Runde, Ticketpreis,
+Chat an/aus und den **Preis für den Sieger**. Dazu live: wer in der Queue steht,
+**Verwarnungen** schicken, **aus dem Turniermodus bannen**, sofort starten, absagen —
+und die Liste der **Turniersieger zum Abhaken**.
+
+**Als Spieler**: bis zur Startzeit in die Queue stellen (man sieht alle Teilnehmer mit
+Profilbild und den Rundenplan). Die **Tickets werden erst beim Start abgebucht** —
+ohne Ticket kein Mitspielen. Tickets gibt es für **abgeschlossene Quests** (1–3 je nach
+Größe) oder vom Admin geschenkt. Zwischen den Runden läuft ein **3-Sekunden-Countdown**,
+nach jeder Runde ein Zwischenstand. Punkte pro Runde nach Platz: **10 · 7 · 5 · 3 · 2**,
+danach 1 (Gleichstand = gleiche Punkte).
+
+**Preis = Power-Up** (`js/powerups.js`) statt Geld: z. B. „1 Minute extrem viel Glück".
+Die Glücks-Power-Ups hängen am selben Punkt wie das Admin-Rigging (`rigFactor()` in
+`js/coins.js`) und wirken als Faktor auf **alle** Gambling-Gewinne — nur eben zeitlich
+begrenzt, mit Countdown-Chip in der Kopfleiste. Auswahl: Göttliches Glück (×5), Extrem
+viel Glück (×2.5), Etwas Glück (×1.6), Coin-Regen, Ticket-Paket.
+
+**Wie die Spiele mitmachen** (`js/tournament.js`): Der Modus baut die Raum-Schnittstelle
+aus `js/net.js` nach — die vorhandenen Spiele laufen dadurch **unverändert** im Turnier.
+Gewertet wird je nach Spielart automatisch:
+
+| Spielart | Wertung |
+|---|---|
+| **Wettbewerb** (26, z. B. Reflex, Snake, 2048) | alle gleichzeitig, `reportScore()` entscheidet |
+| **Duell** (4: Schach, 4 Gewinnt, Tic-Tac-Toe, Pong) | Spieler werden gepaart, jedes Paar spielt für sich (ungerade Zahl = Freilos) |
+| **Koop** (5) | im Team, Erfolg zählt für alle |
+| **Gambling** (16) | jeder solo, gewertet wird der **Coin-Gewinn** in der Rundenzeit |
+
+> **Kein Server:** Es gibt niemanden, der die Uhr laufen lässt, wenn niemand da ist.
+> Deshalb treibt immer genau **ein anwesender Spieler** den Ablauf voran (der am längsten
+> Wartende, rein rechnerisch bestimmt — fällt er aus, übernimmt der nächste). Praktische
+> Folge: Ein Turnier startet erst, wenn zur Startzeit auch wirklich jemand die Seite offen
+> hat. Wie beim Rest der Seite ist das Casual-Schutz, kein manipulationssicheres System.
 
 ## 🔄 Versions-Check (erzwungenes Neuladen)
 `js/version.js` vergleicht beim Start (und danach alle 25 Sek.) `window.APP_VERSION` mit

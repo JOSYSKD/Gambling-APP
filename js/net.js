@@ -323,11 +323,34 @@
     return Room;
   }
 
+  /* Ein einzelner, geteilter Datenspeicher AUSSERHALB des Raum-Systems — für
+   * Zustand, den es nur einmal für die ganze Seite gibt und der auch dann
+   * existieren muss, wenn gerade niemand da ist (Turnier-Konfiguration und
+   * -Queue, siehe js/tournament.js). Immer dieselbe Instanz, damit sich
+   * Beobachter aus verschiedenen Modulen dasselbe Backend teilen.
+   *
+   * PeerJS scheidet dafür aus (es kennt nur Räume mit einem Host-Peer), daher:
+   * Firebase wenn konfiguriert, sonst lokal (mehrere Tabs / file://). */
+  var storePromise = null;
+  function getStore() {
+    if (storePromise) return storePromise;
+    if (fbConfigReal(window.FIREBASE_CONFIG)) {
+      storePromise = loadFirebaseSDK()
+        .then(function () { return FirebaseBackend(window.FIREBASE_CONFIG); })
+        .catch(function () { return LocalBackend(); });
+    } else {
+      storePromise = Promise.resolve(LocalBackend());
+    }
+    return storePromise;
+  }
+
   App.Net = {
     available: function () { return true; },
     isOnline: function () { return preferredKind() !== 'local'; },
     backendKind: function () { return preferredKind(); },
     createRoom: function () { return makeRoom(); },
+    /** Geteilter Datenspeicher für seiten-globalen Zustand (siehe getStore()). */
+    store: getStore,
     randId: randId,
     /** true, wenn eine echte Firebase-Konfiguration hinterlegt ist (js/firebase-config.js). */
     firebaseConfigured: function () { return fbConfigReal(window.FIREBASE_CONFIG); },

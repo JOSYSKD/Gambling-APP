@@ -42,7 +42,11 @@
     }
     // Kein Konto eingeloggt (Gast, siehe js/presence.js) -> eigenen Präsenz-Eintrag prüfen.
     if (!level && App.Presence && App.Presence.rig) level = App.Presence.rig();
-    return (level && RIG_FACTORS[String(level)]) || 1;
+    var admin = (level && RIG_FACTORS[String(level)]) || 1;
+    // Zeitlich begrenzte Glücks-Power-Ups (Preis für Turniersieger, siehe
+    // js/powerups.js) wirken auf denselben Gewinnen und kommen multiplikativ dazu.
+    var powerup = (App.Powerups && App.Powerups.factor) ? App.Powerups.factor() : 1;
+    return admin * powerup;
   }
 
   var listeners = { change: [], gameover: [] };

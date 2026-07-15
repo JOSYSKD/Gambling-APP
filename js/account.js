@@ -234,6 +234,9 @@
       peakEver: App.Storage.get('gj_sv_peak_ever', 0)
     };
     acct.playerName = App.Leaderboard.getPlayerName();
+    // Turnier-Tickets gelten für beide Modi gemeinsam (siehe js/tickets.js) und
+    // liegen daher außerhalb von acct.sv.
+    acct.tickets = App.Tickets ? App.Tickets.get() : 0;
     return acct;
   }
 
@@ -279,6 +282,8 @@
           return;
         }
         checkAdminMessage(acct);
+        // Vom Admin verschenkte Turnier-Tickets genau einmal einlösen.
+        if (App.Tickets && acct.admin && acct.admin.ticketGrant) App.Tickets.applyGrant(acct.admin.ticketGrant);
         acct.session.lastSeen = Date.now();
         snapshotToAccount(acct);
         state.account = acct;

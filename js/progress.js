@@ -234,6 +234,8 @@
         rec.done = true; rec.claimed = true;
         if (App.Coins) App.Coins.add(q.reward.coins);
         state.xp += q.reward.xp;               // direkt (Level-Up-Check folgt via addXp(0)-Pfad unten)
+        // Quests sind die Quelle für Turnier-Tickets (siehe js/tickets.js).
+        if (App.Tickets) rec.tickets = App.Tickets.grantForQuest(q.reward);
         changed = true;
         toastQuest(q);
       }
@@ -253,7 +255,10 @@
       el('div', { class: 'quest-pop-ic' }, [q.icon]),
       el('div', {}, [
         el('div', { class: 'quest-pop-t' }, ['Quest geschafft: ' + q.title]),
-        el('div', { class: 'quest-pop-r' }, ['+' + UI.formatShort(q.reward.coins) + ' 🪙 · +' + q.reward.xp + ' XP'])
+        el('div', { class: 'quest-pop-r' }, [
+          '+' + UI.formatShort(q.reward.coins) + ' 🪙 · +' + q.reward.xp + ' XP' +
+          (App.Tickets ? (' · +' + App.Tickets.ticketsFor(q.reward) + ' 🎟️') : '')
+        ])
       ])
     ]);
     document.body.appendChild(card);
@@ -389,8 +394,9 @@
         ]),
         el('div', { class: 'quest-rw' }, [
           el('div', { class: 'quest-rw-c' }, ['+' + UI.formatShort(q.reward.coins) + ' 🪙']),
-          el('div', { class: 'quest-rw-x' }, ['+' + q.reward.xp + ' XP'])
-        ])
+          el('div', { class: 'quest-rw-x' }, ['+' + q.reward.xp + ' XP']),
+          App.Tickets ? el('div', { class: 'quest-rw-x', style: 'color:#ffc740;' }, ['+' + App.Tickets.ticketsFor(q.reward) + ' 🎟️']) : null
+        ].filter(Boolean))
       ]);
     }));
 

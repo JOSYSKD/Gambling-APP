@@ -111,6 +111,7 @@
             key: key, kind: 'account',
             displayName: acct.displayName || key,
             balance: acct.balance || 0,
+            tickets: acct.tickets || 0,
             lastSeen: (acct.session && acct.session.lastSeen) || 0,
             admin: acct.admin || {}
           });
@@ -122,6 +123,7 @@
             key: id, kind: 'guest',
             displayName: (p.name || 'Gast') + ' (Gast)',
             balance: p.balance || 0,
+            tickets: p.tickets || 0,
             lastSeen: p.lastSeen || 0,
             admin: p.admin || {}
           });
@@ -147,6 +149,16 @@
       return patch(key, function (rec) {
         rec.admin = rec.admin || {};
         rec.admin.msg = { id: genId(), text: String(text || '').slice(0, 200), ts: Date.now() };
+      });
+    },
+
+    /** Turnier-Tickets verschenken (siehe js/tickets.js). Der Client löst das
+     *  Geschenk beim nächsten Heartbeat genau einmal ein — wie eine Nachricht. */
+    giftTickets: function (kind, key, n) {
+      var patch = kind === 'guest' ? App.Account.adminPatchPresence : App.Account.adminPatch;
+      return patch(key, function (rec) {
+        rec.admin = rec.admin || {};
+        rec.admin.ticketGrant = { id: genId(), n: Math.max(1, Math.round(Number(n) || 1)) };
       });
     },
 
@@ -201,6 +213,12 @@
               } }, ['🚫 Bannen'])
             ]);
 
+        function giftTickets(n) {
+          Admin.giftTickets(kind, key, n).then(function () {
+            UI.toast(n + ' 🎟️ an ' + row.displayName + ' geschenkt (kommt beim nächsten Heartbeat an).', 'win');
+          }).catch(function (e) { UI.toast(e.message, 'lose'); });
+        }
+
         var msgInput = el('input', {
           class: 'text-input', type: 'text', maxlength: 200,
           placeholder: 'Admin-Nachricht an ' + row.displayName + ' …',
@@ -221,11 +239,27 @@
             el('span', { class: 'admin-dot' + (online ? ' online' : '') }, [online ? '🟢' : '⚪']),
             el('b', {}, [row.displayName]),
             el('span', { class: 'cf-info-l' }, [UI.formatCoins(row.balance || 0) + ' 🪙']),
+            el('span', { class: 'cf-info-l' }, [(row.tickets || 0) + ' 🎟️']),
             el('span', { class: 'cf-info-l' }, ['Chancen: ' + rigLabelFor(admin.rig)])
           ]),
           el('div', { class: 'admin-rig-row' }, rigBtns),
           banControls,
-          el('div', { class: 'admin-row-actions' }, [msgInput, msgBtn])
+          el('div', { class: 'admin-row-actions' }, [msgInput, msgBtn]),
+          el('div', { class: 'admin-row-actions' }, [
+            el('span', { class: 'cf-info-l' }, ['Turnier-Tickets schenken:']),
+            el('button', {
+              class: 'btn btn-ghost admin-rig-btn', type: 'button',
+              onclick: function () { giftTickets(1); }
+            }, ['🎟️ +1']),
+            el('button', {
+              class: 'btn btn-ghost admin-rig-btn', type: 'button',
+              onclick: function () { giftTickets(3); }
+            }, ['🎟️ +3']),
+            el('button', {
+              class: 'btn btn-ghost admin-rig-btn', type: 'button',
+              onclick: function () { giftTickets(10); }
+            }, ['🎟️ +10'])
+          ])
         ]);
       }
 
@@ -264,11 +298,16 @@
             + 'Konten werden trotzdem angezeigt.'
           ]));
         }
-        root.appendChild(el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
-          Admin.logout();
-          UI.toast('Admin-Modus beendet', 'info');
-          App.Router.go('/');
-        } }, ['🚪 Admin-Modus verlassen']));
+        root.appendChild(el('div', { class: 'admin-row-actions', style: 'margin-bottom:12px;' }, [
+          el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
+            App.Router.go('/admin/tournament');
+          } }, ['🏆 Turniere & Sieger']),
+          el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
+            Admin.logout();
+            UI.toast('Admin-Modus beendet', 'info');
+            App.Router.go('/');
+          } }, ['🚪 Admin-Modus verlassen'])
+        ]));
 
         if (!rows.length) {
           root.appendChild(el('p', { class: 'lb-empty' }, ['Noch keine Spieler vorhanden.']));

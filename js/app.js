@@ -47,6 +47,16 @@
       icon: '🤝',
       desc: 'Zusammen im Team Level schaffen – kocht, löscht, entschärft und besiegt gemeinsam.',
       route: '/coop'
+    },
+    {
+      id: 'tournament',
+      name: 'Turnier',
+      icon: '🏆',
+      desc: 'Angesetzte Turniere über mehrere Runden. Eintritt kostet Tickets, der Sieger holt sich ein Power-Up.',
+      route: '/tournament',
+      // Turniere laufen immer im Casino: eine Gambling-Runde würde sonst mit
+      // Gold gespielt und könnte einen Survival-Run beenden.
+      mode: 'casino'
     }
   ];
 
@@ -499,10 +509,22 @@
     .add('/chips', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chips.renderPage(d); })
     .add('/settings', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Settings.renderPage(d); })
     .add('/profile', renderProfile)
+    .add('/tournament', function () {
+      // Auch beim direkten Aufruf über die Adresszeile: im Turnier wird mit
+      // Silber gespielt, nie mit dem Survival-Gold.
+      if (App.Mode) App.Mode.set('casino');
+      var d = el('div', { class: 'view-page' }); mount(d);
+      return App.TournamentUI.renderPage(d);
+    })
     .add('/admin', function () {
       if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; }
       var d = el('div', { class: 'view-page' }); mount(d);
       return App.Admin.renderPage(d);
+    })
+    .add('/admin/tournament', function () {
+      if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; }
+      var d = el('div', { class: 'view-page' }); mount(d);
+      return App.TournamentAdmin.renderPage(d);
     })
     .setNotFound(renderMenu);
 
