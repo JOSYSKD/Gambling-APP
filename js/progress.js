@@ -6,8 +6,9 @@
  *   - App.UI.flash(delta)     -> Rundenergebnis (delta>0 = Gewinn)  (XP + Quests)
  *   - hashchange /game/ /mini/-> welches Spiel gerade läuft (Quest "verschiedene Spiele")
  *
- * Level hebt den Wieder-Auffüll-Betrag: Level 1 startet mit 1000, hohe Level mit
- * bis zu 15.000+  (coins.js fragt App.Progress.startBalance() ab).
+ * Level UND erledigte Quests heben den Wieder-Auffüll-Betrag: Level 1 startet mit
+ * 1000, wächst mit dem Level weiter und zusätzlich mit jeder fertigen Quest — ohne
+ * Deckel (coins.js fragt App.Progress.startBalance() ab).
  *
  * Persistenz: App.Storage (lokal). Alles reine Anzeige-/Spaß-Progression.
  */
@@ -57,11 +58,25 @@
   function xpInLevel() { return state.xp - cumFor(level()); }
   function xpForLevel() { return reqFor(level()); }
 
-  // Wieder-Auffüll-/Start-Betrag steigt mit dem Level: L1=1000 … ~L20=15000, dann weiter.
+  // Bonus aus bereits erledigten Quests: jede fertige Quest hebt den Wieder-Auffüll-
+  // Betrag dauerhaft um einen Teil ihrer Belohnung an — summiert sich mit jeder weiteren
+  // Quest auf, daher kein Deckel mehr nötig.
+  function questBonus() {
+    var total = 0;
+    for (var i = 0; i < QUESTS.length; i++) {
+      var q = QUESTS[i], rec = state.quests[q.id];
+      if (rec && rec.done) total += Math.round(q.reward.coins * 0.1);
+    }
+    return total;
+  }
+
+  // Wieder-Auffüll-/Start-Betrag steigt mit dem Level (L1=1000 … ~L20=15000, dann weiter)
+  // UND mit der Anzahl/Schwere bereits erledigter Quests — kein Deckel mehr bei 200k,
+  // der Betrag wächst mit dem Fortschritt unbegrenzt weiter.
   function startBalance() {
     var L = level();
-    var amt = 1000 + (L - 1) * 750;
-    return Math.min(200000, Math.round(amt / 50) * 50);
+    var amt = 1000 + (L - 1) * 750 + questBonus();
+    return Math.round(amt / 50) * 50;
   }
 
   var TITLES = ['Spielhallen-Neuling', 'Anfänger', 'Zocker', 'Stammgast', 'Kartenhai', 'Glücksritter',
