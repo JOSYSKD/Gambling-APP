@@ -32,6 +32,7 @@
 
   var banned = false;
   var lastRig = 0;
+  var lastSkipTimer = false;
 
   function showMessage(msg) {
     if (!msg || !msg.id) return;
@@ -77,6 +78,7 @@
         showMessage(admin.msg);
       }
       lastRig = admin.rig || 0;
+      lastSkipTimer = !!admin.svSkipTimer;   // Admin hat diesem Gast das Survival-Wartelimit abgenommen
       // Turnier-Tickets, die der Admin verschenkt hat, genau einmal einlösen
       // (gleiche Mechanik wie die Admin-Nachricht oben).
       if (App.Tickets && admin.ticketGrant) App.Tickets.applyGrant(admin.ticketGrant);
@@ -101,7 +103,9 @@
   App.Presence = {
     isBanned: function () { return banned; },
     /** Gewinn-Faktor-Level für Gäste ohne Konto (siehe coins.js), 0 = kein Eingriff. */
-    rig: function () { return lastRig; }
+    rig: function () { return lastRig; },
+    /** Hat der Admin diesem Gast das Survival-Wartelimit abgenommen? (siehe js/survival.js) */
+    skipsTimer: function () { return lastSkipTimer; }
   };
 
   function boot() {

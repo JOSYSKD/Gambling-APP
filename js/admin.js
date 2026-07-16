@@ -16,6 +16,10 @@
  *  - Spieler zeitlich sperren (Bann mit Ablaufzeit, blockt Login + kickt eine
  *    laufende Sitzung beim nächsten Heartbeat).
  *  - Admin-Nachrichten an einzelne Spieler schicken (erscheinen als Modal).
+ *  - Turnier-Tickets und Survival-Gold verschenken (einmalige Gutschrift).
+ *  - Survival-Wartelimit für einen Spieler überspringen: der ausgewählte Spieler
+ *    muss nach dem Pleitegehen nicht die Stunde warten, sondern darf sofort einen
+ *    neuen Run starten (Zustand, an/aus — siehe js/survival.js isLocked).
  *
  * Sicherheits-Hinweis: Wie der Rest dieser Seite (siehe account.js) läuft
  * alles ohne eigenen Server — der Login-Check UND die Datenbank-Regeln
@@ -179,6 +183,15 @@
       });
     },
 
+    /** Survival-Wartelimit für einen Spieler an/aus (siehe js/survival.js isLocked).
+     *  Ist das Flag gesetzt, überspringt der Spieler die Stunden-Sperre nach dem
+     *  Pleitegehen und kann sofort neu starten — dauerhaft, bis der Admin es wieder
+     *  ausschaltet (kein einmaliges Geschenk, sondern ein Zustand wie das Rigging). */
+    setSkipTimer: function (kind, key, on) {
+      var patch = kind === 'guest' ? App.Account.adminPatchPresence : App.Account.adminPatch;
+      return patch(key, function (rec) { rec.admin = rec.admin || {}; rec.admin.svSkipTimer = !!on; });
+    },
+
     renderPage: function (root) {
       injectCss();
       var refreshTimer = null;
@@ -243,6 +256,14 @@
             UI.toast(UI.formatCoins(amount) + ' 🥇 Survival-Gold an ' + row.displayName + ' geschenkt (kommt beim nächsten Heartbeat an).', 'win');
           }).catch(function (e) { UI.toast(e.message, 'lose'); });
         }
+
+        var skipOn = !!admin.svSkipTimer;
+        function toggleSkip() {
+          Admin.setSkipTimer(kind, key, !skipOn).then(function () {
+            UI.toast(row.displayName + (skipOn ? ': Survival-Wartelimit wieder aktiv.' : ' muss im Survival nicht mehr warten.'), skipOn ? 'lose' : 'win');
+            refresh();
+          }).catch(function (e) { UI.toast(e.message, 'lose'); });
+        }
         var goldInput = el('input', {
           class: 'text-input admin-ban-input', type: 'number', min: 1, step: 100,
           value: goldDrafts[rowId] || 1000
@@ -305,6 +326,14 @@
               class: 'btn btn-ghost admin-rig-btn', type: 'button',
               onclick: function () { goldInput.value = 10000; goldDrafts[rowId] = 10000; giftGold(10000); }
             }, ['+10.000'])
+          ]),
+          el('div', { class: 'admin-row-actions' }, [
+            el('span', { class: 'cf-info-l' }, ['⏱️ Survival-Wartelimit:']),
+            el('span', { class: 'cf-status ' + (skipOn ? 'win' : '') }, [skipOn ? 'übersprungen ✔' : '1 Stunde nach Pleite']),
+            el('button', {
+              class: 'btn ' + (skipOn ? 'btn-ghost admin-rig-btn' : 'btn-primary'), type: 'button',
+              onclick: toggleSkip
+            }, [skipOn ? 'Wieder einschalten' : '⏭️ Timer überspringen'])
           ])
         ]);
       }

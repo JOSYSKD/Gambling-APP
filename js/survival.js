@@ -32,7 +32,20 @@
   function runActive() { return App.Storage.get(KEY_RUN, false) === true; }
   function nextTry() { return Number(App.Storage.get(KEY_NEXT, 0)) || 0; }
   function lockedFor() { return Math.max(0, nextTry() - now()); }
-  function isLocked() { return lockedFor() > 0; }
+
+  /* Der Admin kann einzelne Spieler von der Stunden-Sperre befreien (siehe js/admin.js,
+   * setSkipTimer). Das Flag steht im Admin-Datensatz des Spielers und kommt — genau wie
+   * das Gewinn-Rigging in coins.js — über zwei Wege an: bei eingeloggten Konten über
+   * App.Account.adminMeta(), bei Gästen ohne Konto über App.Presence. Es ist ein
+   * Override, KEIN Löschen: die eigentliche Sperrzeit bleibt gespeichert, damit sie
+   * wieder greift, sobald der Admin das Flag zurücknimmt. */
+  function adminSkipsTimer() {
+    var meta = (App.Account && App.Account.adminMeta && App.Account.adminMeta()) || null;
+    if (meta && meta.svSkipTimer) return true;
+    if (App.Presence && App.Presence.skipsTimer && App.Presence.skipsTimer()) return true;
+    return false;
+  }
+  function isLocked() { return lockedFor() > 0 && !adminSkipsTimer(); }
   function peakEver() { return Number(App.Storage.get(KEY_PEAK, 0)) || 0; }
 
   /** Vermögen im Survival-Modus: Gold + Depotwert. Auch vom Casino aus korrekt,
@@ -237,7 +250,18 @@
         ])
       ])
     ]);
-    function tick() { countdown.textContent = fmtDur(lockedFor()); }
+    var lockP = overlay.querySelector('.sv-bust-lock');
+    // Hat der Admin diesen Spieler von der Sperre befreit, keinen sinnlosen Countdown
+    // zeigen — er darf sofort wieder starten.
+    function tick() {
+      if (adminSkipsTimer()) {
+        lockP.textContent = 'Kein Wartelimit (vom Admin freigeschaltet)';
+        countdown.textContent = 'sofort spielbar';
+      } else {
+        lockP.textContent = 'Nächster Versuch in';
+        countdown.textContent = fmtDur(lockedFor());
+      }
+    }
     tick();
     var timer = setInterval(tick, 1000);
     function close() {
@@ -300,6 +324,7 @@
           'Gehst du pleite, ist alles weg — und du musst eine Stunde warten.'
         ]),
         peakEver() ? el('div', { class: 'sv-rec' }, ['Dein Rekord: ', el('b', {}, [UI.formatCoins(peakEver()) + ' 🥇'])]) : null,
+        adminSkipsTimer() ? el('div', { class: 'sv-skip-note' }, ['⏱️ Der Admin hat dir das Wartelimit abgenommen — du kannst nach jeder Pleite sofort weiterspielen.']) : null,
         el('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: function () {
           if (startRun()) draw();
         } }, ['🚀 Run starten · ' + UI.formatCoins(START_GOLD) + ' 🥇'])
@@ -451,6 +476,7 @@
       '.sv-hero-t{font-size:22px;font-weight:900;color:#fff6d5;margin:0;}',
       '.sv-hero-s{color:var(--muted);font-size:13px;max-width:520px;margin:0;line-height:1.55;}',
       '.sv-rec{color:var(--muted);font-size:13px;}.sv-rec b{color:var(--gold);}',
+      '.sv-skip-note{font-size:12px;font-weight:800;color:#04160c;background:linear-gradient(180deg,#ffe680,var(--gold));border-radius:10px;padding:8px 12px;max-width:520px;box-shadow:0 0 14px rgba(255,210,63,.4);}',
       '.sv-lock-l,.sv-bust-lock{font-size:11px;text-transform:uppercase;letter-spacing:1.4px;color:var(--muted);font-weight:800;margin:0;}',
       '.sv-lock-time,.sv-bust-time{font-size:44px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums;',
       'text-shadow:0 0 18px rgba(255,210,63,.5);line-height:1.1;}',
@@ -513,6 +539,8 @@
     START_GOLD: START_GOLD,
     isActive: runActive,
     isLocked: isLocked,
+    /** Hat der Admin diesem Spieler das Wartelimit abgenommen? (siehe js/admin.js) */
+    skipsTimer: adminSkipsTimer,
     /** Welches Backend die Rangliste gerade nutzt: 'firebase' | 'cloud' | 'local'. */
     backendKind: function () { return driver ? driver.kind : 'none'; },
     lockedFor: lockedFor,

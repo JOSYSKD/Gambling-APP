@@ -12,7 +12,7 @@
   'use strict';
   window.App = window.App || {};
 
-  window.APP_VERSION = '2026-07-16.2';
+  window.APP_VERSION = '2026-07-16.3';
 
   var CHECK_MS = 25000;
   var blocked = false;
