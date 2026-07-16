@@ -325,10 +325,17 @@ Vom Admin angesetzte Turniere über mehrere Runden — Spieler-Seite `#/tourname
 
 **Als Admin ansetzen** (`js/tournament-admin.js`): Name, **Startzeit** (Uhrzeit; ist sie
 heute schon vorbei, gilt sie für morgen), **Rundenplan** aus **allen ~51 Spielen**
-zusammenklicken (ein Spiel darf mehrfach vorkommen), Dauer pro Runde, Ticketpreis,
-Chat an/aus und den **Preis für den Sieger**. Dazu live: wer in der Queue steht,
-**Verwarnungen** schicken, **aus dem Turniermodus bannen**, sofort starten, absagen —
-und die Liste der **Turniersieger zum Abhaken**.
+zusammenklicken (ein Spiel darf mehrfach vorkommen), **eine eigene Rundendauer je Spiel**
+(Feld hinter jedem Eintrag; die Standard-Rundendauer gilt nur für neu hinzugefügte
+Spiele), Ticketpreis, Chat an/aus und den **Preis für den Sieger**. Dazu live: wer in der
+Queue steht, **Verwarnungen** schicken, **aus dem Turniermodus bannen**, sofort starten,
+absagen — und die Liste der **Turniersieger zum Abhaken**.
+
+**Zuschauermodus** (Admin, „👁 Als Zuschauer ansehen"): Während einer Runde sieht der
+Admin **jeden Spieler live** — ein Raster aus Spieler-Kacheln mit dem laufenden
+Punktestand, ein Klick öffnet die **Fokus-Ansicht** eines Spielers (großer Live-Wert,
+Platz, Turnierpunkte, bei Duellen der Gegner). Ein **Weiter-Knopf** („⏭ Runde beenden")
+schaltet sofort weiter, ohne das Zeitlimit abzuwarten — auch im Zwischenstand.
 
 **Als Spieler**: bis zur Startzeit in die Queue stellen (man sieht alle Teilnehmer mit
 Profilbild und den Rundenplan). Die **Tickets werden erst beim Start abgebucht** —

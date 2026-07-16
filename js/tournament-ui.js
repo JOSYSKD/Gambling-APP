@@ -59,6 +59,38 @@
       '.tr-time.low{color:#ff6b6b;animation:tr-blink .6s steps(2) infinite;}',
       '@keyframes tr-blink{50%{opacity:.35;}}',
       '.tr-stage{position:relative;}',
+      /* Zuschauermodus */
+      '.tsp-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:10px;}',
+      '.tsp-head .tsp-live{display:inline-flex;align-items:center;gap:6px;font-weight:800;color:#ff6b6b;}',
+      '.tsp-head .tsp-dot{width:9px;height:9px;border-radius:50%;background:#ff3b3b;box-shadow:0 0 8px #ff3b3b;animation:tsp-pulse 1.2s infinite;}',
+      '@keyframes tsp-pulse{50%{opacity:.3;}}',
+      '.reduce-motion .tsp-dot{animation:none;}',
+      '.tsp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}',
+      '.tsp-card{position:relative;padding:12px;border-radius:12px;cursor:pointer;text-align:center;',
+      'background:rgba(2,10,6,.55);border:1px solid var(--stroke);transition:border-color .15s,transform .1s;}',
+      '.tsp-card:hover{border-color:var(--neon);transform:translateY(-2px);}',
+      '.tsp-card.focus{border-color:var(--neon);box-shadow:0 0 12px rgba(57,255,20,.4);}',
+      '.tsp-card.off{opacity:.45;}',
+      '.tsp-rank{position:absolute;top:6px;left:8px;font-size:12px;font-weight:900;opacity:.6;}',
+      '.tsp-eye{position:absolute;top:6px;right:8px;font-size:12px;opacity:.5;}',
+      '.tsp-ava{font-size:34px;line-height:1;margin:4px 0;}',
+      '.tsp-name{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+      '.tsp-val{font-size:22px;font-weight:900;color:var(--neon);font-variant-numeric:tabular-nums;margin-top:4px;}',
+      '.tsp-val.win{color:#ffc740;}',
+      '.tsp-sub{font-size:11px;opacity:.65;}',
+      /* Fokus-Ansicht */
+      '.tsp-focus{margin-top:14px;padding:20px;border-radius:16px;position:relative;',
+      'background:radial-gradient(120% 120% at 50% 0,rgba(57,255,20,.12),rgba(2,10,6,.85) 70%);border:1px solid var(--neon);}',
+      '.tsp-focus-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}',
+      '.tsp-focus-ava{font-size:56px;line-height:1;}',
+      '.tsp-focus-name{font-size:26px;font-weight:900;}',
+      '.tsp-focus-big{font-size:52px;font-weight:900;color:var(--neon);font-variant-numeric:tabular-nums;line-height:1.1;}',
+      '.tsp-focus-big.win{color:#ffc740;}',
+      '.tsp-focus-meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;font-size:14px;}',
+      '.tsp-focus-meta b{color:var(--neon);}',
+      '.tsp-close{position:absolute;top:12px;right:12px;}',
+      '.tsp-state{margin-top:12px;padding:10px;border-radius:10px;background:rgba(2,10,6,.55);',
+      'border:1px solid var(--stroke);font-size:13px;font-family:ui-monospace,monospace;word-break:break-word;}',
       /* Zwischenstand */
       '.ts-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;',
       'background:rgba(2,10,6,.45);border:1px solid var(--stroke);}',
@@ -106,6 +138,18 @@
   function gameTitle(id) {
     var g = T.gameDef(id);
     return g ? ((g.icon || '🎮') + ' ' + g.title) : id;
+  }
+  function secFor(cfg, i) {
+    var s = cfg.roundSecs && cfg.roundSecs[i];
+    return Math.max(5, Math.round(Number(s != null ? s : cfg.roundSec) || 60));
+  }
+  /** "3 Runden · 45s" bei gleicher Dauer, sonst "3 Runden · 30–60s". */
+  function roundsSummary(cfg) {
+    var n = (cfg.rounds || []).length;
+    var secs = (cfg.rounds || []).map(function (_, i) { return secFor(cfg, i); });
+    var min = Math.min.apply(null, secs), max = Math.max.apply(null, secs);
+    var t = (min === max) ? (min + 's je Runde') : (min + '–' + max + 's je Runde');
+    return n + ' Runden · ' + t;
   }
 
   /* ---------------- Spielerkacheln ---------------- */
@@ -219,7 +263,7 @@
     }
 
     var plan = el('div', { class: 'tq-plan' }, (cfg.rounds || []).map(function (gid, i) {
-      return el('span', { class: 'tq-chip' }, [(i + 1) + '. ' + gameTitle(gid)]);
+      return el('span', { class: 'tq-chip' }, [(i + 1) + '. ' + gameTitle(gid) + ' · ' + secFor(cfg, i) + 's']);
     }));
 
     root.appendChild(el('div', { class: 'page-head' }, [
@@ -238,7 +282,7 @@
         ]),
         el('div', {}, [
           el('div', { class: 'cf-info-l' }, ['Ablauf']),
-          el('div', { style: 'font-weight:700;' }, [(cfg.rounds || []).length + ' Runden à ' + (cfg.roundSec || 60) + 's'])
+          el('div', { style: 'font-weight:700;' }, [roundsSummary(cfg)])
         ])
       ]),
       plan,
@@ -283,6 +327,156 @@
     return { refresh: refresh };
   }
 
+  /* ---------------- Zuschauermodus (Runde) ---------------- */
+  /* Wie ein einzelner Spielstand angezeigt wird, hängt von der Spielart ab. */
+  function specValue(kind, gameId, score) {
+    if (kind === 'gamble') return { text: (score >= 0 ? '+' : '') + UI.formatCoins(score || 0), win: false, sub: 'Coins in dieser Runde' };
+    if (T.isWinBased(kind)) return (score >= 1)
+      ? { text: '🏆', win: true, sub: 'hat gewonnen' }
+      : { text: '⏳', win: false, sub: 'spielt noch' };
+    return { text: String(score || 0), win: false, sub: T.lowerIsBetter(gameId) ? 'niedriger ist besser' : 'Punkte' };
+  }
+
+  function spectatorRound(root, stage, refreshTime, gameId, kind, idx) {
+    var isAdm = T.isAdminHere();
+    var lower = T.lowerIsBetter(gameId);
+    var focusPid = null;
+
+    // Kopfzeile: „LIVE"-Anzeige + (nur Admin) Weiter-Knopf.
+    var head = el('div', { class: 'tsp-head' }, [
+      el('span', { class: 'tsp-live' }, [el('span', { class: 'tsp-dot' }), 'LIVE']),
+      el('span', { class: 'cf-info-l' }, ['👁 Zuschauermodus — tippe einen Spieler an, um ihm zuzuschauen.'])
+    ]);
+    if (isAdm) {
+      head.appendChild(el('button', {
+        class: 'btn btn-primary', type: 'button', style: 'margin-left:auto;',
+        title: 'Runde sofort werten und weiter',
+        onclick: function () {
+          T.Admin.forceNext().then(function () { UI.toast('⏭ Weiter …', 'info'); });
+        }
+      }, ['⏭ Runde beenden']));
+    }
+    stage.appendChild(head);
+
+    var grid = el('div', { class: 'tsp-grid' });
+    var focusHost = el('div', {});
+    stage.appendChild(grid);
+    stage.appendChild(focusHost);
+
+    // pid -> Turnierpunkte + Online-Status aus der Gesamt-Rangliste
+    function metaByPid() {
+      var m = {};
+      T.players().forEach(function (p) { m[p.pid] = p; });
+      return m;
+    }
+
+    function rows() {
+      var rp = T.roundPlayers(idx);
+      var meta = metaByPid();
+      // Falls die g-Knoten noch leer sind (Runde eben erst gestartet), wenigstens
+      // die Teilnehmer aus der Spielerliste zeigen.
+      if (!rp.length) {
+        rp = T.players().map(function (p) { return { pid: p.pid, name: p.name, avatar: p.avatar, score: 0, state: null, lastSeen: p.lastSeen }; });
+      }
+      rp.forEach(function (r) {
+        var pm = meta[r.pid];
+        r.points = pm ? (pm.points || 0) : 0;
+        r.online = pm ? ((Date.now() - (pm.lastSeen || r.lastSeen || 0)) < 16000) : ((Date.now() - (r.lastSeen || 0)) < 16000);
+      });
+      // Sortierung: Sieger/Beste zuerst.
+      rp.sort(function (a, b) {
+        if (T.isWinBased(kind)) return (b.score || 0) - (a.score || 0) || a.name.localeCompare(b.name);
+        var as = a.score || 0, bs = b.score || 0;
+        // „niedriger ist besser": 0 heißt noch nicht gespielt -> nach hinten
+        if (lower) {
+          var ap = as > 0, bp = bs > 0;
+          if (ap !== bp) return ap ? -1 : 1;
+          return as - bs;
+        }
+        return bs - as;
+      });
+      return rp;
+    }
+
+    function drawFocus(r) {
+      focusHost.innerHTML = '';
+      if (!r) return;
+      var v = specValue(kind, gameId, r.score);
+      var rankList = rows();
+      var place = rankList.findIndex(function (x) { return x.pid === r.pid; }) + 1;
+
+      var meta = [
+        el('span', {}, ['Turnierpunkte: ', el('b', {}, [String(r.points || 0)])]),
+        el('span', {}, ['Platz in dieser Runde: ', el('b', {}, ['#' + place])]),
+        el('span', {}, [r.online ? '🟢 online' : '⚪ nicht mehr da'])
+      ];
+      // Bei Duellen: Gegner im selben Paar-Zweig zeigen.
+      if (kind === 'duel') {
+        var opp = T.roundPlayers(idx).filter(function (x) { return x.roundKey === r.roundKey && x.pid !== r.pid; })[0];
+        meta.push(el('span', {}, ['Gegner: ', el('b', {}, [opp ? (opp.avatar + ' ' + opp.name) : 'Freilos']) ]));
+      }
+
+      var focus = el('div', { class: 'tsp-focus' }, [
+        el('button', { class: 'btn btn-ghost tsp-close', type: 'button', onclick: function () { focusPid = null; render(); } }, ['✕ Übersicht']),
+        el('div', { class: 'tsp-focus-top' }, [
+          el('span', { class: 'tsp-focus-ava' }, [r.avatar || '🐒']),
+          el('div', {}, [
+            el('div', { class: 'tsp-focus-name' }, [r.name]),
+            el('div', { class: 'tsp-focus-big' + (v.win ? ' win' : '') }, [v.text]),
+            el('div', { class: 'cf-info-l' }, [v.sub])
+          ])
+        ]),
+        el('div', { class: 'tsp-focus-meta' }, meta)
+      ]);
+
+      // Falls das Spiel einen strukturierten Live-Status meldet, roh anzeigen —
+      // manche Spiele tun das (reportState), viele nicht.
+      if (r.state && typeof r.state === 'object') {
+        var txt = '';
+        try { txt = JSON.stringify(r.state); } catch (e) { txt = ''; }
+        if (txt && txt !== '{}' && txt.length < 400) {
+          focus.appendChild(el('div', { class: 'tsp-state' }, ['Live-Status: ' + txt]));
+        }
+      }
+      focusHost.appendChild(focus);
+    }
+
+    function drawGrid() {
+      var rp = rows();
+      grid.innerHTML = '';
+      if (!rp.length) {
+        grid.appendChild(el('p', { class: 'lb-hint' }, ['Noch keine Spieler in dieser Runde.']));
+        return;
+      }
+      rp.forEach(function (r, i) {
+        var v = specValue(kind, gameId, r.score);
+        grid.appendChild(el('div', {
+          class: 'tsp-card' + (r.pid === focusPid ? ' focus' : '') + (r.online ? '' : ' off'),
+          onclick: function () { focusPid = (focusPid === r.pid ? null : r.pid); render(); }
+        }, [
+          el('span', { class: 'tsp-rank' }, ['#' + (i + 1)]),
+          el('span', { class: 'tsp-eye' }, ['👁']),
+          el('div', { class: 'tsp-ava' }, [r.avatar || '🐒']),
+          el('div', { class: 'tsp-name' }, [r.name]),
+          el('div', { class: 'tsp-val' + (v.win ? ' win' : '') }, [v.text]),
+          el('div', { class: 'tsp-sub' }, [(r.points || 0) + ' Turnierpunkte'])
+        ]));
+      });
+    }
+
+    function render() {
+      drawGrid();
+      var r = focusPid ? rows().filter(function (x) { return x.pid === focusPid; })[0] : null;
+      drawFocus(r);
+    }
+
+    render();
+    return {
+      refresh: function () { refreshTime(); render(); },
+      cleanup: function () {}
+    };
+  }
+
   /* ---------------- Die Runde selbst ---------------- */
   function viewRound(root) {
     var cfg = T.config(), idx = T.round();
@@ -314,25 +508,13 @@
       timeEl.classList.toggle('low', left < 10000);
     }
 
-    /* Zuschauer (Admin) und Spieler, die nicht in der Queue sind, sehen die
-     * Runde nur als Live-Rangliste. */
+    /* Zuschauermodus: wer nicht mitspielt (Admin oder ein nicht angemeldeter
+     * Besucher) sieht jeden Spieler live — Punktestand der laufenden Runde,
+     * Turnierpunkte, Online-Status. Ein Klick auf einen Spieler öffnet die
+     * Fokus-Ansicht, in der man ihm „zuschaut". Admins haben zusätzlich einen
+     * Weiter-Knopf. */
     if (!T.amIn()) {
-      var board = el('div', { style: 'display:flex;flex-direction:column;gap:8px;' });
-      stage.appendChild(el('p', { class: 'lb-hint' }, ['👁 Zuschauer-Ansicht — du spielst diese Runde nicht mit.']));
-      stage.appendChild(board);
-      var refreshSpec = function () {
-        board.innerHTML = '';
-        T.ranking().forEach(function (p, i) {
-          board.appendChild(el('div', { class: 'ts-row' }, [
-            el('span', { class: 'ts-place' }, ['#' + (i + 1)]),
-            el('span', { class: 'tq-ava' }, [p.avatar || '🐒']),
-            el('span', {}, [p.name]),
-            el('span', { class: 'ts-pts' }, [(p.points || 0) + ' P'])
-          ]));
-        });
-      };
-      refreshSpec();
-      return { refresh: function () { refresh(); refreshSpec(); }, cleanup: function () {} };
+      return spectatorRound(root, stage, refresh, gameId, kind, idx);
     }
 
     if (kind === 'gamble') {
@@ -441,6 +623,17 @@
     });
     root.appendChild(list);
     root.appendChild(el('p', { class: 'lb-hint' }, [bar]));
+
+    // Admin kann den Zwischenstand überspringen und sofort weiterschalten.
+    if (T.isAdminHere()) {
+      var nextName = (idx + 1 >= cfg.rounds.length) ? 'zur Siegerehrung' : ('zu Runde ' + (idx + 2));
+      root.appendChild(el('div', { class: 'admin-row-actions', style: 'margin-top:10px;' }, [
+        el('button', {
+          class: 'btn btn-primary', type: 'button',
+          onclick: function () { T.Admin.forceNext().then(function () { UI.toast('⏭ Weiter …', 'info'); }); }
+        }, ['⏭ Weiter ' + nextName])
+      ]));
+    }
 
     function refresh() {
       var left = Math.max(0, T.deadline() - Date.now());

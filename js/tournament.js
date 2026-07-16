@@ -17,7 +17,7 @@
  * Ein Turnier startet erst, wenn zur Startzeit auch wirklich jemand da ist.
  *
  * Datenmodell (geteilter Speicher, App.Net.store() -> Firebase):
- *   tournament/config   = { id, title, startAt, rounds:[gameId], roundSec,
+ *   tournament/config   = { id, title, startAt, rounds:[gameId], roundSec, roundSecs:[sec],
  *                           ticketCost, chat, prize:{type,minutes,amount},
  *                           status:'open'|'done' }
  *   tournament/live     = { phase, round, deadline, winner,
@@ -166,6 +166,7 @@
   }
   function isBanned(pid) { return !!(bans && bans[pid || myPid()]); }
   function bannedList() { return Object.keys(bans || {}); }
+  function isAdminHere() { return !!(App.Admin && App.Admin.isAdmin && App.Admin.isAdmin()); }
   function amIn() { return !!(live && live.players && live.players[myPid()]); }
 
   /** Host = am längsten wartender, noch anwesender Spieler. Rein rechnerisch,
@@ -318,7 +319,12 @@
       return abandon();
     }
 
-    if (!isHost()) return;
+    // Wer die Uhr laufen lässt: normalerweise der Taktgeber (host). Ist gerade
+    // KEIN Spieler da (z. B. nur der Admin schaut zu), darf der Admin die Runden
+    // weitertreiben — sonst bliebe ein Turnier ohne anwesende Spieler stehen.
+    // Solange ein Taktgeber existiert, treibt NUR er, damit die Wertung (endRound)
+    // nicht doppelt läuft.
+    if (!isHost() && !(isAdminHere() && !hostPid())) return;
 
     if (phase === 'queue') {
       if (cfg.startAt && now >= cfg.startAt && onlinePlayers().length > 0) beginCountdown(0);
@@ -345,14 +351,46 @@
     return setLive({ phase: 'countdown', round: idx, deadline: Date.now() + COUNTDOWN_MS });
   }
 
+  /* Rundendauer je Runde: der Admin kann pro Spiel eine eigene Zeit setzen
+   * (cfg.roundSecs[idx]); fehlt sie, gilt die Standarddauer cfg.roundSec. */
+  function roundSecFor(idx) {
+    if (!cfg) return 60;
+    var s = cfg.roundSecs && cfg.roundSecs[idx];
+    return Math.max(5, Math.round(Number(s != null ? s : cfg.roundSec) || 60));
+  }
+
   function beginRound(idx) {
     // Spielstand der Runde frisch anlegen, damit nichts aus der Vorrunde
     // durchblutet (shared-State und Punkte des Spiels).
     return store().then(function (b) {
       return b.remove(ROOT + '/live/g/r' + idx).catch(function () {});
     }).then(function () {
-      return setLive({ phase: 'round', round: idx, deadline: Date.now() + (cfg.roundSec || 60) * 1000 });
+      return setLive({ phase: 'round', round: idx, deadline: Date.now() + roundSecFor(idx) * 1000 });
     });
+  }
+
+  /* Live-Spielstand aller Teilnehmer der laufenden Runde — für den
+   * Zuschauermodus (siehe js/tournament-ui.js). Liest aus dem schon vorhandenen
+   * live.g (kein Extra-Request): bei Duellen liegen die Spieler in Paar-Zweigen
+   * (r<idx>_p0, r<idx>_p1 …), sonst alle in r<idx>. */
+  function roundPlayers(idx) {
+    var g = (live && live.g) || {};
+    var prefix = 'r' + idx;
+    var out = [];
+    Object.keys(g).forEach(function (key) {
+      if (key !== prefix && key.indexOf(prefix + '_p') !== 0) return;
+      var pl = (g[key] && g[key].players) || {};
+      Object.keys(pl).forEach(function (pid) {
+        var v = pl[pid] || {};
+        out.push({
+          pid: pid, roundKey: key,
+          name: v.name || 'Spieler', avatar: v.avatar || '🐒',
+          score: v.score || 0, state: v.state || null,
+          lastSeen: v.lastSeen || 0
+        });
+      });
+    });
+    return out;
   }
 
   /** Rundenergebnisse einsammeln, in Punkte umrechnen, Zwischenstand zeigen. */
@@ -577,6 +615,19 @@
     startNow: function () {
       return store().then(function (b) { return b.update(ROOT + '/config', { startAt: Date.now() }); });
     },
+    /** Sofort weiter (Admin-Knopf im Zuschauermodus): setzt die Deadline der
+     *  aktuellen Phase auf jetzt — der Taktgeber (oder der Admin selbst, wenn
+     *  kein Spieler da ist) schaltet dann weiter. In der Queue = sofort starten.
+     *  Läuft bewusst über die Deadline statt direkt zu schreiben, damit die
+     *  Wertung genau einmal durch den Taktgeber passiert (kein Doppelzählen). */
+    forceNext: function () {
+      return store().then(function (b) {
+        if (!live || !live.phase || live.phase === 'queue') {
+          return b.update(ROOT + '/config', { startAt: Date.now() });
+        }
+        return b.update(ROOT + '/live', { deadline: Date.now() });
+      });
+    },
     ban: function (pid) {
       return store().then(function (b) {
         return b.set(ROOT + '/banned/' + pid, true)
@@ -656,11 +707,14 @@
     players: players,
     onlinePlayers: onlinePlayers,
     ranking: ranking,
+    roundPlayers: roundPlayers,
+    roundSecFor: roundSecFor,
     myPid: myPid,
     myName: myName,
     isHost: isHost,
     hostPid: hostPid,
     amIn: amIn,
+    isAdminHere: isAdminHere,
     isBanned: isBanned,
     bannedList: bannedList,
 

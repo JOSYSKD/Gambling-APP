@@ -36,7 +36,9 @@
       '.ta-plan-row{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:9px;',
       'background:rgba(2,10,6,.5);border:1px solid var(--stroke);}',
       '.ta-plan-row .ta-num{font-weight:900;opacity:.6;width:22px;}',
-      '.ta-plan-row .ta-x{margin-left:auto;}',
+      '.ta-sec-wrap{margin-left:auto;display:flex;align-items:center;gap:5px;}',
+      '.ta-sec-in{width:64px;text-align:right;padding:5px 7px;font-size:13px;}',
+      '.ta-plan-row .ta-x{margin-left:0;}',
       '.ta-empty{opacity:.55;font-size:13px;padding:8px;}',
       '.ta-win-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;',
       'background:rgba(2,10,6,.45);border:1px solid var(--stroke);}',
@@ -68,16 +70,25 @@
     var T = App.Tournament;
     T.start();
 
-    // Rundenplan im Aufbau (Liste von Spiel-IDs, Reihenfolge = Spielreihenfolge)
+    // Rundenplan im Aufbau: Spiel-IDs plus je eine eigene Rundendauer (Sekunden),
+    // parallel geführt. Reihenfolge = Spielreihenfolge.
     var plan = [];
+    var planSecs = [];
     var existing = T.config();
-    if (existing && existing.status === 'open' && existing.rounds) plan = existing.rounds.slice();
+    if (existing && existing.status === 'open' && existing.rounds) {
+      plan = existing.rounds.slice();
+      plan.forEach(function (gid, i) {
+        var s = existing.roundSecs && existing.roundSecs[i];
+        planSecs[i] = (s != null ? s : existing.roundSec) || 60;
+      });
+    }
+    var DEFAULT_SEC = (existing && existing.status === 'open' && existing.roundSec) || 60;
 
     var planBox = el('div', { class: 'ta-plan' });
 
     var titleIn = el('input', { class: 'text-input', type: 'text', maxlength: 40, value: (existing && existing.status === 'open' && existing.title) || 'Dschungel-Cup' });
     var timeIn = el('input', { class: 'text-input', type: 'time', value: existing && existing.status === 'open' ? tsToTime(existing.startAt) : tsToTime(Date.now() + 900000) });
-    var durIn = el('input', { class: 'text-input', type: 'number', min: 15, max: 900, value: (existing && existing.status === 'open' && existing.roundSec) || 60 });
+    var durIn = el('input', { class: 'text-input', type: 'number', min: 5, max: 900, value: DEFAULT_SEC });
     var costIn = el('input', { class: 'text-input', type: 'number', min: 0, max: 20, value: existing && existing.status === 'open' && typeof existing.ticketCost === 'number' ? existing.ticketCost : 1 });
     var chatIn = el('input', { type: 'checkbox' });
     chatIn.checked = existing && existing.status === 'open' ? !!existing.chat : true;
@@ -114,14 +125,23 @@
       }
       plan.forEach(function (gid, i) {
         var g = T.gameDef(gid);
+        var secIn = el('input', {
+          class: 'text-input ta-sec-in', type: 'number', min: 5, max: 900,
+          value: planSecs[i] != null ? planSecs[i] : DEFAULT_SEC,
+          title: 'Rundendauer für dieses Spiel (Sekunden)'
+        });
+        secIn.addEventListener('input', function () {
+          planSecs[i] = Math.max(5, Math.round(Number(secIn.value) || DEFAULT_SEC));
+        });
         planBox.appendChild(el('div', { class: 'ta-plan-row' }, [
           el('span', { class: 'ta-num' }, [(i + 1) + '.']),
           el('span', {}, [(g && g.icon) || '🎮']),
           el('b', {}, [(g && g.title) || gid]),
           el('span', { class: 'cf-info-l' }, [KIND_SHORT[T.kindOf(gid)] || 'Wettbewerb']),
+          el('span', { class: 'ta-sec-wrap' }, [secIn, el('span', { class: 'cf-info-l' }, ['Sek.'])]),
           el('button', {
             class: 'btn btn-ghost ta-x', type: 'button', title: 'Runde entfernen',
-            onclick: function () { plan.splice(i, 1); drawPlan(); }
+            onclick: function () { plan.splice(i, 1); planSecs.splice(i, 1); drawPlan(); }
           }, ['✕'])
         ]));
       });
@@ -138,7 +158,12 @@
         pool.appendChild(el('div', { class: 'ta-pool' }, items.map(function (it) {
           return el('button', {
             class: 'btn btn-ghost ta-pick', type: 'button', title: it.title,
-            onclick: function () { plan.push(it.id); drawPlan(); }
+            onclick: function () {
+              plan.push(it.id);
+              // neues Spiel erbt die aktuelle Standarddauer; pro Runde änderbar
+              planSecs.push(Math.max(5, Math.round(Number(durIn.value) || DEFAULT_SEC)));
+              drawPlan();
+            }
           }, [it.icon + ' ' + it.title]);
         })));
       });
@@ -149,11 +174,13 @@
       var prize = { type: prizeSel.value };
       if (t && t.instant) prize.amount = Math.max(1, Math.round(Number(prizeAmt.value) || 1));
       else prize.minutes = Math.max(1, Math.round(Number(prizeMin.value) || 1));
+      var def = Math.max(5, Math.round(Number(durIn.value) || 60));
       return {
         title: (titleIn.value || 'Turnier').slice(0, 40),
         startAt: timeToTs(timeIn.value),
         rounds: plan.slice(),
-        roundSec: Math.max(15, Math.round(Number(durIn.value) || 60)),
+        roundSec: def,   // Standarddauer / Fallback
+        roundSecs: plan.map(function (gid, i) { return Math.max(5, Math.round(Number(planSecs[i]) || def)); }),
         ticketCost: Math.max(0, Math.round(Number(costIn.value) || 0)),
         chat: !!chatIn.checked,
         prize: prize
@@ -321,7 +348,7 @@
       el('div', { class: 'ta-grid' }, [
         el('div', { class: 'ta-field' }, [el('label', {}, ['Name des Turniers']), titleIn]),
         el('div', { class: 'ta-field' }, [el('label', {}, ['Startzeit (heute, sonst morgen)']), timeIn]),
-        el('div', { class: 'ta-field' }, [el('label', {}, ['Dauer pro Runde (Sekunden)']), durIn]),
+        el('div', { class: 'ta-field' }, [el('label', {}, ['Standard-Rundendauer (Sek.)']), durIn]),
         el('div', { class: 'ta-field' }, [el('label', {}, ['Tickets pro Teilnahme']), costIn]),
         el('div', { class: 'ta-field' }, [el('label', {}, ['Preis für den Sieger']), prizeSel]),
         prizeMinField,
@@ -349,12 +376,13 @@
         }, ['🏆 Turnier ansetzen']),
         el('button', {
           class: 'btn btn-ghost', type: 'button',
-          onclick: function () { plan = []; drawPlan(); }
+          onclick: function () { plan = []; planSecs = []; drawPlan(); }
         }, ['Rundenplan leeren'])
       ]),
       el('p', { class: 'lb-hint' }, [
-        'Hinweis: Die Seite hat keinen Server — ein Turnier startet erst, wenn zur Startzeit ' +
-        'auch wirklich jemand die Seite offen hat. Die Tickets werden erst beim Start abgebucht.'
+        'Jede Runde hat ihre eigene Dauer (Feld hinter dem Spiel) — die Standard-Rundendauer gilt nur für neu hinzugefügte Spiele. ' +
+        'Die Seite hat keinen Server: Ein Turnier startet erst, wenn zur Startzeit wirklich jemand die Seite offen hat. ' +
+        'Die Tickets werden erst beim Start abgebucht.'
       ])
     ]));
 
