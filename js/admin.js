@@ -1,7 +1,8 @@
 /* admin.js — Admin-Panel für den Gambling-Bereich.
  *
  * Login: im normalen Konto-Login-Formular (Profil-Seite) Kontoname "J0SY_SKD"
- * und Passwort "072018" eingeben -> Admin-Modus statt normalem Konto-Login.
+ * (oder "JOSY_SKD" mit O — beide gehen) und Passwort "072018" eingeben ->
+ * Admin-Modus statt normalem Konto-Login.
  * Danach erscheint im Gambling-Menü ein Knopf "🛠 Admin Panel" (Route /admin).
  *
  * Funktionen:
@@ -28,7 +29,10 @@
   window.App = window.App || {};
   var UI = App.UI, el = UI.el;
 
-  var ADMIN_USER = 'j0sy_skd';
+  // Beide Schreibweisen akzeptieren: mit Null ("J0SY_SKD") UND mit Buchstabe O
+  // ("JOSY_SKD"). Josls Konto-/GitHub-Name nutzt das O, daher tippt er das leicht
+  // aus Gewohnheit — sonst schlägt der Admin-Login unbemerkt fehl.
+  var ADMIN_USERS = ['j0sy_skd', 'josy_skd'];
   var ADMIN_PASS = '072018';
   var KEY_SESSION = 'gj_admin_session';
   var ONLINE_MS = 20000; // deckt sich mit SESSION_STALE_MS in account.js
@@ -72,7 +76,8 @@
     isAdmin: function () { return App.Storage.get(KEY_SESSION, false) === true; },
 
     tryLogin: function (user, pass) {
-      if (String(user || '').trim().toLowerCase() === ADMIN_USER && String(pass || '') === ADMIN_PASS) {
+      var u = String(user || '').trim().toLowerCase();
+      if (ADMIN_USERS.indexOf(u) >= 0 && String(pass || '') === ADMIN_PASS) {
         App.Storage.set(KEY_SESSION, true);
         emit();
         return true;
