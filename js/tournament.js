@@ -296,10 +296,15 @@
    * seine Punkte nicht, spielt aber nicht mehr mit. */
   function startersOf() { return players(); }
 
-  /* Verwaistes Turnier zu Ende bringen: mit dem Punktestand, der da ist —
-   * ist niemand mehr in der Liste, geht es zurück in den Wartebereich. */
+  /* Verwaistes Turnier aufräumen. WICHTIG: NICHT mitten im Turnier einen Sieger
+   * küren — ein Gesamtsieger darf erst NACH der allerletzten Runde feststehen
+   * (siehe finish(), gekürt wird der mit den meisten Punkten). Ein hängengebliebenes
+   * Turnier wird daher nur dann per finish() beendet, wenn es ohnehin schon in der
+   * Ergebnis-Phase der LETZTEN Runde steckt; sonst geht es zurück in den Wartebereich
+   * (kein Zufalls-/Teilsieger). */
   function abandon() {
-    if (players().length) return finish();
+    var isLastRound = cfg && ((live.round || 0) + 1) >= cfg.rounds.length;
+    if (players().length && live.phase === 'result' && isLastRound) return finish();
     return setLive({ phase: 'queue', round: 0, deadline: 0 });
   }
 

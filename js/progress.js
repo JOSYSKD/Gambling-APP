@@ -18,24 +18,45 @@
   var UI = App.UI, el = UI.el;
   var KEY = 'gj_progress';
 
+  // RESET-GENERATION: Diese Zahl hochzählen, um bei ALLEN Spielern Level, XP und
+  // Quests EINMALIG zurückzusetzen. Beim nächsten Laden erkennt jeder Client eine
+  // ältere Generation im Storage und setzt seinen Stand auf null — für Casino UND
+  // Survival getrennt (mode.js präfixt gj_progress). Über den Konto-Heartbeat
+  // (account.js snapshotToAccount) landet der Reset danach auch in den Cloud-Konten,
+  // sodass ein späterer Login den alten Stand NICHT zurückholt.
+  var RESET_GEN = 2;
+
+  function freshStats() {
+    return {
+      wagered: 0, won: 0, wins: 0, losses: 0, rounds: 0, biggestWin: 0,
+      games: {},      // id -> 1 (welche Spiele schon gespielt)
+      gameWins: {},   // id -> Anzahl Siege in genau diesem Spiel (für Meister-Quests)
+      streak: 0,      // aktuelle Sieg-Serie
+      maxStreak: 0    // längste Sieg-Serie überhaupt
+    };
+  }
+
   /* ---------------- Zustand ---------------- */
-  var DEFAULT = {
-    xp: 0,
-    stats: { wagered: 0, won: 0, wins: 0, losses: 0, rounds: 0, biggestWin: 0, games: {} },
-    quests: {},        // id -> { done:bool, claimed:bool }
-    lastDaily: '',     // Datum der letzten Tages-Quests
-    daily: []          // aktuelle Tages-Quest-IDs
-  };
+  var DEFAULT = { xp: 0, stats: freshStats(), quests: {}, lastDaily: '', daily: [], resetGen: RESET_GEN };
   var state = load();
   function load() {
     var s = App.Storage ? App.Storage.get(KEY, null) : null;
     if (!s || typeof s !== 'object') s = {};
+    // Globaler Reset (siehe RESET_GEN): alter/kein Generationsstempel -> alles auf null,
+    // sofort persistieren, damit der leere Stand auch in den Konto-Snapshot wandert.
+    if ((Number(s.resetGen) || 0) < RESET_GEN) {
+      s = { xp: 0, stats: freshStats(), quests: {}, lastDaily: '', daily: [], resetGen: RESET_GEN };
+      if (App.Storage) App.Storage.set(KEY, s);
+      return s;
+    }
     s.xp = Math.max(0, Math.round(Number(s.xp) || 0));
-    s.stats = Object.assign({ wagered: 0, won: 0, wins: 0, losses: 0, rounds: 0, biggestWin: 0, games: {} }, s.stats || {});
+    s.stats = Object.assign(freshStats(), s.stats || {});
     if (!s.stats.games || typeof s.stats.games !== 'object') s.stats.games = {};
+    if (!s.stats.gameWins || typeof s.stats.gameWins !== 'object') s.stats.gameWins = {};
     s.quests = s.quests || {};
     s.daily = s.daily || [];
     s.lastDaily = s.lastDaily || '';
+    s.resetGen = RESET_GEN;
     return s;
   }
   function save() { if (App.Storage) App.Storage.set(KEY, state); }
@@ -45,8 +66,11 @@
   function emit() { for (var i = 0; i < listeners.length; i++) { try { listeners[i](); } catch (e) {} } }
 
   /* ---------------- Level-Kurve ---------------- */
-  // XP, die von Level L nach L+1 nötig ist (steigt linear).
-  function reqFor(level) { return 80 + (level - 1) * 60; }
+  // XP von Level L nach L+1 — BEWUSST STEIL (quadratisch statt linear), damit
+  // Aufleveln sich erarbeitet anfühlt und nicht in Minuten passiert. Zusammen mit
+  // den stark reduzierten XP-Gewinnen (siehe onWager/onOutcome) ist das ~5-6× so
+  // langsam wie vorher.
+  function reqFor(level) { return Math.round(500 + (level - 1) * (level - 1) * 130); }
   // kumulierte XP bis zum Beginn von Level L.
   function cumFor(level) { var t = 0; for (var l = 1; l < level; l++) t += reqFor(l); return t; }
   function levelFromXp(xp) {
@@ -135,17 +159,19 @@
 
   /* ---------------- Quests ---------------- */
   // prog(s) -> aktueller Fortschritt (Zahl), target -> Ziel. reward {coins,xp}.
+  // Basis-Quests — bewusst deutlich schwerer als früher (Ziele grob verdoppelt/verdreifacht).
   var BASE_QUESTS = [
-    { id: 'rounds10', icon: '🎰', title: 'Warmspielen', desc: 'Spiele 10 Runden', target: 10, prog: function (s) { return s.rounds; }, reward: { coins: 500, xp: 40 } },
-    { id: 'wins10', icon: '🍀', title: 'Glückssträhne', desc: 'Gewinne 10 Runden', target: 10, prog: function (s) { return s.wins; }, reward: { coins: 1000, xp: 80 } },
-    { id: 'wager20k', icon: '💸', title: 'High Roller', desc: 'Setze insgesamt 20.000 Coins', target: 20000, prog: function (s) { return s.wagered; }, reward: { coins: 2000, xp: 120 } },
-    { id: 'bal10k', icon: '🤑', title: 'Reich werden', desc: 'Erreiche 10.000 Coins Guthaben', target: 10000, prog: function (s) { return s.peakBalance || 0; }, reward: { coins: 3000, xp: 150 } },
-    { id: 'bigwin2k', icon: '💥', title: 'Großer Coup', desc: 'Gewinne 2.000+ in einer Runde', target: 2000, prog: function (s) { return s.biggestWin; }, reward: { coins: 2500, xp: 150 } },
-    { id: 'games6', icon: '🕹️', title: 'Entdecker', desc: 'Spiele 6 verschiedene Spiele', target: 6, prog: function (s) { return Object.keys(s.games || {}).length; }, reward: { coins: 1500, xp: 100 } },
-    { id: 'wins50', icon: '🏆', title: 'Seriensieger', desc: 'Gewinne 50 Runden', target: 50, prog: function (s) { return s.wins; }, reward: { coins: 5000, xp: 300 } },
-    { id: 'wager100k', icon: '🐋', title: 'Whale', desc: 'Setze insgesamt 100.000 Coins', target: 100000, prog: function (s) { return s.wagered; }, reward: { coins: 8000, xp: 400 } },
-    { id: 'bigwin10k', icon: '🚀', title: 'Jackpot-Jäger', desc: 'Gewinne 10.000+ in einer Runde', target: 10000, prog: function (s) { return s.biggestWin; }, reward: { coins: 10000, xp: 500 } },
-    { id: 'bal50k', icon: '👑', title: 'Millionär in spe', desc: 'Erreiche 50.000 Coins Guthaben', target: 50000, prog: function (s) { return s.peakBalance || 0; }, reward: { coins: 12000, xp: 600 } }
+    { id: 'rounds10', icon: '🎰', title: 'Warmspielen', desc: 'Spiele 25 Runden', target: 25, prog: function (s) { return s.rounds; }, reward: { coins: 400, xp: 30 } },
+    { id: 'wins10', icon: '🍀', title: 'Glückssträhne', desc: 'Gewinne 25 Runden', target: 25, prog: function (s) { return s.wins; }, reward: { coins: 1000, xp: 60 } },
+    { id: 'wager20k', icon: '💸', title: 'High Roller', desc: 'Setze insgesamt 40.000 Coins', target: 40000, prog: function (s) { return s.wagered; }, reward: { coins: 2000, xp: 90 } },
+    { id: 'bal10k', icon: '🤑', title: 'Reich werden', desc: 'Erreiche 20.000 Coins Guthaben', target: 20000, prog: function (s) { return s.peakBalance || 0; }, reward: { coins: 3000, xp: 110 } },
+    { id: 'bigwin2k', icon: '💥', title: 'Großer Coup', desc: 'Gewinne 4.000+ in einer Runde', target: 4000, prog: function (s) { return s.biggestWin; }, reward: { coins: 3000, xp: 120 } },
+    { id: 'games6', icon: '🕹️', title: 'Entdecker', desc: 'Spiele 8 verschiedene Spiele', target: 8, prog: function (s) { return Object.keys(s.games || {}).length; }, reward: { coins: 1500, xp: 90 } },
+    { id: 'streakstart', icon: '🔥', title: 'Heiß gelaufen', desc: 'Gewinne 5 Runden hintereinander', target: 5, prog: function (s) { return s.maxStreak || 0; }, reward: { coins: 2000, xp: 100 } },
+    { id: 'wins50', icon: '🏆', title: 'Seriensieger', desc: 'Gewinne 75 Runden', target: 75, prog: function (s) { return s.wins; }, reward: { coins: 6000, xp: 220 } },
+    { id: 'wager100k', icon: '🐋', title: 'Whale', desc: 'Setze insgesamt 250.000 Coins', target: 250000, prog: function (s) { return s.wagered; }, reward: { coins: 10000, xp: 320 } },
+    { id: 'bigwin10k', icon: '🚀', title: 'Jackpot-Jäger', desc: 'Gewinne 25.000+ in einer Runde', target: 25000, prog: function (s) { return s.biggestWin; }, reward: { coins: 12000, xp: 420 } },
+    { id: 'bal50k', icon: '👑', title: 'Millionär in spe', desc: 'Erreiche 120.000 Coins Guthaben', target: 120000, prog: function (s) { return s.peakBalance || 0; }, reward: { coins: 15000, xp: 520 } }
   ];
 
   // Belohnung anhand der Zielgröße herleiten (Coins wachsen mit dem Ziel, XP nur logarithmisch,
@@ -177,7 +203,35 @@
     { id: 'stud', icon: '🂭', name: 'Seven-Card Stud' }, { id: 'fivedraw', icon: '🎴', name: 'Five-Card Draw' }
   ];
 
+  // NEUE Quest-Art: Sieg-Serien (Siege in Folge, ohne Verlust dazwischen).
+  var STREAK_QUESTS = tierQuests('streak', '🔥', [3, 5, 8, 12, 20, 30, 50, 75],
+    function (t) { return t + 'er-Serie'; },
+    function (t) { return 'Gewinne ' + t + ' Runden HINTEREINANDER (ohne Verlust dazwischen)'; },
+    function (s) { return s.maxStreak || 0; });
+
+  // NEUE Quest-Art: Spiel-Meisterschaft — an EINEM bestimmten Spiel oft gewinnen.
+  var MASTERY_GAMES = [
+    { id: 'blackjack', icon: '🃏', name: 'Blackjack' }, { id: 'crash', icon: '🚀', name: 'Crash' },
+    { id: 'slots', icon: '🎰', name: 'Slots' }, { id: 'roulette', icon: '🎡', name: 'Roulette' },
+    { id: 'mines', icon: '💣', name: 'Mines' }, { id: 'plinko', icon: '🎯', name: 'Plinko' },
+    { id: 'coinflip', icon: '🪙', name: 'Coinflip' }, { id: 'cuberoll', icon: '🎲', name: 'Cube-Roll' },
+    { id: 'wheel', icon: '🌀', name: 'Glücksrad' }, { id: 'baccarat', icon: '🎴', name: 'Baccarat' }
+  ];
+  var MASTERY_QUESTS = [];
+  MASTERY_GAMES.forEach(function (g) {
+    [25, 100, 300].forEach(function (t) {
+      MASTERY_QUESTS.push({
+        id: 'gwin_' + g.id + '_' + t, icon: g.icon,
+        title: g.name + '-Meister ' + t, desc: 'Gewinne ' + t + ' Runden ' + g.name,
+        target: t, prog: (function (id) { return function (s) { return (s.gameWins && s.gameWins[id]) || 0; }; })(g.id),
+        reward: questReward(t * 40)
+      });
+    });
+  });
+
   var EXTRA_QUESTS = []
+    .concat(STREAK_QUESTS)
+    .concat(MASTERY_QUESTS)
     .concat(tierQuests('rounds', '🎰', [50, 150, 400, 1000, 2500, 6000, 15000, 40000, 100000],
       function (t) { return 'Marathon ' + fmt(t); }, function (t) { return 'Spiele ' + fmt(t) + ' Runden'; },
       function (s) { return s.rounds; }))
@@ -221,7 +275,9 @@
   function questDone(q) { return q.prog(statsView()) >= q.target; }
   function statsView() {
     var s = state.stats;
-    return { wagered: s.wagered, won: s.won, wins: s.wins, losses: s.losses, rounds: s.rounds, biggestWin: s.biggestWin, games: s.games, peakBalance: peakBalance };
+    return { wagered: s.wagered, won: s.won, wins: s.wins, losses: s.losses, rounds: s.rounds,
+      biggestWin: s.biggestWin, games: s.games, gameWins: s.gameWins || {},
+      streak: s.streak || 0, maxStreak: s.maxStreak || 0, peakBalance: peakBalance };
   }
   var peakBalance = 0;
 
@@ -285,7 +341,7 @@
     if (amount <= 0) return;
     state.stats.wagered += amount;
     state.stats.rounds += 1;
-    addXp(Math.max(1, Math.round(amount / 40)));  // XP fürs Spielen (speichert+emit+levelcheck)
+    addXp(Math.max(1, Math.round(amount / 130)));  // XP fürs Spielen — bewusst wenig (Leveln ist zäh)
     checkQuests();
   }
   function onOutcome(delta) {
@@ -293,12 +349,18 @@
     if (delta > 0) {
       state.stats.wins += 1;
       state.stats.won += delta;
+      // Sieg-Serie (Siege in Folge, reißt bei jedem Verlust) — Quelle für Serien-Quests.
+      state.stats.streak = (state.stats.streak || 0) + 1;
+      if (state.stats.streak > (state.stats.maxStreak || 0)) state.stats.maxStreak = state.stats.streak;
+      // Siege je Spiel (für Meister-Quests) — curGame kommt aus dem Hash.
+      if (curGame) state.stats.gameWins[curGame] = (state.stats.gameWins[curGame] || 0) + 1;
       if (delta > state.stats.biggestWin) state.stats.biggestWin = delta;
-      addXp(Math.max(2, Math.round(delta / 25)));  // Bonus-XP fürs Gewinnen
-      if (delta >= 1000) confetti(Math.min(70, 24 + Math.round(delta / 400)));  // Konfetti bei großem Gewinn
+      addXp(Math.max(1, Math.round(delta / 90)));  // Bonus-XP fürs Gewinnen — ebenfalls reduziert
+      if (delta >= 2000) confetti(Math.min(70, 20 + Math.round(delta / 600)));  // Konfetti nur bei größeren Gewinnen
 
     } else if (delta < 0) {
       state.stats.losses += 1;
+      state.stats.streak = 0;   // Serie reißt
       save(); emit();
     }
     checkQuests();

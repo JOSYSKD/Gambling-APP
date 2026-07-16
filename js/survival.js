@@ -27,6 +27,8 @@
   var KEY_PEAK = 'gj_sv_peak_ever';  // bestes Vermögen aller Zeiten (Rekord)
   var KEY_ID = 'gj_sv_id';           // eigene Ranglisten-ID (falls kein Konto)
   var KEY_GOLD_SEEN = 'gj_sv_gold_seen'; // zuletzt eingelöstes Admin-Gold-Geschenk (siehe applyGoldGrant)
+  var KEY_RESET = 'gj_sv_reset_gen'; // zuletzt angewandte Rekord-Reset-Generation (siehe SV_RESET_GEN)
+  var SV_RESET_GEN = 1;              // hochzählen, um die Survival-Rangliste (Allzeit-Rekorde) EINMALIG zu leeren
 
   function now() { return Date.now(); }
   function runActive() { return App.Storage.get(KEY_RUN, false) === true; }
@@ -200,7 +202,9 @@
 
   function getBoard(limit) {
     var list = (driver ? driver.list() : board).slice();
-    list.sort(function (a, b) { return (b.gold - a.gold) || (b.peak - a.peak); });
+    // Rangliste = bester Run ALLER ZEITEN: nach dem höchsten je erreichten Vermögen
+    // (peak) sortieren, aktueller Goldstand nur als Gleichstand-Entscheider.
+    list.sort(function (a, b) { return (b.peak - a.peak) || (b.gold - a.gold); });
     return list.slice(0, limit || 20);
   }
 
@@ -399,17 +403,17 @@
             e.name || 'Anonym',
             e.alive ? el('span', { class: 'sv-tag alive' }, ['läuft']) : el('span', { class: 'sv-tag dead' }, ['pleite'])
           ]),
-          el('span', { class: 'sv-pgold' }, [UI.formatShort(e.gold) + ' 🥇']),
-          el('span', { class: 'sv-ppeak' }, ['Rekord ' + UI.formatShort(e.peak)])
+          el('span', { class: 'sv-pgold' }, [UI.formatShort(e.peak) + ' 🥇']),
+          el('span', { class: 'sv-ppeak' }, ['jetzt ' + UI.formatShort(e.gold)])
         ]);
       });
       if (!rows.length) rows = [el('div', { class: 'sv-empty' }, ['Noch niemand hat Survival gespielt — sei der Erste!'])];
       return el('div', { class: 'glass sv-board' }, [
-        el('h3', { class: 'sv-board-t' }, ['🏆 Live-Rangliste · wer hat das meiste Gold?']),
+        el('h3', { class: 'sv-board-t' }, ['🏆 Rangliste · bester Run aller Zeiten']),
         el('div', { class: 'sv-rows' }, rows),
         el('p', { class: 'sv-board-h' }, [
           driver && (driver.kind === 'firebase' || driver.kind === 'cloud')
-            ? 'Live über alle Spieler — gezählt wird Gold + Depotwert, in Echtzeit.'
+            ? 'Über alle Spieler — gewertet wird das höchste Vermögen (Gold + Depot), das je in einem Run erreicht wurde.'
             : 'Kein Cloud-Backend erreichbar — aktuell nur Runs aus diesem Browser sichtbar.'
         ])
       ]);
@@ -421,7 +425,7 @@
         ['💀', 'Pleite = alles weg', 'Kein Auffüllen. Level, XP, Quests, Stats und Aktien-Depot fallen auf null zurück.'],
         ['⏳', 'Ein Versuch pro Stunde', 'Nach dem Pleitegehen ist eine Stunde Pause. Danach startest du wieder mit ' + UI.formatCoins(START_GOLD) + ' Gold bei null.'],
         ['📈', 'Aktien inklusive', 'Der Aktienmarkt läuft auch hier — mit Gold statt Silber. Wer Aktien hält, ist übrigens nicht pleite.'],
-        ['🏆', 'Live-Rangliste', 'Alle Spieler in einer Liste, sortiert nach Gold. Nur dein Casino-Spielstand bleibt beim Reset unangetastet.']
+        ['🏆', 'Rangliste', 'Alle Spieler in einer Liste, sortiert nach dem HÖCHSTEN je erreichten Vermögen (dein bester Run aller Zeiten) — nicht nach dem aktuellen Stand. Nur dein Casino-Spielstand bleibt beim Reset unangetastet.']
       ];
       return el('div', { class: 'glass sv-rules' }, [
         el('h3', { class: 'sv-board-t' }, ['📜 So läuft Survival']),
@@ -576,6 +580,14 @@
 
   function boot() {
     injectCss();
+    // Einmaliger Rangliste-Reset (siehe SV_RESET_GEN): den lokal gespeicherten Allzeit-
+    // Rekord und die lokale Board-Kopie leeren, damit die Rekord-Rangliste frisch startet.
+    // Die Cloud-Einträge werden separat serverseitig gelöscht (Firebase-Node 'survival').
+    if ((Number(App.Storage.get(KEY_RESET, 0)) || 0) < SV_RESET_GEN) {
+      App.Storage.set(KEY_PEAK, 0);
+      App.Storage.remove('gj_sv_board_local');
+      App.Storage.set(KEY_RESET, SV_RESET_GEN);
+    }
     installBadge();
     syncBadge();
     App.Mode.onChange(syncBadge);
