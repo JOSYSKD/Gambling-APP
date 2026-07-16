@@ -21,7 +21,7 @@
   window.App = window.App || {};
 
   var PATH = 'scores/__ideas';
-  var MAX_LEN = 400;
+  var MAX_LEN = 10000;
 
   function store() { return App.Net.store(); }
 
