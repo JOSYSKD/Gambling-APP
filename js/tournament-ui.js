@@ -301,6 +301,15 @@
 
     function refresh() {
       var left = Math.max(0, T.deadline() - Date.now());
+      // Steht die Uhr auf 0, ohne dass es weitergeht, ist gerade niemand da,
+      // der die Runde beenden könnte (siehe Taktgeber in js/tournament.js).
+      // Das ehrlich anzeigen statt stumm 0:00 — tick() räumt dann selbst auf.
+      if (left <= 0 && !T.hostPid()) {
+        timeEl.textContent = 'wartet …';
+        timeEl.classList.remove('low');
+        timeEl.title = 'Gerade ist niemand da, der die Runde weiterschaltet. Das Turnier wird gleich abgeschlossen.';
+        return;
+      }
       timeEl.textContent = fmtClock(left);
       timeEl.classList.toggle('low', left < 10000);
     }

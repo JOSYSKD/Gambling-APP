@@ -45,6 +45,8 @@
   var ONLINE_MS = 16000;     // ohne Heartbeat gilt man als weg (3 verpasste Schläge)
   var COUNTDOWN_MS = 3000;   // Josls Vorgabe: 3 Sekunden zwischen den Spielen
   var RESULT_MS = 7000;      // Zwischenstand nach jeder Runde
+  var STALE_MS = 180000;     // so lange darf eine Phase überfällig sein, bevor
+                             // ein verwaistes Turnier abgeräumt wird (siehe tick)
   var CHAT_MAX = 60;
   var PODIUM_PTS = [10, 7, 5, 3, 2];   // Punkte nach Platz, danach 1
   var TAIL_PTS = 1;
@@ -293,11 +295,30 @@
    * seine Punkte nicht, spielt aber nicht mehr mit. */
   function startersOf() { return players(); }
 
+  /* Verwaistes Turnier zu Ende bringen: mit dem Punktestand, der da ist —
+   * ist niemand mehr in der Liste, geht es zurück in den Wartebereich. */
+  function abandon() {
+    if (players().length) return finish();
+    return setLive({ phase: 'queue', round: 0, deadline: 0 });
+  }
+
   function tick() {
     if (!cfg || !live || cfg.status !== 'open') return;
-    if (!isHost()) return;
     var now = Date.now();
     var phase = live.phase || 'queue';
+
+    /* Verwaistes Turnier: die Phase ist längst abgelaufen und es ist NIEMAND
+     * mehr da, der sie weitertreiben könnte (der letzte Spieler hat den Tab
+     * zugemacht). Ohne Server bliebe die Runde sonst für immer stehen — mit
+     * 0:00 auf der Uhr und ohne Weg heraus. Deshalb darf hier ausnahmsweise
+     * JEDER Beobachter aufräumen, auch ein Zuschauer, der nicht mitspielt.
+     * Die Wartezeit ist großzügig, damit ein kurz weggetabbter Spieler (dessen
+     * Heartbeat der Browser drosselt) sein Turnier nicht verliert. */
+    if (!hostPid() && phase !== 'queue' && phase !== 'done' && (now - (live.deadline || 0)) > STALE_MS) {
+      return abandon();
+    }
+
+    if (!isHost()) return;
 
     if (phase === 'queue') {
       if (cfg.startAt && now >= cfg.startAt && onlinePlayers().length > 0) beginCountdown(0);
