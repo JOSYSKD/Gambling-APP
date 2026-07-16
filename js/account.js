@@ -199,6 +199,10 @@
     if (typeof acct.balance === 'number') M.writeIn('casino', 'gj_balance', acct.balance);
     if (typeof acct.runPeak === 'number') M.writeIn('casino', 'gj_run_peak', Math.max(acct.runPeak, acct.balance || 0));
     if (typeof acct.chips === 'number') M.writeIn('casino', 'gj_chips', acct.chips);
+    // Casino-Fortschritt (Level, XP, Quests/Erfolge) ans Konto binden -> der
+    // level-abhängige Wieder-Auffüll-Betrag (startBalance) wandert geräte-
+    // übergreifend mit. Survival-Fortschritt liegt separat in acct.sv.progress.
+    if (acct.progress) M.writeIn('casino', 'gj_progress', acct.progress);
 
     var sv = acct.sv;
     if (sv && typeof sv === 'object') {
@@ -223,6 +227,7 @@
     acct.balance = M.readIn('casino', 'gj_balance', App.Coins.START);
     acct.runPeak = M.readIn('casino', 'gj_run_peak', acct.balance);
     acct.chips = M.readIn('casino', 'gj_chips', 0);
+    acct.progress = M.readIn('casino', 'gj_progress', null);   // Level/XP/Quests/Erfolge (Casino)
     acct.sv = {
       balance: M.readIn('survival', 'gj_balance', 0),
       runPeak: M.readIn('survival', 'gj_run_peak', 0),
@@ -284,6 +289,13 @@
         checkAdminMessage(acct);
         // Vom Admin verschenkte Turnier-Tickets genau einmal einlösen.
         if (App.Tickets && acct.admin && acct.admin.ticketGrant) App.Tickets.applyGrant(acct.admin.ticketGrant);
+        // Vom Admin geschenktes Survival-Gold einlösen und danach aus dem Konto
+        // entfernen, damit es nicht auf einem zweiten Gerät nochmal gutgeschrieben
+        // wird (der Seen-Guard in survival.js schützt nur das aktuelle Gerät).
+        if (App.Survival && acct.admin && acct.admin.goldGrant) {
+          App.Survival.applyGoldGrant(acct.admin.goldGrant);
+          acct.admin.goldGrant = null;
+        }
         acct.session.lastSeen = Date.now();
         snapshotToAccount(acct);
         state.account = acct;

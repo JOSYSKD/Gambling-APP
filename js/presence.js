@@ -80,6 +80,12 @@
       // Turnier-Tickets, die der Admin verschenkt hat, genau einmal einlösen
       // (gleiche Mechanik wie die Admin-Nachricht oben).
       if (App.Tickets && admin.ticketGrant) App.Tickets.applyGrant(admin.ticketGrant);
+      // Survival-Gold vom Admin einlösen und danach aus dem Präsenz-Eintrag
+      // entfernen (einmalig, wie bei Konten in account.js).
+      if (App.Survival && admin.goldGrant) {
+        App.Survival.applyGoldGrant(admin.goldGrant);
+        admin.goldGrant = null;
+      }
       var next = {
         name: (App.Leaderboard && App.Leaderboard.getPlayerName()) || 'Gast',
         balance: App.Coins ? App.Coins.get() : 0,

@@ -1,7 +1,7 @@
 /* admin.js — Admin-Panel für den Gambling-Bereich.
  *
- * Login: im normalen Konto-Login-Formular (Profil-Seite) Kontoname "ADMIN"
- * und Passwort "911911" eingeben -> Admin-Modus statt normalem Konto-Login.
+ * Login: im normalen Konto-Login-Formular (Profil-Seite) Kontoname "J0SY_SKD"
+ * und Passwort "072018" eingeben -> Admin-Modus statt normalem Konto-Login.
  * Danach erscheint im Gambling-Menü ein Knopf "🛠 Admin Panel" (Route /admin).
  *
  * Funktionen:
@@ -28,8 +28,8 @@
   window.App = window.App || {};
   var UI = App.UI, el = UI.el;
 
-  var ADMIN_USER = 'admin';
-  var ADMIN_PASS = '911911';
+  var ADMIN_USER = 'j0sy_skd';
+  var ADMIN_PASS = '072018';
   var KEY_SESSION = 'gj_admin_session';
   var ONLINE_MS = 20000; // deckt sich mit SESSION_STALE_MS in account.js
 
@@ -162,11 +162,24 @@
       });
     },
 
+    /** Survival-Gold verschenken (siehe js/survival.js applyGoldGrant). Der Client
+     *  schreibt sich das Gold beim nächsten Heartbeat genau einmal auf seinen
+     *  Survival-Stand (Gold) — unabhängig davon, ob er gerade Casino oder Survival
+     *  spielt. Wirkt für Konten (adminPatch) wie für Gäste (adminPatchPresence). */
+    giftGold: function (kind, key, amount) {
+      var patch = kind === 'guest' ? App.Account.adminPatchPresence : App.Account.adminPatch;
+      return patch(key, function (rec) {
+        rec.admin = rec.admin || {};
+        rec.admin.goldGrant = { id: genId(), amount: Math.max(1, Math.round(Number(amount) || 0)) };
+      });
+    },
+
     renderPage: function (root) {
       injectCss();
       var refreshTimer = null;
       var msgDrafts = {};
       var banDrafts = {};
+      var goldDrafts = {};
       var loading = false;
 
       function buildRow(row, now) {
@@ -219,6 +232,18 @@
           }).catch(function (e) { UI.toast(e.message, 'lose'); });
         }
 
+        function giftGold(amount) {
+          amount = Math.max(1, Math.round(Number(amount) || 0));
+          Admin.giftGold(kind, key, amount).then(function () {
+            UI.toast(UI.formatCoins(amount) + ' 🥇 Survival-Gold an ' + row.displayName + ' geschenkt (kommt beim nächsten Heartbeat an).', 'win');
+          }).catch(function (e) { UI.toast(e.message, 'lose'); });
+        }
+        var goldInput = el('input', {
+          class: 'text-input admin-ban-input', type: 'number', min: 1, step: 100,
+          value: goldDrafts[rowId] || 1000
+        });
+        goldInput.addEventListener('input', function () { goldDrafts[rowId] = goldInput.value; });
+
         var msgInput = el('input', {
           class: 'text-input', type: 'text', maxlength: 200,
           placeholder: 'Admin-Nachricht an ' + row.displayName + ' …',
@@ -259,6 +284,22 @@
               class: 'btn btn-ghost admin-rig-btn', type: 'button',
               onclick: function () { giftTickets(10); }
             }, ['🎟️ +10'])
+          ]),
+          el('div', { class: 'admin-row-actions' }, [
+            el('span', { class: 'cf-info-l' }, ['🥇 Survival-Gold schenken:']),
+            goldInput,
+            el('button', {
+              class: 'btn btn-primary', type: 'button',
+              onclick: function () { giftGold(goldInput.value); }
+            }, ['🥇 Senden']),
+            el('button', {
+              class: 'btn btn-ghost admin-rig-btn', type: 'button',
+              onclick: function () { goldInput.value = 1000; goldDrafts[rowId] = 1000; giftGold(1000); }
+            }, ['+1.000']),
+            el('button', {
+              class: 'btn btn-ghost admin-rig-btn', type: 'button',
+              onclick: function () { goldInput.value = 10000; goldDrafts[rowId] = 10000; giftGold(10000); }
+            }, ['+10.000'])
           ])
         ]);
       }

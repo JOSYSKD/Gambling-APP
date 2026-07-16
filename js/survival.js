@@ -26,6 +26,7 @@
   var KEY_NEXT = 'gj_sv_next_try';   // ab wann ist der nächste Versuch erlaubt?
   var KEY_PEAK = 'gj_sv_peak_ever';  // bestes Vermögen aller Zeiten (Rekord)
   var KEY_ID = 'gj_sv_id';           // eigene Ranglisten-ID (falls kein Konto)
+  var KEY_GOLD_SEEN = 'gj_sv_gold_seen'; // zuletzt eingelöstes Admin-Gold-Geschenk (siehe applyGoldGrant)
 
   function now() { return Date.now(); }
   function runActive() { return App.Storage.get(KEY_RUN, false) === true; }
@@ -521,7 +522,28 @@
     onBust: onBust,
     getBoard: getBoard,
     onBoardChange: onBoardChange,
-    renderPage: renderPage
+    renderPage: renderPage,
+
+    /** Vom Admin geschenktes Survival-Gold genau einmal einlösen (siehe js/admin.js
+     *  giftGold + der Heartbeat in account.js/presence.js). Wirkt IMMER auf den
+     *  Survival-Stand (Gold), egal in welchem Modus der Spieler gerade ist — daher
+     *  App.Mode.writeIn('survival', …) statt App.Coins.add (das ginge in den aktiven
+     *  Modus, also evtl. ins Casino-Silber). Der Seen-Guard verhindert Doppel-
+     *  Gutschrift auf demselben Gerät; der Heartbeat entfernt das Geschenk zusätzlich
+     *  aus dem Konto, sobald es angekommen ist. */
+    applyGoldGrant: function (grant) {
+      if (!grant || !grant.id || !App.Mode) return false;
+      if (App.Storage.get(KEY_GOLD_SEEN, null) === grant.id) return false;
+      App.Storage.set(KEY_GOLD_SEEN, grant.id);
+      var amt = Math.max(0, Math.round(Number(grant.amount) || 0));
+      if (!amt) return false;
+      var next = App.Mode.readIn('survival', 'gj_balance', 0) + amt;
+      App.Mode.writeIn('survival', 'gj_balance', next);
+      if (peakEver() < next) App.Storage.set(KEY_PEAK, next);   // Rekord/Bestenliste nachziehen
+      if (App.Mode.is('survival')) App.Mode.refresh();          // läuft gerade Survival -> sofort sichtbar
+      if (UI && UI.toast) UI.toast('🥇 Vom Admin geschenkt: ' + UI.formatCoins(amt) + ' Gold (Survival)', 'win');
+      return true;
+    }
   };
 
   function boot() {
