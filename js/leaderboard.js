@@ -1,9 +1,21 @@
-/* leaderboard.js — Bestenliste (Peak-Kontostand pro Run).
+/* leaderboard.js — Bestenliste: EIN Eintrag pro Spieler, und zwar für JEDEN.
  *
- * Modular gehalten: die gesamte Persistenz läuft über den internen
- * `driver`. Aktuell ein localStorage-Driver; für ein Online-Backend
- * (z. B. Firebase) einfach `App.Leaderboard.useDriver(firebaseDriver)`
- * mit denselben Methoden (load/save/subscribe) aufrufen.
+ * Früher wurde ein Eintrag NUR bei Game Over geschrieben (recordRun). Wer gut
+ * spielte und nie pleite ging, stand deshalb nie auf der Liste — und wer oft
+ * pleite ging, belegte mit mehreren Runs gleichzeitig die Top-Plätze und
+ * verdrängte damit andere aus den Top 10. Genau deshalb war "nicht jeder drauf".
+ *
+ * Jetzt kommt die Liste zusätzlich aus dem Präsenz-Register (js/presence.js):
+ * dort meldet sich JEDER Tab alle 8 Sekunden mit Name + Casino-Peak, auch Gäste
+ * ohne Konto. getBoard() mischt drei Quellen:
+ *   1. Präsenz-Register -> jeder, der die Seite offen hat/hatte (auch nie pleite)
+ *   2. Run-Historie     -> alte Rekorde, auch von gerade offline-Spielern
+ *   3. eigener Live-Run -> sofort sichtbar, ohne auf die Cloud zu warten
+ * Pro Spieler zählt der höchste Peak — ein Spieler ist genau eine Zeile.
+ *
+ * Modular gehalten: die gesamte Persistenz läuft über den internen `driver`
+ * (load/save/push/players). Standard ist localStorage; account.js setzt per
+ * useDriver() das geteilte Backend (Firebase bzw. Cloud) ein.
  */
 (function () {
   'use strict';
@@ -11,6 +23,7 @@
 
   var KEY_ENTRIES = 'gj_leaderboard';
   var KEY_NAME = 'gj_player_name';
+  var ONLINE_MS = 45000;   // so lange gilt ein Register-Eintrag als "online"
 
   // --- Standard-Driver: localStorage ------------------------------------
   var localDriver = {
@@ -29,6 +42,15 @@
     for (var i = 0; i < listeners.length; i++) {
       try { listeners[i](); } catch (e) {}
     }
+  }
+
+  function cleanName(n) {
+    return String(n == null ? '' : n).replace(/\s+/g, ' ').trim().slice(0, 18) || 'Anonym';
+  }
+  /** Schlüssel zum Zusammenführen: "JungleKing", "jungleking " und "Jungle  King"
+   *  sind derselbe Spieler und dürfen nicht als zwei Zeilen erscheinen. */
+  function nameKey(n) {
+    return cleanName(n).toLowerCase();
   }
 
   var Leaderboard = {
@@ -66,25 +88,71 @@
       return list;
     },
 
+    /** Alle bekannten Spieler aus dem Register des Drivers (siehe js/presence.js). */
+    getPlayers: function () {
+      return (driver.players && driver.players()) || [];
+    },
+
     /**
-     * Kombinierte Anzeige-Liste: gespeicherte Runs + der aktuell laufende
-     * Run (als virtueller Eintrag mit active:true). Sortiert, Top `limit`.
+     * Anzeige-Liste: ein Eintrag pro Spieler, absteigend nach bestem Peak.
+     * Quellen: Spieler-Register + Run-Historie + eigener laufender Run.
+     * `limit` deckelt nur die Anzeige (Standard großzügig — es sollen alle drauf).
      */
     getBoard: function (activePeak, limit) {
-      limit = limit || 10;
-      var list = this.getEntries();
-      var name = this.getPlayerName() || 'Du';
-      if (typeof activePeak === 'number') {
-        list.push({ name: name, peak: activePeak, date: null, active: true });
-        list.sort(function (a, b) { return b.peak - a.peak; });
+      limit = limit || 200;
+      var now = Date.now();
+      var map = {}, keys = [];
+
+      function put(name, peak, opts) {
+        peak = Math.round(Number(peak) || 0);
+        if (!isFinite(peak)) return;
+        opts = opts || {};
+        var k = nameKey(name);
+        var e = map[k];
+        if (!e) {
+          e = map[k] = { name: cleanName(name), peak: peak, date: opts.date || null, online: false, active: false, me: false };
+          keys.push(k);
+        } else if (peak > e.peak) {
+          e.peak = peak;
+          if (opts.date) e.date = opts.date;
+        } else if (opts.date && !e.date) {
+          e.date = opts.date;
+        }
+        if (opts.online) e.online = true;
+        if (opts.active) e.active = true;
+        if (opts.me) e.me = true;
       }
+
+      // 1) Register: jeder Spieler, der die Seite offen hat/hatte — auch ohne Game Over.
+      this.getPlayers().forEach(function (p) {
+        if (!p || !p.name) return;
+        var best = Math.max(Number(p.peak) || 0, Number(p.balance) || 0);
+        put(p.name, best, {
+          date: p.date || null,
+          online: !!p.updatedAt && (now - p.updatedAt) < ONLINE_MS
+        });
+      });
+
+      // 2) Run-Historie (auch von Spielern, die gerade offline sind).
+      this.getEntries().forEach(function (e) {
+        if (!e) return;
+        put(e.name, e.peak, { date: e.date });
+      });
+
+      // 3) Eigener laufender Run — sofort sichtbar, auch wenn die Cloud hakt.
+      if (typeof activePeak === 'number') {
+        put(this.getPlayerName() || 'Du', activePeak, { active: true, online: true, me: true });
+      }
+
+      var list = keys.map(function (k) { return map[k]; });
+      list.sort(function (a, b) { return (b.peak - a.peak) || a.name.localeCompare(b.name); });
       return list.slice(0, limit);
     },
 
     /** Einen abgeschlossenen Run eintragen (bei Game Over). */
     recordRun: function (name, peak, dateStr) {
       var entry = {
-        name: String(name || 'Anonym').slice(0, 18),
+        name: cleanName(name),
         peak: Math.round(peak),
         date: dateStr,
         active: false

@@ -34,6 +34,18 @@
   var lastRig = 0;
   var lastSkipTimer = false;
 
+  /* Höchster Casino-Stand (Silber) dieses Geräts — IMMER aus dem Casino-Spielstand,
+   * auch wenn gerade Survival läuft: Gold gehört nicht in die Casino-Bestenliste
+   * (siehe js/mode.js). Damit steht jeder Spieler in der Bestenliste, ohne dass er
+   * erst pleitegehen muss (js/leaderboard.js liest das über account.js aus). */
+  function casinoPeak() {
+    if (App.Mode && App.Mode.readIn) {
+      return Math.max(Number(App.Mode.readIn('casino', 'gj_run_peak', 0)) || 0,
+                      Number(App.Mode.readIn('casino', 'gj_balance', 0)) || 0);
+    }
+    return (App.Coins && App.Coins.getPeak()) || 0;
+  }
+
   function showMessage(msg) {
     if (!msg || !msg.id) return;
     if (App.Storage.get(KEY_MSG_SEEN, null) === msg.id) return;
@@ -92,6 +104,7 @@
         name: (App.Leaderboard && App.Leaderboard.getPlayerName()) || 'Gast',
         balance: App.Coins ? App.Coins.get() : 0,
         tickets: App.Tickets ? App.Tickets.get() : 0,
+        casinoPeak: casinoPeak(),
         lastSeen: Date.now(),
         accountKey: loggedIn ? App.Account.currentKey() : null,
         admin: admin

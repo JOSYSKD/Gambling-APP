@@ -53,6 +53,27 @@
     return Promise.resolve(fallbackHash(str));
   }
 
+  /* Präsenz-Datensätze -> Spielerliste für die Bestenliste.
+   * Jeder Tab meldet sich alle 8s unter presence/<geräte-id> (js/presence.js),
+   * auch Gäste ohne Konto. Dadurch steht wirklich JEDER Spieler auf der Liste
+   * und nicht nur, wer mal Game Over hatte. 'Gast' = hat noch keinen Namen
+   * gewählt und würde sonst alle Namenlosen zu einer Zeile verschmelzen. */
+  function presenceToPlayers(val) {
+    val = val || {};
+    return Object.keys(val).map(function (k) {
+      var p = val[k] || {};
+      return { name: p.name, peak: Number(p.casinoPeak) || 0, updatedAt: Number(p.lastSeen) || 0 };
+    }).filter(function (p) { return p.name && p.name !== 'Gast'; });
+  }
+
+  /* Nur echte Run-Einträge; im Firebase-Knoten 'leaderboard' können auch
+   * Fremdschlüssel liegen, die keine Einträge sind. */
+  function validEntries(val) {
+    val = val || {};
+    return Object.keys(val).map(function (k) { return val[k]; })
+      .filter(function (e) { return e && typeof e === 'object' && typeof e.peak === 'number'; });
+  }
+
   /* ---------- Backends ---------- */
   function localBackend() {
     function readAll() { return App.Storage.get(KEY_LOCAL_ACCOUNTS, {}); }
@@ -77,7 +98,8 @@
             App.Storage.set(KEY_LOCAL_LB, list);
             App.Leaderboard.refresh();
           },
-          save: function (entries) { App.Storage.set(KEY_LOCAL_LB, entries || []); App.Leaderboard.refresh(); }
+          save: function (entries) { App.Storage.set(KEY_LOCAL_LB, entries || []); App.Leaderboard.refresh(); },
+          players: function () { return presenceToPlayers(readAllPresence()); }
         };
       }
     };
@@ -93,17 +115,22 @@
       setPresence: function (key, data) { return db.ref('presence/' + key).set(data); },
       listPresence: function () { return db.ref('presence').get().then(function (s) { return s.val() || {}; }); },
       leaderboardDriver: function () {
-        var cache = [];
+        var cache = [], pCache = [];
         var ref = db.ref('leaderboard');
         ref.limitToLast(500).on('value', function (snap) {
-          var val = snap.val() || {};
-          cache = Object.keys(val).map(function (k) { return val[k]; });
+          cache = validEntries(snap.val());
           App.Leaderboard.refresh();
         });
+        // Live: sobald irgendwer die Seite öffnet, steht er auf der Bestenliste.
+        db.ref('presence').on('value', function (snap) {
+          pCache = presenceToPlayers(snap.val());
+          App.Leaderboard.refresh();
+        }, function () { /* Knoten gesperrt -> Liste bleibt bei der Run-Historie */ });
         return {
           load: function () { return cache; },
           push: function (entry) { ref.push(entry); },
-          save: function (entries) { ref.set(entries && entries.length ? entries : null); }
+          save: function (entries) { ref.set(entries && entries.length ? entries : null); },
+          players: function () { return pCache; }
         };
       }
     };
@@ -112,8 +139,12 @@
   // Keyloser Fallback ohne Google-/Firebase-Konto, siehe js/cloud.js + js/cloud-config.js.
   function cloudBackend() {
     App.Cloud.startPolling(10000);
-    var lbCache = [];
-    function syncLbCache(state) { lbCache = (state && state.leaderboard) || []; App.Leaderboard.refresh(); }
+    var lbCache = [], pCache = [];
+    function syncLbCache(state) {
+      lbCache = (state && state.leaderboard) || [];
+      pCache = presenceToPlayers(state && state.presence);
+      App.Leaderboard.refresh();
+    }
     App.Cloud.onChange(syncLbCache);
     App.Cloud.load().then(syncLbCache).catch(function () {});
 
@@ -155,7 +186,8 @@
           },
           save: function (entries) {
             return App.Cloud.mutate(function (state) { state.leaderboard = entries || []; }).then(syncLbCache).catch(function () {});
-          }
+          },
+          players: function () { return pCache; }
         };
       }
     };

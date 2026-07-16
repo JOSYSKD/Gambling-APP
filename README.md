@@ -40,7 +40,7 @@ Im **selben Gambling-Menü** stehen zusätzlich 7 **Poker & Casino**-Spiele — 
 | 🎲 **Craps** | Pass oder Don't Pass — würfle die 7 nicht zur falschen Zeit |
 | 🐎 **Pferderennen** | Setze auf ein Pferd und fiebere mit beim Rennen |
 
-Kategorie **Online Minigames** mit 23 Spielen — jedes **allein** oder **zusammen über das Internet** (2–8 Spieler über einen Raum-Code, kein Konto/Setup für die Mitspieler nötig):
+Kategorie **Online Minigames** mit 53 Spielen — jedes **allein** oder **zusammen über das Internet** (2–8 Spieler über einen Raum-Code, kein Konto/Setup für die Mitspieler nötig):
 
 | Spiel | Kurz |
 |------|------|
@@ -67,6 +67,41 @@ Kategorie **Online Minigames** mit 23 Spielen — jedes **allein** oder **zusamm
 | 🏓 **Neon-Pong** | Der Klassiker, erster auf 7 gewinnt |
 | 🏃 **Dschungel-Flucht** | Endlosläufer – **zwei Sieger**: bester Läufer (Geschick) & Münz-König |
 | 🗼 **Wackelturm** | Balance-Stapelrennen (Tricky-Towers-Art), 2–4 Spieler zur Ziel-Linie |
+
+Dazu **30 weitere Online-Multiplayer-Spiele** — Brettspiele & Duelle, Echtzeit-Arenen, Wettrennen und Rundenspiele. Alle laufen ebenfalls **allein gegen Bots** oder **mit Freunden per Raum-Code**:
+
+| Spiel | Kurz | Spieler |
+|------|------|---------|
+| ⚓ **Schiffe versenken** | Flotte verstecken, Raster abschießen — Bot mit echter Jagd-KI | 2 |
+| 🔲 **Käsekästchen** | Linien ziehen, Kästchen schließen, sofort nochmal dran | 2–4 |
+| ⚫ **Reversi** | Steine einschließen und umdrehen — Ecken sind Gold wert | 2 |
+| 🔴 **Dame** | Schlagzwang, Mehrfachsprünge, Damen — Minimax-Bot | 2 |
+| 🫘 **Kalaha** | Mulden aussäen, Speicher füllen, gegenüber abräumen | 2 |
+| ⭕ **Fünf in einer Reihe** | Gomoku auf 15×15 — Bot erkennt offene Vierer | 2 |
+| 🔤 **Galgenraten** | Alle raten dasselbe Wort um die Wette | 2–8 |
+| 🎨 **Montagsmaler** | Einer malt, alle raten — nur im Mehrspieler | 2–8 |
+| 🐍 **Achtung die Kurve** | Leuchtspur-Duell mit Lücken — letzter Wurm gewinnt | 2–6 |
+| 🏍️ **Lightcycle-Duell** | Tron: Neon-Mauern ziehen, nicht reinfahren | 2–4 |
+| 🥊 **Sumo-Arena** | Von der schrumpfenden Plattform rempeln, mit Dash | 2–6 |
+| 💥 **Panzer-Duell** | Winkel, Stärke, Wind — zerstörbares Gelände | 2–4 |
+| 🏒 **Airhockey** | Puck-Physik, erster mit 7 Toren | 2 |
+| 💣 **Minen-Rennen** | Alle dasselbe Minenfeld — wer räumt schneller? | 2–8 |
+| 🔢 **Sudoku-Duell** | Dasselbe Rätsel, Notizen-Modus, Prozent-Rennen | 2–6 |
+| 🟩 **Wortduell** | Wordle auf Deutsch, alle dasselbe Wort | 2–8 |
+| 🔡 **Buchstabensalat** | Aus 8 Buchstaben in 90 s Wörter bauen | 2–8 |
+| 🌍 **Flaggen-Quiz** | 90+ Länder, Tempo- und Serien-Bonus | 2–8 |
+| 🎬 **Emoji-Rätsel** | 👑🦁 → welcher Film? Mit Tempobonus | 2–8 |
+| 🔨 **Maulwurf-Alarm** | Hauen, Bomben meiden, Combo halten | 2–8 |
+| 💡 **Lights Out** | Lampen umschalten, alles aus — Rätsel-Rennen | 2–8 |
+| 🧨 **Bomber-Arena** | Bomberman: Kisten, Verstärkungen, letzter lebt | 2–4 |
+| 🧊 **Spleef** | Eis unter den Gegnern wegschießen, nicht fallen | 2–6 |
+| 🖌️ **Farb-Krieg** | Fläche einfärben — auf eigener Farbe schneller | 2–6 |
+| 🎳 **Bowling** | Position/Kraft/Effet stoppen, echte Frame-Wertung | 2–6 |
+| 🎯 **501 Dart** | Echte Scheibe, Double-Out, Checkout-Vorschlag | 2–6 |
+| 🎱 **8-Ball Billard** | Kugelphysik, Voll/Halb, Ball-in-Hand nach Foul | 2 |
+| 🧩 **Code-Knacker** | Mastermind — schwarze/weiße Stifte, Rennen | 2–8 |
+| 🤥 **Lügen-Würfel** | Bieten und bluffen, Einsen sind Joker | 2–6 |
+| 🎲 **Kniffel** | Kompletter Block, 13 Runden, Bot mit Strategie | 2–6 |
 
 Kategorie **Koop-Team** mit 5 Spielen, bei denen man **zusammen** ein Level schafft (kein Gegeneinander – geteilter Team-Zustand, gemeinsames Gewinnen/Verlieren), allein zum Üben oder als Team über das Internet:
 

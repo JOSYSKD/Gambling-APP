@@ -38,7 +38,7 @@
       id: 'minigames',
       name: 'Online Minigames',
       icon: '🎮',
-      desc: 'Über 20 Spiele – allein oder mit Freunden per Raum-Code, 2–4 Spieler.',
+      desc: 'Über 50 Spiele – allein gegen Bots oder mit Freunden per Raum-Code, 2–8 Spieler.',
       route: '/minigames'
     },
     {
@@ -273,15 +273,17 @@
       // Diese Bestenliste ist die des Casinos (Silber). Läuft gerade ein Survival-Run,
       // gehört dessen Gold-Peak NICHT hierher — Survival hat seine eigene Rangliste.
       var activePeak = (App.Mode && App.Mode.is('survival')) ? null : App.Coins.getPeak();
-      var board = App.Leaderboard.getBoard(activePeak, 10);
+      // Kein Top-10-Deckel mehr: jeder Spieler soll sich selbst finden können.
+      var board = App.Leaderboard.getBoard(activePeak, 200);
       var rows = board.map(function (entry, i) {
         var rank = i + 1;
-        var dateTxt = entry.active ? 'läuft gerade' : (entry.date || '—');
+        var dateTxt = entry.active ? 'läuft gerade' : (entry.online ? 'online' : (entry.date || '—'));
         return el('div', { class: 'lb-row glass ' + medalClass(rank) + (entry.active ? ' active' : '') }, [
           el('div', { class: 'lb-rank' }, [wreath(rank) || ('#' + rank)]),
           el('div', { class: 'lb-name' }, [
             el('span', {}, [entry.name || 'Anonym']),
-            entry.active ? el('span', { class: 'lb-tag' }, ['aktiver Run']) : null
+            entry.active ? el('span', { class: 'lb-tag' }, ['aktiver Run'])
+              : (entry.online ? el('span', { class: 'lb-tag lb-tag-on' }, ['🟢 online']) : null)
           ]),
           el('div', { class: 'lb-coins' }, [UI.formatCoins(entry.peak) + ' 🪙']),
           el('div', { class: 'lb-date' }, [dateTxt])
@@ -296,8 +298,8 @@
       ]));
       var shared = App.Account.backendKind() === 'firebase' || App.Account.backendKind() === 'cloud';
       var hint = shared
-        ? 'Höchster Coin-Stand pro Run (Peak). Geteilte Bestenliste — alle Besucher der Seite sehen dieselben Einträge.'
-        : 'Höchster Coin-Stand pro Run (Peak). Kein Cloud-Backend konfiguriert — aktuell nur Runs aus diesem Browser sichtbar.';
+        ? 'Höchster Silber-Stand (Peak) — eine Zeile pro Spieler. Jeder, der die Seite offen hat, steht automatisch drauf: man muss nicht erst pleitegehen. Neue Spieler tauchen nach ein paar Sekunden auf.'
+        : 'Höchster Silber-Stand (Peak) — eine Zeile pro Spieler. Kein Cloud-Backend erreichbar: aktuell nur Spieler aus diesem Browser sichtbar.';
       container.appendChild(el('p', { class: 'lb-hint' }, [hint]));
       container.appendChild(el('div', { class: 'lb-list' }, rows));
     }

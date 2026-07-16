@@ -97,11 +97,14 @@ body {
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--stroke);
 }
-.brand { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); }
+/* min-width:0 auf beiden Seiten: ohne das weigern sich Flex-Kinder zu schrumpfen
+ * und schieben die ganze Seite breiter, statt sich anzupassen (Handy-Querlauf). */
+.brand { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text); min-width: 0; flex: 0 1 auto; }
+.brand-leaf { flex: 0 0 auto; }
 .brand-leaf { font-size: 22px; filter: drop-shadow(0 0 6px var(--neon)); }
 .brand-name { font-weight: 800; letter-spacing: 2px; font-size: 18px; }
 .brand-accent { color: var(--neon); text-shadow: var(--glow-soft); }
-.topbar-right { display: flex; align-items: center; gap: 12px; }
+.topbar-right { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 0 1 auto; }
 
 .balance {
   display: flex; align-items: center; gap: 8px;
@@ -115,7 +118,10 @@ body {
 .balance.bump { animation: bump 0.35s ease; }
 @keyframes bump { 0%{transform:scale(1)} 40%{transform:scale(1.12)} 100%{transform:scale(1)} }
 
-.topnav { display: flex; gap: 6px; }
+/* Auffangnetz: kommen später weitere Icons dazu (Tagesbonus, Ton, Survival …),
+ * scrollt die Icon-Leiste in sich, statt die Seite seitlich zu sprengen. */
+.topnav { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.topnav::-webkit-scrollbar { display: none; }
 .topnav-link {
   display: grid; place-items: center; width: 40px; height: 40px; font-size: 18px;
   text-decoration: none; border-radius: 12px; border: 1px solid var(--stroke);
@@ -306,6 +312,7 @@ body {
 .lb-name { font-weight: 700; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
 .lb-name > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lb-tag { font-size: 11px; color: var(--aqua-soft); font-weight: 700; }
+.lb-tag-on { color: var(--leaf); }
 .lb-coins { font-weight: 900; color: var(--leaf); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lb-date { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .lb-row.gold   { border-color: var(--gold);   box-shadow: 0 0 22px rgba(255,210,63,0.28); }
@@ -344,6 +351,55 @@ body {
 @media (max-width: 560px) {
   .lb-row { grid-template-columns: 42px 1fr auto; }
   .lb-date { display: none; }
-  .topnav-link { width: 36px; height: 36px; }
-  .brand-name { font-size: 15px; }
+  /* Handy: das Blatt bleibt als Startseiten-Knopf, der Schriftzug weicht —
+   * sonst passen Guthaben + Level + Icon-Leiste nicht nebeneinander. */
+  .brand-name { display: none; }
+  .topbar { padding: 10px 10px; gap: 8px; }
+  .topbar-right { gap: 6px; }
+  .topnav { gap: 4px; }
+  .topnav-link { width: 34px; height: 34px; font-size: 16px; flex: 0 0 auto; }
+  .balance { padding: 6px 10px; gap: 6px; font-size: 14px; }
+  .brand-leaf { font-size: 20px; }
+}
+
+/* ============================================================
+ * iPad & Tablets im QUERFORMAT
+ * ------------------------------------------------------------
+ * Die Minispiel-Flächen skalieren nach BREITE. Quer ist ein iPad ~1180px
+ * breit, aber nur ~820px hoch — dadurch wird die Spielfläche zu hoch und
+ * die Steuerung (Joystick, Buttons) rutscht unter den Bildrand. Hier
+ * deckeln wir die Höhe der Spielflächen, sodass Feld + Steuerung ohne
+ * Scrollen sichtbar bleiben. width:auto hält dabei das Seitenverhältnis.
+ * Die vh-Werte sind pro Spiel im echten iPad-Querformat gemessen.
+ * (Hochformat ist unberührt und passt bereits.)
+ * ============================================================ */
+/* Der ".mg-play"-Vorsatz ist ABSICHT und notwendig: jedes Minispiel injiziert
+ * sein eigenes CSS zur Laufzeit NACH dieser Datei; bei gleicher Spezifität würde
+ * die spätere Spiel-Regel gewinnen. ".mg-play X" (0,2,0) schlägt ".X" (0,1,0)
+ * unabhängig von der Ladereihenfolge — alle Spiele rendern in .mg-play. */
+@media (orientation: landscape) and (max-height: 920px) and (min-width: 720px) {
+  /* Bewegungs-Arenen mit aspect-ratio-Container (Steuerung unter dem Feld) */
+  .mg-play .bmb-stage { max-height: 40vh; width: auto; }   /* Bomber-Arena */
+  .mg-play .chk-board { max-height: 50vh; width: auto; }   /* Dame */
+  .mg-play .spl-stage { max-height: 44vh; width: auto; }   /* Spleef */
+  .mg-play .smo-stage { max-height: 44vh; width: auto; }   /* Sumo-Arena */
+  .mg-play .tnk-stage { max-height: 36vh; width: auto; }   /* Panzer-Duell */
+  .mg-play .trn-stage { max-height: 46vh; width: auto; }   /* Lightcycle-Duell */
+  .mg-play .dot-canvas { max-height: 52vh; width: auto; height: auto; }  /* Käsekästchen */
+  /* Regelzeilen im Querformat ausblenden — sie stehen auch im Hochformat und
+   * kosten quer den knappen vertikalen Platz, den Feld + Steuerung brauchen. */
+  .mg-play .sdk-rules, .mg-play .wdl-rules, .mg-play .pwr-hint, .mg-play .dot-hint { display: none; }
+  /* Sudoku: Board über die Wrap-Breite verkleinern (bleibt quadratisch),
+   * damit Board + Ziffernblock zusammen auf den Schirm passen. */
+  .mg-play .sdk-wrap { max-width: 340px; }
+  /* Wortduell liegt quer schon zweispaltig (Board neben Tastatur) — nur die
+   * Tastatur minimal kompakter, dann passt alles. */
+  .mg-play .wdl-kb { gap: 4px; }
+  .mg-play .wdl-kb-row { gap: 4px; }
+  .mg-play .wdl-key { height: 34px; }
+  /* Farb-Krieg: Feld deckeln UND das Anteils-Scoreboard kompakter,
+   * sonst bleibt für Feld + Joystick kein Platz. */
+  .mg-play .pwr-stage { max-height: 34vh; width: auto; }
+  .mg-play .pwr-bars { gap: 2px; padding: 4px 12px; }
+  .mg-play .pwr-bar { gap: 1px; }
 }
