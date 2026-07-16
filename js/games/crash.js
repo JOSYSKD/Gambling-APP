@@ -14,6 +14,10 @@
   //  -> 2.00× nach ~3.6 s, 5.00× nach ~8.5 s, 10× nach ~12 s. Beschleunigt.
   var GROWTH = 0.00019;
 
+  // Frühester Cashout-Multiplikator: vorher ist der Knopf gesperrt. Man muss also
+  // mindestens bis 1.20× "drin bleiben", bevor man aussteigen darf.
+  var MIN_CASHOUT = 1.2;
+
   App.UI.injectStyle('game-crash-css', [
     '.crash-stage{position:relative;padding:0;overflow:hidden;height:clamp(280px,44vh,440px);min-height:280px;}',
     '.crash-stage.bust{animation:crashShake .45s ease;}',
@@ -111,7 +115,8 @@
 
       function updateButtons() {
         startBtn.disabled = (state.phase !== 'idle');
-        cashBtn.disabled = (state.phase !== 'running');
+        // Cashout erst ab MIN_CASHOUT (1.20×) erlaubt.
+        cashBtn.disabled = (state.phase !== 'running') || (state.mult < MIN_CASHOUT);
         betPanel.setDisabled(state.phase !== 'idle');
       }
 
@@ -121,8 +126,12 @@
 
       function updateCashLabel() {
         if (state.phase === 'running') {
-          var payout = Math.round(state.bet * state.mult);
-          cashBtn.textContent = '💸 CASHOUT · ' + UI.formatCoins(payout) + ' 🪙';
+          if (state.mult < MIN_CASHOUT) {
+            cashBtn.textContent = '🔒 Cashout ab ' + MIN_CASHOUT.toFixed(2) + '×';
+          } else {
+            var payout = Math.round(state.bet * state.mult);
+            cashBtn.textContent = '💸 CASHOUT · ' + UI.formatCoins(payout) + ' 🪙';
+          }
         } else {
           cashBtn.textContent = 'CASHOUT';
         }
@@ -196,6 +205,7 @@
         updateView();
         updateReadout();
         updateCashLabel();
+        cashBtn.disabled = (state.mult < MIN_CASHOUT);   // erst ab 1.20× freischalten
         drawScene();
 
         if (crashed) { bust(); return; }
@@ -217,6 +227,7 @@
 
       function cashout() {
         if (state.phase !== 'running') return;
+        if (state.mult < MIN_CASHOUT) return;   // vor 1.20× ist Aussteigen gesperrt
         if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
 
         state.phase = 'cashed';
