@@ -102,6 +102,11 @@
   /* Vermögen außerhalb des Guthabens (Aktien-Depot, Pokerchips). Solange davon
    * noch etwas da ist, ist der Spieler NICHT pleite — er muss nur verkaufen bzw.
    * eintauschen. Ohne diesen Schutz gäbe es ein Game Over, obwohl das Depot voll ist. */
+  // Netto-Ergebnis der laufenden Runde (Summe aller add()-Aufrufe seit dem
+  // letzten settle) + ob überhaupt ein Einsatz lief — für die Verlust-Erstattung
+  // der Power-Ups (Freispiel/Schild/Goldene Hand, siehe powerups.js/settle).
+  var roundNet = 0, roundStaked = false;
+
   var reserveFns = [];
   function reserve() {
     var total = 0;
@@ -129,7 +134,14 @@
     /** Guthaben um delta ändern (Einsatz negativ, Gewinn positiv). */
     add: function (delta) {
       delta = Math.round(Number(delta) || 0);
-      if (delta > 0) delta = Math.round(delta * rigFactor());
+      if (delta > 0) {
+        delta = Math.round(delta * rigFactor());
+        // Einmalige Gewinn-Power-Ups (Verdoppler/Verdreifacher, siehe powerups.js).
+        if (App.Powerups && App.Powerups.consumeWinBonus) delta = Math.round(App.Powerups.consumeWinBonus(delta));
+      } else if (delta < 0) {
+        roundStaked = true;   // in dieser Runde wurde etwas gesetzt
+      }
+      roundNet += delta;       // Netto der laufenden Runde (für Verlust-Erstattung)
       return apply(delta);
     },
 
@@ -144,8 +156,14 @@
     },
     reserve: reserve,
 
-    /** Runde abschließen: Game Over prüfen. Gibt true zurück bei Game Over. */
+    /** Runde abschließen: Verlust-Power-Ups anwenden, dann Game Over prüfen. */
     settle: function () {
+      // Freispiel/Schild/Goldene Hand: bei Netto-Verlust den Einsatz erstatten.
+      if (App.Powerups && App.Powerups.onRoundEnd) {
+        var refund = App.Powerups.onRoundEnd(roundNet, roundStaked);
+        if (refund > 0) apply(refund);   // Runde auf Null bringen (als hätte man nicht gespielt)
+      }
+      roundNet = 0; roundStaked = false;
       if (balance < MIN_BET && reserve() < MIN_BET) {
         emit('gameover', { peak: runPeak });
         return true;

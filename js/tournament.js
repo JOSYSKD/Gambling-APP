@@ -18,7 +18,7 @@
  *
  * Datenmodell (geteilter Speicher, App.Net.store() -> Firebase):
  *   tournament/config   = { id, title, startAt, rounds:[gameId], roundSec, roundSecs:[sec],
- *                           ticketCost, chat, prize:{type,minutes,amount},
+ *                           ticketCost, chat, prize:{type,seconds,amount},
  *                           status:'open'|'done' }
  *   tournament/live     = { phase, round, deadline, winner,
  *                           players:{ <pid>:{name,joinedAt,lastSeen,points} },

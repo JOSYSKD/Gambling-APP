@@ -214,7 +214,7 @@ js/
   mgutil.js           gemeinsame Bausteine (App.MG): Countdown, Timer, Live-Rangliste, Podest
   minigames/          je ein Modul pro Minispiel (registrieren sich in App.Minigames)
   tickets.js          Turnier-Tickets (App.Tickets) — kommen aus Quests
-  powerups.js         zeitlich begrenzte Power-Ups (App.Powerups) — Preis für Turniersieger
+  powerups.js         Power-Up-Sammlung (App.Powerups) — 11 Belohnungen, Preis für Turniersieger, ⚡-Knopf oben
   tournament.js       Turnier: Modell, Ablauf-Steuerung, Spiel-Anbindung (App.Tournament)
   tournament-ui.js    Turnier-Oberfläche: Queue, Runden, Zwischenstand, Siegerehrung
   tournament-admin.js Turnier-Menü im Admin Panel: Konfiguration, Live, Siegerliste
@@ -379,11 +379,32 @@ Größe) oder vom Admin geschenkt. Zwischen den Runden läuft ein **3-Sekunden-C
 nach jeder Runde ein Zwischenstand. Punkte pro Runde nach Platz: **10 · 7 · 5 · 3 · 2**,
 danach 1 (Gleichstand = gleiche Punkte).
 
-**Preis = Power-Up** (`js/powerups.js`) statt Geld: z. B. „1 Minute extrem viel Glück".
+**Preis = Power-Up** (`js/powerups.js`) statt Geld: z. B. „30 Sekunden extrem viel Glück".
+Der Sieger bekommt das Power-Up **in seine Sammlung** — es wird **nicht** sofort aktiv.
+
+**Power-Up-Sammlung:** Oben neben der Coin-Anzeige sitzt ein **⚡-Knopf** mit einem Zähler,
+wie viele Power-Ups man besitzt. Ein Klick öffnet die Sammlung: alle eigenen Power-Ups mit
+Beschreibung und einem **„Benutzen"-Knopf**, mit dem man sie einzeln einlöst. So kann man
+sich das beste Power-Up für den richtigen Moment aufheben. Zeitlich begrenzte Effekte
+zeigen einen **Countdown-Chip** in der Kopfleiste; ihre Dauer wird in **Sekunden** angegeben.
+
 Die Glücks-Power-Ups hängen am selben Punkt wie das Admin-Rigging (`rigFactor()` in
-`js/coins.js`) und wirken als Faktor auf **alle** Gambling-Gewinne — nur eben zeitlich
-begrenzt, mit Countdown-Chip in der Kopfleiste. Auswahl: Göttliches Glück (×5), Extrem
-viel Glück (×2.5), Etwas Glück (×1.6), Coin-Regen, Ticket-Paket.
+`js/coins.js`) und wirken als Faktor auf **alle** Gambling-Gewinne. Es gibt **11 Belohnungen**,
+die der Admin je Turnier als Siegerpreis festlegt:
+
+| Belohnung | Wirkung |
+|---|---|
+| 🌟 Göttliches Glück | Gewinne ×5 für X Sekunden |
+| 🍀 Extrem viel Glück | Gewinne ×2.5 für X Sekunden |
+| 🙂 Etwas Glück | Gewinne ×1.6 für X Sekunden |
+| 🎰 **Freispiel** | Die nächste Gambling-Runde setzt automatisch den **Maximaleinsatz** — verliert man, wird der Einsatz voll erstattet (als hätte man nicht gespielt), gewinnt man, bleibt der Gewinn |
+| 🌞 Goldene Hand | Für X Sekunden wird **jeder** Verlust erstattet |
+| 🛡️ Verlust-Schild | Die **nächsten 3** Verluste kommen zurück |
+| ✨ Gewinn-Verdoppler | Der nächste Gewinn zählt **×2** |
+| 🎯 Gewinn-Verdreifacher | Der nächste Gewinn zählt **×3** |
+| 🪙 Coin-Regen | Coins sofort aufs Konto |
+| 🎟️ Ticket-Paket | Turnier-Tickets sofort |
+| 🩹 Rettungsanker | Füllt ein niedriges Guthaben wieder auf |
 
 **Wie die Spiele mitmachen** (`js/tournament.js`): Der Modus baut die Raum-Schnittstelle
 aus `js/net.js` nach — die vorhandenen Spiele laufen dadurch **unverändert** im Turnier.

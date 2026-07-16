@@ -96,23 +96,29 @@
     var prizeSel = el('select', { class: 'text-input' }, App.Powerups.TYPES.map(function (t) {
       return el('option', { value: t.id }, [t.icon + ' ' + t.label + ' (' + t.hint + ')']);
     }));
-    var prizeMin = el('input', { class: 'text-input', type: 'number', min: 1, max: 120, value: 1 });
+    var prizeSec = el('input', { class: 'text-input', type: 'number', min: 1, max: 3600, value: 60 });
     var prizeAmt = el('input', { class: 'text-input', type: 'number', min: 1, max: 100000, value: 5000 });
     if (existing && existing.status === 'open' && existing.prize) {
       prizeSel.value = existing.prize.type || 'luck2';
-      if (existing.prize.minutes) prizeMin.value = existing.prize.minutes;
+      // Bestehende Preise können noch in Minuten hinterlegt sein -> in Sek. anzeigen.
+      if (existing.prize.seconds != null) prizeSec.value = existing.prize.seconds;
+      else if (existing.prize.minutes != null) prizeSec.value = existing.prize.minutes * 60;
       if (existing.prize.amount) prizeAmt.value = existing.prize.amount;
     } else {
       prizeSel.value = 'luck2';
     }
 
-    var prizeMinField = el('div', { class: 'ta-field' }, [el('label', {}, ['Dauer (Minuten)']), prizeMin]);
-    var prizeAmtField = el('div', { class: 'ta-field' }, [el('label', {}, ['Menge']), prizeAmt]);
+    var amtLabel = el('label', {}, ['Menge']);
+    var prizeMinField = el('div', { class: 'ta-field' }, [el('label', {}, ['Dauer (Sekunden)']), prizeSec]);
+    var prizeAmtField = el('div', { class: 'ta-field' }, [amtLabel, prizeAmt]);
+    // Je nach Power-Up ein anderes Zusatzfeld: Sekunden (Glück/Goldene Hand),
+    // Menge (Coins/Tickets/Rettungsanker) oder gar keins (feste Wirkung).
     function syncPrizeFields() {
       var t = App.Powerups.typeById(prizeSel.value);
-      var instant = !!(t && t.instant);
-      prizeMinField.style.display = instant ? 'none' : '';
-      prizeAmtField.style.display = instant ? '' : 'none';
+      var param = t && t.param;
+      prizeMinField.style.display = param === 'seconds' ? '' : 'none';
+      prizeAmtField.style.display = param === 'amount' ? '' : 'none';
+      if (param === 'amount' && t) amtLabel.textContent = (t.kind === 'refill') ? 'Auffüllen auf (Coins)' : (t.kind === 'tickets' ? 'Anzahl Tickets' : 'Anzahl Coins');
     }
     prizeSel.addEventListener('change', syncPrizeFields);
     syncPrizeFields();
@@ -172,8 +178,9 @@
     function collect() {
       var t = App.Powerups.typeById(prizeSel.value);
       var prize = { type: prizeSel.value };
-      if (t && t.instant) prize.amount = Math.max(1, Math.round(Number(prizeAmt.value) || 1));
-      else prize.minutes = Math.max(1, Math.round(Number(prizeMin.value) || 1));
+      if (t && t.param === 'amount') prize.amount = Math.max(1, Math.round(Number(prizeAmt.value) || 1));
+      else if (t && t.param === 'seconds') prize.seconds = Math.max(1, Math.round(Number(prizeSec.value) || 60));
+      // param === null -> feste Wirkung, kein Zusatzwert
       var def = Math.max(5, Math.round(Number(durIn.value) || 60));
       return {
         title: (titleIn.value || 'Turnier').slice(0, 40),

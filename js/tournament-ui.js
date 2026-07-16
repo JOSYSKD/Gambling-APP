@@ -701,7 +701,7 @@
     stage.appendChild(el('div', { class: 'tv-prize' }, ['⚡ ' + prizeText]));
     if (iWon) {
       stage.appendChild(el('div', { class: 'tv-sub', style: 'margin-top:12px;font-weight:800;color:#ffe9a3;' }, [
-        claimed ? '🎉 Dein Power-Up ist aktiv!' : '🎉 Glückwunsch!'
+        claimed ? '🎉 Power-Up in deiner Sammlung — oben auf ⚡ tippen zum Benutzen!' : '🎉 Glückwunsch!'
       ]));
     }
 

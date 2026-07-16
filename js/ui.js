@@ -93,9 +93,14 @@
     options = options || {};
     var MIN = App.Coins.MIN_BET;
 
+    // Freispiel-Power-Up (siehe powerups.js): die nächste Runde soll mit dem
+    // Maximaleinsatz laufen -> Feld direkt auf das ganze Guthaben vorbelegen.
+    var freebet = !!(App.Powerups && App.Powerups.freebetArmed && App.Powerups.freebetArmed());
+    var startBet = freebet ? App.Coins.get() : Math.min(Math.max(MIN, options.initial || 50), Math.max(MIN, App.Coins.get()));
+
     var input = el('input', {
       class: 'bet-input', type: 'number', min: MIN, step: 10,
-      value: Math.min(Math.max(MIN, options.initial || 50), Math.max(MIN, App.Coins.get())),
+      value: startBet,
       inputmode: 'numeric'
     });
 
