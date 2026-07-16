@@ -66,18 +66,25 @@
       '.admin-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}',
       '.admin-search{flex:1 1 260px;font-size:15px;}',
       '.admin-hint-warn{color:var(--gold);}',
+      // Shoutout / Broadcast an alle
+      '.admin-broadcast{padding:14px 16px;display:flex;flex-direction:column;gap:8px;}',
+      '.admin-broadcast .text-input{flex:1 1 220px;font-size:14px;padding:9px 12px;}',
       // Karten-Gitter
       '.admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;align-items:start;}',
       '.admin-card{padding:18px;display:flex;flex-direction:column;gap:14px;}',
       '.admin-card.admin-online{border-color:var(--neon);box-shadow:0 0 22px rgba(57,255,20,0.20),0 10px 30px rgba(0,0,0,0.35);}',
-      // Karten-Kopf
-      '.admin-card-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}',
+      // Karten-Kopf (klickbar: klappt die Karte auf/zu)
+      '.admin-card-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;user-select:none;-webkit-user-select:none;padding:4px;margin:-4px;border-radius:12px;transition:background .15s;}',
+      '.admin-card-head:hover{background:rgba(57,255,20,0.06);}',
+      '.admin-chevron{color:var(--muted);font-size:12px;width:14px;text-align:center;flex:0 0 auto;}',
+      '.admin-card-body{display:flex;flex-direction:column;gap:14px;}',
       '.admin-dot{opacity:.4;font-size:12px;}',
       '.admin-dot.online{opacity:1;filter:drop-shadow(0 0 5px rgba(57,255,20,0.85));}',
       '.admin-name{font-weight:800;font-size:16px;color:#eaffe2;overflow:hidden;text-overflow:ellipsis;}',
       '.admin-badges{display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;margin-left:auto;}',
       '.admin-badge{font-size:13px;font-weight:800;color:var(--leaf);font-variant-numeric:tabular-nums;white-space:nowrap;}',
       '.admin-badge.admin-tix{color:var(--gold);}',
+      '.admin-badge.admin-rig-badge{color:var(--aqua-soft);font-weight:700;}',
       // Abschnitte innerhalb einer Karte
       '.admin-section{display:flex;flex-direction:column;gap:7px;}',
       '.admin-section-l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}',
@@ -223,6 +230,22 @@
       return patch(key, function (rec) { rec.admin = rec.admin || {}; rec.admin.svSkipTimer = !!on; });
     },
 
+    /** Shoutout: dieselbe Nachricht an ALLE Spieler (Konten + Gäste) auf einmal.
+     *  Es wird EIN gemeinsames Nachrichten-Objekt erzeugt und jedem Spieler in
+     *  rec.admin.msg geschrieben — nutzt exakt die bestehende Pro-Spieler-Mechanik
+     *  (account.js/presence.js zeigt admin.msg genau einmal pro id an, daher muss
+     *  keine andere Datei geändert werden). Liefert ein Promise mit der Anzahl der
+     *  erreichten Spieler. */
+    broadcast: function (text) {
+      var msg = { id: genId(), text: String(text || '').slice(0, 200), ts: Date.now() };
+      return Admin.listPlayers().then(function (rows) {
+        return Promise.all(rows.map(function (row) {
+          var patch = row.kind === 'guest' ? App.Account.adminPatchPresence : App.Account.adminPatch;
+          return patch(row.key, function (rec) { rec.admin = rec.admin || {}; rec.admin.msg = msg; }).catch(function () {});
+        })).then(function () { return rows.length; });
+      });
+    },
+
     renderPage: function (root) {
       injectCss();
       var refreshTimer = null;
@@ -305,6 +328,25 @@
         });
         var toolbar = el('div', { class: 'admin-toolbar' }, [searchInput]);
 
+        // Shoutout: eine Nachricht an ALLE Spieler auf einmal. Dieses <input> liegt
+        // in `root` — der activeElement-Fokus-Schutz greift also auch hier.
+        var bcInput = el('input', {
+          class: 'text-input', type: 'text', maxlength: 200,
+          placeholder: 'Nachricht an alle Spieler …'
+        });
+        var bcBtn = el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
+          var text = (bcInput.value || '').trim();
+          if (!text) return;
+          Admin.broadcast(text).then(function (n) {
+            UI.toast('📢 An ' + n + ' Spieler gesendet', 'win');
+            bcInput.value = '';
+          }).catch(function (e) { UI.toast(e.message, 'lose'); });
+        } }, ['📢 An alle senden']);
+        var broadcastBox = el('div', { class: 'glass admin-broadcast' }, [
+          el('span', { class: 'admin-section-l' }, ['📢 Nachricht an alle (Shoutout)']),
+          el('div', { class: 'admin-controls' }, [bcInput, bcBtn])
+        ]);
+
         var infoEl = el('p', { class: 'lb-hint' }, [
           'Chancen-Änderung wirkt als Gewinn-Faktor über alle Gambling-Spiele hinweg.'
         ]);
@@ -325,7 +367,7 @@
         emptyEl = el('p', { class: 'lb-empty' }, ['Lade Spieler …']);
 
         root.appendChild(el('div', { class: 'admin-wrap' }, [
-          header, stats, toolbar, infoEl, warnEl, errEl, gridEl, emptyEl
+          header, stats, toolbar, broadcastBox, infoEl, warnEl, errEl, gridEl, emptyEl
         ]));
       }
 
@@ -338,13 +380,15 @@
         var key = row.key, kind = row.kind, rowId = kind + ':' + key;
         var current = row; // stets die zuletzt bekannten Daten (für Toasts etc.)
 
-        // --- Kopf: Punkt + Name + Guthaben/Tickets ---
+        // --- Kopf (Zusammenfassung, immer sichtbar; Klick klappt Karte auf/zu) ---
+        var chevron = el('span', { class: 'admin-chevron' }, ['▸']);
         var dot = el('span', { class: 'admin-dot' }, ['⚪']);
         var nameEl = el('span', { class: 'admin-name' }, [row.displayName]);
         var balEl = el('span', { class: 'admin-badge' }, ['0 🪙']);
         var tixEl = el('span', { class: 'admin-badge admin-tix' }, ['0 🎟️']);
+        var rigBadge = el('span', { class: 'admin-badge admin-rig-badge' }, ['']);
         var head = el('div', { class: 'admin-card-head' }, [
-          dot, nameEl, el('span', { class: 'admin-badges' }, [balEl, tixEl])
+          chevron, dot, nameEl, el('span', { class: 'admin-badges' }, [balEl, tixEl, rigBadge])
         ]);
 
         // --- Chancen (Rigging) ---
@@ -460,8 +504,11 @@
           el('div', { class: 'admin-controls' }, [skipStatusEl, skipBtn])
         ]);
 
-        var card = el('div', { class: 'glass admin-card' }, [
-          head,
+        // Der Karten-KÖRPER (alle Steuerelemente) ist standardmäßig eingeklappt
+        // und wird nur beim Aufklappen gezeigt. Wichtig: er ist ein persistenter
+        // DOM-Knoten — der Auf/Zu-Zustand überlebt den 4s-Refresh von allein, weil
+        // update() ihn NIE anfasst.
+        var body = el('div', { class: 'admin-card-body' }, [
           rigSection,
           el('hr', { class: 'admin-divider' }),
           banSection,
@@ -471,6 +518,18 @@
           goldSection,
           skipSection
         ]);
+        body.hidden = true; // eingeklappt starten
+
+        var card = el('div', { class: 'glass admin-card' }, [head, body]);
+
+        // Nur der KOPF klappt um. Steuerelemente liegen im (separaten) Körper, nicht
+        // im Kopf — ihre Klicks erreichen diesen Handler also gar nicht erst.
+        var expanded = false;
+        head.addEventListener('click', function () {
+          expanded = !expanded;
+          body.hidden = !expanded;
+          chevron.textContent = expanded ? '▾' : '▸';
+        });
 
         var api = {
           el: card,
@@ -491,6 +550,7 @@
 
             var rig = admin.rig || 0;
             rigHeadEl.textContent = '🎲 Chancen — aktuell: ' + rigLabelFor(rig);
+            rigBadge.textContent = rigLabelFor(rig); // Zusammenfassung im Kopf (auch eingeklappt)
             rigBtns.forEach(function (b, i) { b.classList.toggle('active', RIG_LEVELS[i].level === rig); });
 
             var banned = admin.banUntil && admin.banUntil > now;
