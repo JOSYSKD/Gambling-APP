@@ -99,6 +99,20 @@
       '.admin-status.win{color:var(--neon);text-shadow:0 0 10px rgba(57,255,20,0.5);}',
       '.admin-status.lose{color:var(--danger-2);text-shadow:0 0 10px rgba(255,77,109,0.4);}',
       '.admin-divider{height:1px;background:var(--stroke);border:0;margin:0;width:100%;}',
+      // Spielideen-Briefkasten (siehe js/ideas.js)
+      '.admin-ideas{padding:18px;display:flex;flex-direction:column;gap:12px;}',
+      '.admin-ideas-head{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:900;color:var(--gold);}',
+      '.admin-ideas-list{display:flex;flex-direction:column;gap:10px;max-height:46vh;overflow-y:auto;}',
+      '.idea-row{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:12px;',
+      'background:rgba(2,10,6,.5);border:1px solid var(--stroke);}',
+      '.idea-row.done{opacity:.55;}',
+      '.idea-row.done .idea-text{text-decoration:line-through;}',
+      '.idea-meta{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;}',
+      '.idea-who{font-weight:800;color:#eaffe2;}',
+      '.idea-when{font-size:12px;color:var(--muted);}',
+      '.idea-text{font-size:15px;white-space:pre-wrap;word-break:break-word;}',
+      '.idea-actions{display:flex;gap:8px;flex-wrap:wrap;}',
+      '.admin-ideas-empty{opacity:.6;font-size:14px;}',
       // Mobil: Karten stapeln, Steuerelemente umbrechen bereits per flex-wrap
       '@media (max-width:560px){.admin-grid{grid-template-columns:1fr;}.admin-head-spacer{display:none;}}'
     ].join(''));
@@ -246,6 +260,11 @@
       });
     },
 
+    /** Spielideen, die Spieler über den 💡-Knopf geschickt haben (siehe js/ideas.js). */
+    listIdeas: function () { return App.Ideas ? App.Ideas.list() : Promise.resolve([]); },
+    deleteIdea: function (id) { return App.Ideas ? App.Ideas.remove(id) : Promise.resolve(); },
+    setIdeaDone: function (id, done) { return App.Ideas ? App.Ideas.setDone(id, done) : Promise.resolve(); },
+
     renderPage: function (root) {
       injectCss();
       var refreshTimer = null;
@@ -259,6 +278,7 @@
       // Persistente Referenzen auf das Grundgerüst (einmalig gebaut, nie ersetzt).
       var statTotal, statOnline, statAccounts, statGuests;
       var searchInput, warnEl, errEl, gridEl, emptyEl;
+      var ideasHeadEl, ideasListEl;   // Spielideen-Briefkasten (siehe js/ideas.js)
       // rowId ('kind:key') -> { el, name, update(row) }. Jede Spieler-Karte wird
       // EINMAL gebaut; beim Refresh nur aktualisiert, damit fokussierte <input>-
       // Felder (Nachricht/Bann-Minuten/Gold/Suche) NICHT zerstört werden und der
@@ -363,11 +383,22 @@
         ]);
         errEl.hidden = true;
 
+        // Spielideen-Briefkasten: was Spieler über den 💡-Knopf geschickt haben.
+        // Ohne Text-Inputs -> beim Refresh gefahrlos neu baubar (kein Fokus-Problem).
+        ideasHeadEl = el('span', {}, ['💡 Spielideen']);
+        ideasListEl = el('div', { class: 'admin-ideas-list' }, [
+          el('p', { class: 'admin-ideas-empty' }, ['Lade Ideen …'])
+        ]);
+        var ideasCard = el('div', { class: 'glass admin-ideas' }, [
+          el('div', { class: 'admin-ideas-head' }, [ideasHeadEl]),
+          ideasListEl
+        ]);
+
         gridEl = el('div', { class: 'admin-grid' });
         emptyEl = el('p', { class: 'lb-empty' }, ['Lade Spieler …']);
 
         root.appendChild(el('div', { class: 'admin-wrap' }, [
-          header, stats, toolbar, broadcastBox, infoEl, warnEl, errEl, gridEl, emptyEl
+          header, stats, ideasCard, toolbar, broadcastBox, infoEl, warnEl, errEl, gridEl, emptyEl
         ]));
       }
 
@@ -642,10 +673,51 @@
         applyFilter();
       }
 
+      // Spielideen laden + darstellen. Eigener Pfad, damit ein Fehler hier die
+      // Spielerliste nicht beeinträchtigt (und umgekehrt).
+      function loadIdeas() {
+        Admin.listIdeas().then(renderIdeas).catch(function () {});
+      }
+      function fmtWhen(at) {
+        if (!at) return '';
+        try {
+          return new Date(at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        } catch (e) { return ''; }
+      }
+      function renderIdeas(ideas) {
+        ideas = ideas || [];
+        var offen = ideas.filter(function (i) { return !i.done; }).length;
+        ideasHeadEl.textContent = '💡 Spielideen (' + ideas.length + (offen ? ' · ' + offen + ' offen' : '') + ')';
+        ideasListEl.innerHTML = '';
+        if (!ideas.length) {
+          ideasListEl.appendChild(el('p', { class: 'admin-ideas-empty' }, ['Noch keine Ideen eingegangen. Spieler schicken sie über den 💡-Knopf oben in der Leiste.']));
+          return;
+        }
+        ideas.forEach(function (idea) {
+          var row = el('div', { class: 'idea-row' + (idea.done ? ' done' : '') }, [
+            el('div', { class: 'idea-meta' }, [
+              el('span', { class: 'idea-who' }, [idea.name || 'Gast']),
+              el('span', { class: 'idea-when' }, [fmtWhen(idea.at)])
+            ]),
+            el('div', { class: 'idea-text' }, [idea.text || '']),
+            el('div', { class: 'idea-actions' }, [
+              el('button', { class: 'btn btn-ghost admin-rig-btn', type: 'button', onclick: function () {
+                Admin.setIdeaDone(idea.id, !idea.done).then(loadIdeas).catch(function (e) { UI.toast(e.message, 'lose'); });
+              } }, [idea.done ? '↩ Wieder offen' : '✓ Erledigt']),
+              el('button', { class: 'btn btn-ghost admin-rig-btn', type: 'button', onclick: function () {
+                Admin.deleteIdea(idea.id).then(loadIdeas).catch(function (e) { UI.toast(e.message, 'lose'); });
+              } }, ['🗑 Löschen'])
+            ])
+          ]);
+          ideasListEl.appendChild(row);
+        });
+      }
+
       function refresh() {
         if (loading) return;
         // Fokus-Schutz: während der Admin in einem Panel-Feld tippt, gar nichts tun.
         if (isTypingInRoot()) return;
+        loadIdeas();
         loading = true;
         Admin.listPlayers().then(function (rows) {
           loading = false;

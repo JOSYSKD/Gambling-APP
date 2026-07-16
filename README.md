@@ -345,6 +345,11 @@ dann ein Knopf **🛠 Admin Panel öffnen** (`#/admin`, siehe `js/admin.js`) mit
   geworfen.
 - **Admin-Nachrichten:** erscheinen beim Zielspieler (Konto oder Gast) als Modal-Fenster.
 - **Turnier-Tickets verschenken:** 🎟️ +1/+3/+10 je Spieler (wird beim nächsten Heartbeat gutgeschrieben).
+- **💡 Spielideen:** Jeder Spieler kann oben in der Leiste über den **💡-Knopf** eine Spielidee
+  eintippen (siehe `js/ideas.js`); sie landet als Nachricht an den Admin ganz oben im Panel in
+  der Liste **„Spielideen"**. Dort kann der Admin jede Idee **abhaken** (✓ Erledigt) oder
+  **löschen**. Gespeichert wird im bereits offenen Firebase-Knoten `scores/__ideas` — daher
+  **kein** neuer Regel-Deploy nötig (gleiches Muster wie der Survival-Board).
 - **🏆 Turniere & Sieger:** eigener Bereich unter `#/admin/tournament` — siehe nächster Abschnitt.
 
 > ⚠️ Wie der Rest der Konten-Logik (siehe oben) ist das **Casual-Schutz, keine echte
