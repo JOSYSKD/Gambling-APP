@@ -27,6 +27,55 @@
   function mount(node) { var v = view(); v.innerHTML = ''; v.appendChild(node); }
   function playerName() { return (App.Leaderboard && App.Leaderboard.getPlayerName()) || 'Spieler'; }
 
+  /* ---------- Favoriten (localStorage, geräteübergreifend nicht nötig) ---------- */
+  var KEY_FAV = 'mg_favorites';
+  function favList() { var a = App.Storage.get(KEY_FAV, []); return Array.isArray(a) ? a : []; }
+  function isFav(id) { return favList().indexOf(id) >= 0; }
+  function toggleFav(id) {
+    var a = favList(), i = a.indexOf(id);
+    if (i >= 0) a.splice(i, 1); else a.push(id);
+    App.Storage.set(KEY_FAV, a);
+    return i < 0; // true = jetzt Favorit
+  }
+
+  /* Normalisiert Text für die Suche (klein, ohne Umlaut-Sonderfälle). */
+  function norm(s) {
+    return String(s || '').toLowerCase()
+      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
+  }
+
+  /* Baut eine einzelne Spielkachel (mit Stern-Favoriten-Knopf). */
+  function tileFor(id, onFavChange) {
+    var g = App.Minigames[id];
+    var fav = isFav(id);
+    var star = el('span', {
+      class: 'mg-fav-btn' + (fav ? ' is-fav' : ''), title: fav ? 'Aus Favoriten entfernen' : 'Zu Favoriten',
+      onclick: function (e) {
+        e.stopPropagation();
+        var nowFav = toggleFav(id);
+        if (App.Audio) App.Audio.sfx(nowFav ? 'point' : 'click');
+        if (onFavChange) onFavChange();
+      }
+    }, [fav ? '⭐' : '☆']);
+    return el('button', { class: 'game-tile glass mg-tile', type: 'button', onclick: function () { go('/mini/' + id); } }, [
+      el('div', { class: 'tile-glow' }),
+      star,
+      el('span', {
+        class: 'mg-lb-btn', title: 'Bestenliste',
+        style: 'position:absolute;top:8px;right:8px;z-index:2;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;background:rgba(4,16,10,.72);border:1px solid var(--stroke);font-size:15px;cursor:pointer;',
+        onclick: function (e) { e.stopPropagation(); if (App.Scores) App.Scores.showBoard(id, g.title); }
+      }, ['🏆']),
+      el('div', { class: 'tile-icon' }, [g.icon || '🎮']),
+      el('div', { class: 'tile-title' }, [g.title]),
+      el('div', { class: 'tile-sub' }, [g.subtitle || '']),
+      el('div', { class: 'mg-badges' }, [
+        g.coop ? el('span', { class: 'mg-badge mg-badge-coop' }, ['🤝 Team']) : null,
+        g.single !== false ? el('span', { class: 'mg-badge' }, ['👤 Solo']) : null,
+        g.multi !== false ? el('span', { class: 'mg-badge mg-badge-mp' }, ['👥 ' + (g.minPlayers || 2) + '–' + (g.maxPlayers || 4)]) : null
+      ])
+    ]);
+  }
+
   /* ============================ ÜBERSICHT ============================ */
   function list(opts) {
     opts = opts || {};
@@ -43,26 +92,57 @@
       var A = App.Minigames[a], B = App.Minigames[b];
       return (A.order || 999) - (B.order || 999) || A.title.localeCompare(B.title);
     });
-    var tiles = ids.map(function (id) {
-      var g = App.Minigames[id];
-      return el('button', { class: 'game-tile glass mg-tile', type: 'button', onclick: function () { go('/mini/' + id); } }, [
-        el('div', { class: 'tile-glow' }),
-        el('span', {
-          class: 'mg-lb-btn', title: 'Bestenliste',
-          style: 'position:absolute;top:8px;right:8px;z-index:2;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;background:rgba(4,16,10,.72);border:1px solid var(--stroke);font-size:15px;cursor:pointer;',
-          onclick: function (e) { e.stopPropagation(); if (App.Scores) App.Scores.showBoard(id, g.title); }
-        }, ['🏆']),
-        el('div', { class: 'tile-icon' }, [g.icon || '🎮']),
-        el('div', { class: 'tile-title' }, [g.title]),
-        el('div', { class: 'tile-sub' }, [g.subtitle || '']),
-        el('div', { class: 'mg-badges' }, [
-          g.coop ? el('span', { class: 'mg-badge mg-badge-coop' }, ['🤝 Team']) : null,
-          g.single !== false ? el('span', { class: 'mg-badge' }, ['👤 Solo']) : null,
-          g.multi !== false ? el('span', { class: 'mg-badge mg-badge-mp' }, ['👥 ' + (g.minPlayers || 2) + '–' + (g.maxPlayers || 4)]) : null
-        ])
-      ]);
+
+    // Suchfeld — bleibt beim Tippen bestehen (nur die Grids darunter werden neu befüllt).
+    var searchInput = el('input', {
+      class: 'text-input mg-search-input', type: 'search', placeholder: '🔍 Spiel suchen …',
+      autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false'
     });
-    if (!tiles.length) tiles = [el('p', { class: 'hint-text' }, ['Spiele werden geladen …'])];
+    var clearBtn = el('button', { class: 'mg-search-clear', type: 'button', title: 'Leeren',
+      onclick: function () { searchInput.value = ''; searchInput.focus(); rerender(); } }, ['✕']);
+    var searchBar = el('div', { class: 'mg-searchbar' }, [searchInput, clearBtn]);
+
+    var favHead = el('div', { class: 'mg-sec-head' }, ['⭐ Favoriten']);
+    var favGrid = el('div', { class: 'tile-grid' });
+    var allHead = el('div', { class: 'mg-sec-head' }, ['🎮 Alle Spiele']);
+    var allGrid = el('div', { class: 'tile-grid' });
+    var emptyMsg = el('p', { class: 'hint-text mg-empty' }, []);
+
+    function matches(id, q) {
+      if (!q) return true;
+      var g = App.Minigames[id];
+      return norm(g.title).indexOf(q) >= 0 || norm(g.subtitle).indexOf(q) >= 0 || norm(id).indexOf(q) >= 0;
+    }
+
+    function rerender() {
+      var q = norm(searchInput.value.trim());
+      var shown = ids.filter(function (id) { return matches(id, q); });
+      var favShown = shown.filter(isFav);
+      var restShown = q ? shown : shown.filter(function (id) { return !isFav(id); });
+
+      clearBtn.style.display = searchInput.value ? '' : 'none';
+
+      // Bei aktiver Suche: EIN Grid mit allen Treffern (Favoriten zuerst).
+      // Ohne Suche: getrennte "⭐ Favoriten"- und "🎮 Alle Spiele"-Abschnitte.
+      var showFavSection = !q && favShown.length > 0;
+      favHead.style.display = showFavSection ? '' : 'none';
+      favGrid.style.display = showFavSection ? '' : 'none';
+      allHead.style.display = (showFavSection ? '' : 'none');
+
+      favGrid.innerHTML = '';
+      allGrid.innerHTML = '';
+      if (showFavSection) {
+        favShown.forEach(function (id) { favGrid.appendChild(tileFor(id, rerender)); });
+      }
+      var mainList = q ? shown : restShown;
+      mainList.forEach(function (id) { allGrid.appendChild(tileFor(id, rerender)); });
+
+      emptyMsg.textContent = shown.length ? '' : 'Kein Spiel gefunden für „' + searchInput.value.trim() + '“.';
+      emptyMsg.style.display = shown.length ? 'none' : '';
+      allHead.textContent = q ? ('🔍 ' + shown.length + ' Treffer') : '🎮 Alle Spiele';
+    }
+
+    searchInput.addEventListener('input', rerender);
 
     var online = App.Net.isOnline();
     mount(el('div', { class: 'cat-page' }, [
@@ -72,11 +152,15 @@
       ]),
       el('p', { class: 'hint-text mg-intro' }, [
         opts.intro || (coop ? 'Zusammen über das Internet ein Level schaffen – arbeitet als Team gegen die Zeit. (Solo geht auch zum Üben.)'
-             : (online ? 'Online-Modus aktiv – spiel mit Freunden per Raum-Code.'
-                       : 'Tipp: Ohne Firebase läuft der Mehrspieler-Modus lokal (mehrere Tabs). Sag Bescheid für echtes Online-Spiel.'))
+             : (online ? 'Online-Modus aktiv – spiel mit Freunden per Raum-Code. Tipp aufs ☆, um ein Spiel zu deinen Favoriten zu machen.'
+                       : 'Tipp: Ohne Firebase läuft der Mehrspieler-Modus lokal (mehrere Tabs). Tipp aufs ☆ für Favoriten.'))
       ]),
-      el('div', { class: 'tile-grid' }, tiles)
+      searchBar,
+      favHead, favGrid, allHead, allGrid, emptyMsg
     ]));
+
+    rerender();
+    setTimeout(function () { try { searchInput.focus({ preventScroll: true }); } catch (e) {} }, 60);
   }
 
   /* ============================ SPIEL ÖFFNEN ============================ */
@@ -289,6 +373,19 @@
   function injectHubStyle() {
     UI.injectStyle('minigames-hub-css', [
       '.mg-intro{margin:-8px 0 16px;}',
+      // --- Suchleiste ---
+      '.mg-searchbar{position:relative;margin:0 0 18px;max-width:520px;}',
+      '.mg-search-input{width:100%;padding-right:40px;font-size:16px;}',
+      '.mg-search-clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:8px;border:1px solid var(--stroke);background:rgba(4,16,10,.7);color:var(--muted);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:.15s;}',
+      '.mg-search-clear:hover{color:var(--danger);border-color:var(--danger);}',
+      // --- Abschnitts-Überschriften (Favoriten / Alle) ---
+      '.mg-sec-head{font-size:14px;font-weight:900;letter-spacing:.5px;color:var(--gold);text-transform:uppercase;margin:6px 2px 10px;display:flex;align-items:center;gap:8px;}',
+      '.mg-sec-head + .tile-grid{margin-bottom:22px;}',
+      '.mg-empty{margin:20px 2px;text-align:center;}',
+      // --- Favoriten-Stern auf der Kachel ---
+      '.mg-fav-btn{position:absolute;top:8px;left:8px;z-index:2;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;background:rgba(4,16,10,.72);border:1px solid var(--stroke);font-size:16px;cursor:pointer;color:var(--muted);transition:transform .15s,border-color .15s,background .15s,color .15s;}',
+      '.mg-fav-btn:hover{transform:scale(1.15);border-color:var(--gold);color:var(--gold);background:rgba(40,32,6,.9);}',
+      '.mg-fav-btn.is-fav{color:var(--gold);border-color:rgba(255,210,63,.5);background:rgba(40,32,6,.75);text-shadow:0 0 10px rgba(255,210,63,.7);}',
       // --- Kacheln: lebendiger (schwebendes Icon, Akzentkante, weicher Hover) ---
       '.mg-tile{transition:transform .2s cubic-bezier(.2,.7,.3,1.35),box-shadow .25s,border-color .2s;}',
       '.mg-tile::before{content:"";position:absolute;top:0;left:14px;right:14px;height:3px;border-radius:3px;background:linear-gradient(90deg,transparent,var(--neon),var(--aqua),transparent);opacity:0;transition:opacity .25s;}',
