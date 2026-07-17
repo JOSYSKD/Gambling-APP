@@ -241,6 +241,22 @@
       });
     },
 
+    /** Eine Spieler-Antwort aus dem Postfach löschen: entfernt GENAU EINE passende
+     *  Antwort aus rec.replies des Spielers (identifiziert über ts, ersatzweise Text). */
+    deleteReply: function (kind, key, ts, text) {
+      var patch = kind === 'guest' ? App.Account.adminPatchPresence : App.Account.adminPatch;
+      return patch(key, function (rec) {
+        if (!rec.replies || !rec.replies.length) return;
+        var removed = false;
+        rec.replies = rec.replies.filter(function (r) {
+          if (removed || !r) return !!r;
+          var match = ts ? (r.ts === ts) : (r.text === text);
+          if (match) { removed = true; return false; }
+          return true;
+        });
+      });
+    },
+
     /** Turnier-Tickets verschenken (siehe js/tickets.js). Der Client löst das
      *  Geschenk beim nächsten Heartbeat genau einmal ein — wie eine Nachricht. */
     giftTickets: function (kind, key, n) {
@@ -953,7 +969,7 @@
             (body = el('div', { class: 'admin-inbox-list' }, list.map(function (item) {
               var when = item.r.ts ? new Date(item.r.ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
               var replyInput = el('input', { class: 'text-input', type: 'text', placeholder: '↩︎ Antwort an ' + (item.r.name || item.row.displayName) + ' …' });
-              return el('div', { class: 'admin-inbox-item' }, [
+              var itemEl = el('div', { class: 'admin-inbox-item' }, [
                 el('div', { class: 'admin-inbox-top' }, [
                   el('b', {}, [item.r.name || item.row.displayName]),
                   el('span', { class: 'cf-info-l' }, [when])
@@ -969,9 +985,19 @@
                       UI.toast('Antwort an ' + (item.r.name || item.row.displayName) + ' gesendet', 'win');
                       replyInput.value = '';
                     }).catch(function (e) { UI.toast(e.message, 'lose'); });
-                  } }, ['Senden'])
+                  } }, ['Senden']),
+                  el('button', { class: 'btn btn-ghost', type: 'button', title: 'Nachricht löschen', onclick: function () {
+                    Admin.deleteReply(item.row.kind, item.row.key, item.r.ts, item.r.text).then(function () {
+                      // aus dem geladenen Spieler-Stand entfernen -> Badge + erneutes Öffnen stimmen
+                      item.row.replies = (item.row.replies || []).filter(function (r) { return r !== item.r; });
+                      if (itemEl.parentNode) itemEl.parentNode.removeChild(itemEl);
+                      updateMailBadge();
+                      UI.toast('Nachricht gelöscht', 'win');
+                    }).catch(function (e) { UI.toast(e.message || 'Konnte nicht löschen', 'lose'); });
+                  } }, ['🗑️'])
                 ])
               ]);
+              return itemEl;
             }))),
             el('button', { class: 'btn btn-ghost btn-lg', type: 'button', onclick: function () {
               if (overlay.parentNode) document.body.removeChild(overlay);
