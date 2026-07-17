@@ -24,7 +24,7 @@
   // Survival getrennt (mode.js präfixt gj_progress). Über den Konto-Heartbeat
   // (account.js snapshotToAccount) landet der Reset danach auch in den Cloud-Konten,
   // sodass ein späterer Login den alten Stand NICHT zurückholt.
-  var RESET_GEN = 4;
+  var RESET_GEN = 5;
 
   function freshStats() {
     return {
@@ -119,16 +119,18 @@
   var LEVEL_START_STEP = 100;    // Guthaben-Zuwachs pro Level (früher 3000)
   var QUEST_START_SHARE = 0.02;  // Anteil der Quest-Belohnung im Startguthaben (früher 0.4)
 
-  // Bonus aus bereits erledigten Quests: jede fertige Quest hebt den Wieder-Auffüll-
-  // Betrag dauerhaft um einen Teil ihrer Belohnung an — summiert sich mit jeder weiteren
-  // Quest auf, daher kein Deckel mehr nötig.
+  // Bonus aus SELBST erledigten Quests: jede hebt den Wieder-Auffüll-Betrag um einen
+  // Teil ihrer Belohnung. Vor einem Reset erfüllte Quests (bf=true) zählen NICHT mit,
+  // und der Bonus ist bei QUEST_START_CAP gedeckelt — sonst startet man nach dem Reset
+  // mit hunderttausenden statt ~1000.
+  var QUEST_START_CAP = 25000;
   function questBonusOf(st) {
     var total = 0, quests = (st && st.quests) || {};
     for (var i = 0; i < QUESTS.length; i++) {
       var q = QUESTS[i], rec = quests[q.id];
-      if (rec && rec.done) total += Math.round(q.reward.coins * QUEST_START_SHARE);
+      if (rec && rec.done && !rec.bf) total += Math.round(q.reward.coins * QUEST_START_SHARE);
     }
-    return total;
+    return Math.min(QUEST_START_CAP, total);
   }
   function questBonus() { return questBonusOf(state); }
 
@@ -440,7 +442,10 @@
     for (var _qi = 0; _qi < QUESTS.length; _qi++) {
       var _q = QUESTS[_qi];
       if (!state.quests[_q.id] && _q.prog(statsView()) >= _q.target) {
-        state.quests[_q.id] = { done: true, claimed: true };
+        // bf=true: schon VOR dem Reset erfüllt -> zählt NICHT zum Startguthaben-Bonus
+        // (sonst startet ein Spieler mit hohen Stats nach dem Reset mit einem riesigen
+        // Auffüll-Guthaben statt mit ~1000).
+        state.quests[_q.id] = { done: true, claimed: true, bf: true };
       }
     }
     save();

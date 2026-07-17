@@ -9,14 +9,16 @@
  *     gesamte Einsatz weg (Bust).
  *   - "💸 Cashout" (erst ab Stufe ≥ 1): sichert Einsatz * 2L.
  *
- * Fairness / Wahrscheinlichkeiten (5 % Hausvorteil):
- *   Schritt-Chance von Stufe L auf L+1:  p = 0.95 * (L+1)/(L+2)
- *     Stufe 0→1: 0.95*1/2 = 0.475     (der harte erste Schritt)
- *     Stufe 1→2: 0.95*2/3 ≈ 0.633
- *     Stufe 2→3: 0.95*3/4 ≈ 0.7125 …
- *   Der Faktor 0.95 ist der 5-%-Schnitt des Hauses: der ERSTE Wurf hat einen
- *   Erwartungswert von 0.95 × Einsatz (47.5 % auf 2×). Die Wahrscheinlichkeit,
- *   Stufe k garantiert zu erreichen, ist  0.95^k / (k+1).
+ * Fairness / Wahrscheinlichkeiten (Hausvorteil, FAIR gerechnet):
+ *   Beim linearen Multiplikator 2k muss die Schritt-Chance = mult(L)/mult(L+1)
+ *   = L/(L+1) sein, sonst hat das Spiel einen POSITIVEN Erwartungswert (der frühere
+ *   Faktor (L+1)/(L+2) gab bis ~1,29× Spielervorteil → aus 1000 wurden Millionen).
+ *   Schritt-Chance von Stufe L auf L+1:  p = 0.95 * (L<1 ? 0.5 : L/(L+1))
+ *     Stufe 0→1: 0.95*0.5   = 0.475     (der harte erste Schritt, ×2)
+ *     Stufe 1→2: 0.95*0.5   = 0.475     (×2 → ×4)
+ *     Stufe 2→3: 0.95*0.667 ≈ 0.633 …
+ *   Erwartungswert beim Cashen auf Stufe k = 0.95^k × Einsatz (immer < 1, sinkt mit k).
+ *   Die Wahrscheinlichkeit, Stufe k zu erreichen, ist  0.95^k / (2k).
  *
  * Siegesserien-Rangliste (geteilt) unter dem freigegebenen Firebase-Knoten
  *   scores/don_streaks  (ein NEUER Top-Level-Knoten wäre "Permission denied").
@@ -44,15 +46,17 @@
   var FB_PATH = 'scores/don_streaks';  // einziger freigegebener Rangliste-Pfad
 
   /* ---- Wahrscheinlichkeiten ---- */
-  // Chance, von Stufe L auf L+1 vorzurücken.
-  function stepProb(L) { return HOUSE * (L + 1) / (L + 2); }
+  // Chance, von Stufe L auf L+1 vorzurücken. = HOUSE * mult(L)/mult(L+1) = HOUSE*L/(L+1)
+  // (erster Schritt L=0: HOUSE*0.5). Nur so ist der Erwartungswert fair (< 1); die
+  // frühere Formel (L+1)/(L+2) machte das Spiel zugunsten des Spielers kaputt.
+  function stepProb(L) { return HOUSE * (L < 1 ? 0.5 : L / (L + 1)); }
   // Auszahlungs-Multiplikator auf Stufe k = 2k.
   function multFor(k) { return 2 * k; }
   // Theoretische Chance, Stufe k von Grund auf zu erreichen = Produkt der Schritt-Chancen.
   function theoryReach(k) {
     var p = 1;
     for (var L = 0; L < k; L++) p *= stepProb(L);
-    return p;   // == 0.95^k / (k+1)
+    return p;   // == 0.95^k / (2k)
   }
   // Chance eines Spielers, so eine Serie zu schaffen — aus seiner Trefferquote (rate^streak).
   // Ohne bekannte Quote: theoretische Schätzung.

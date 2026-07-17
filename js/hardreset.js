@@ -20,7 +20,7 @@
   'use strict';
   window.App = window.App || {};
 
-  var GEN = 2;                 // hochzählen für den nächsten globalen Reset
+  var GEN = 3;                 // hochzählen für den nächsten globalen Reset
   var KEY_GEN = 'gj_hard_gen';
   var CASINO_START = (App.Coins && App.Coins.START) || 1000;
 
