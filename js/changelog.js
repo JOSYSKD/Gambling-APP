@@ -20,7 +20,8 @@
       date: '2026-07-17',
       title: 'COURS & Update-News',
       items: [
-        'Neu: COURS — ein einziger, wilder Kurs, der ohne Pause steigt und fällt (3 Ticks/Sekunde, jeder Tick 1–10 %). Für alle Spieler gleich, jederzeit ein- und aussteigen.',
+        'COURS deutlich steiler gemacht: jeder Tick bewegt den Kurs jetzt um 3–22 % (statt 1–10 %) — viel heftigere Ausschläge.',
+        'Neu: COURS — ein einziger, wilder Kurs, der ohne Pause steigt und fällt (3 Ticks/Sekunde, jeder Tick 3–22 %). Für alle Spieler gleich, jederzeit ein- und aussteigen.',
         'Admin kann die COURS-Geschwindigkeit für alle live einstellen.',
         'Diese Update-News-Seite: hier steht ab jetzt kurz & knapp, was neu dazukommt.',
       ]
