@@ -24,7 +24,7 @@
   // Survival getrennt (mode.js präfixt gj_progress). Über den Konto-Heartbeat
   // (account.js snapshotToAccount) landet der Reset danach auch in den Cloud-Konten,
   // sodass ein späterer Login den alten Stand NICHT zurückholt.
-  var RESET_GEN = 5;
+  var RESET_GEN = 6;
 
   function freshStats() {
     return {
@@ -432,44 +432,40 @@
       streak: s.streak || 0, maxStreak: s.maxStreak || 0, peakBalance: peakBalance };
   }
   var peakBalance = 0;
+  // Wird bei jedem (Re)Load auf false gesetzt (siehe reloadFromStorage). Der ERSTE
+  // checkQuests danach markiert schon erfüllte Quests nur als abgeholt (bf), statt sie
+  // auszuzahlen — SO wird verhindert, dass nach einem Stats-erhaltenden Reset die
+  // durch die behaltenen Stats erfüllten Quests (inkl. Mega-Quests à 300k) rückwirkend
+  // Millionen auszahlen. Auch nach einem Konto-Login (der neue Stats bringt) greift das.
+  var questScanDone = false;
 
-  // Backfill nach einem Stats-erhaltenden Reset (siehe load): Quests, die durch die
-  // behaltenen Stats schon erfüllt sind, als abgeholt markieren -> checkQuests zahlt
-  // sie NICHT rückwirkend aus. Guthaben-Quests (peakBalance) bleiben offen, weil der
-  // Kontostand ja mit resettet wurde. Läuft genau einmal (Marker wird gelöscht).
-  if (state._qbf) {
-    delete state._qbf;
-    for (var _qi = 0; _qi < QUESTS.length; _qi++) {
-      var _q = QUESTS[_qi];
-      if (!state.quests[_q.id] && _q.prog(statsView()) >= _q.target) {
-        // bf=true: schon VOR dem Reset erfüllt -> zählt NICHT zum Startguthaben-Bonus
-        // (sonst startet ein Spieler mit hohen Stats nach dem Reset mit einem riesigen
-        // Auffüll-Guthaben statt mit ~1000).
-        state.quests[_q.id] = { done: true, claimed: true, bf: true };
-      }
-    }
-    save();
-  }
-
-  // Fertige, noch nicht belohnte Quests automatisch einlösen.
+  // Fertige Quests: beim ersten Scan nach dem Laden NUR markieren (bf, kein Geld),
+  // danach im Spiel frisch erreichte normal belohnen.
   function checkQuests() {
     var changed = false;
+    var backfill = !questScanDone;
+    questScanDone = true;
     QUESTS.forEach(function (q) {
-      var rec = state.quests[q.id] || (state.quests[q.id] = { done: false, claimed: false });
-      if (!rec.done && questDone(q)) {
-        rec.done = true; rec.claimed = true;
+      var rec = state.quests[q.id];
+      if (rec && rec.done) return;
+      if (!questDone(q)) return;
+      if (backfill) {
+        // Schon beim Laden erfüllt -> als abgeholt markieren, NICHT auszahlen und NICHT
+        // zum Startguthaben zählen (bf).
+        state.quests[q.id] = { done: true, claimed: true, bf: true };
+        changed = true;
+      } else {
+        // Frisch im Spiel erreicht -> normal belohnen.
+        rec = state.quests[q.id] = { done: true, claimed: true };
         if (App.Coins) App.Coins.add(q.reward.coins);
-        state.xp += q.reward.xp;               // direkt (Level-Up-Check folgt via addXp(0)-Pfad unten)
-        // Quests sind die Quelle für Turnier-Tickets (siehe js/tickets.js).
+        state.xp += q.reward.xp;
         if (App.Tickets) rec.tickets = App.Tickets.grantForQuest(q.reward);
         changed = true;
         toastQuest(q);
       }
     });
     if (changed) {
-      // eventuelles Level-Up durch Quest-XP nachziehen
       var before = level(); save();
-      // (Level-Up-Feier läuft über addXp; hier XP schon addiert -> kurzer Sync)
       var after = level();
       if (after > before) onLevelUp(before, after);
       emit();
@@ -751,8 +747,12 @@
     /** Fortschritt neu aus dem Storage laden — nach Konto-Login oder beim Wechsel
      *  zwischen Casino und Survival, die getrennte Stände haben (siehe js/mode.js). */
     reloadFromStorage: function () {
+      // Neuer Stand (z.B. nach Konto-Login): der nächste Quest-Scan ist wieder ein
+      // Backfill-Pass -> schon erfüllte Quests werden nur markiert, nicht ausgezahlt.
+      questScanDone = false;
       state = load();
       peakBalance = App.Coins ? App.Coins.get() : 0;
+      checkQuests();
       updateChip();
       emit();
     }
