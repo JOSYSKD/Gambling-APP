@@ -110,7 +110,7 @@
       if (!amount) return false;
       var cost = amount * RATE;
       if (App.Coins.get() < cost) return false;
-      App.Coins.add(-cost);
+      App.Coins.addRaw(-cost);
       balance += amount;
       save();
       emit('change', balance);
@@ -123,7 +123,7 @@
       if (!amount || amount > balance) return false;
       balance -= amount;
       save();
-      App.Coins.add(amount * RATE);
+      App.Coins.addRaw(amount * RATE);
       emit('change', balance);
       return true;
     },
