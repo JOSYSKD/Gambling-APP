@@ -8,8 +8,11 @@
     return n.toLocaleString('de-DE');
   }
 
-  /** Große Zahlen abgekürzt: 1.234 -> "1,23K", 2.500.000 -> "2,5M", … bis "T" (Billion). */
+  /** Große Zahlen abgekürzt: 1.234 -> "1,23K", 2.500.000 -> "2,5M", … bis "Sx" (10^21).
+   *  Über der Billion (T) geht es weiter in der englischen Kurzskala, damit auch die
+   *  Risiko-Mega-Quests (bis 10^21) noch lesbar bleiben: Qa=10^15, Qi=10^18, Sx=10^21. */
   var SHORT_UNITS = [
+    { v: 1e21, s: 'Sx' }, { v: 1e18, s: 'Qi' }, { v: 1e15, s: 'Qa' },
     { v: 1e12, s: 'T' }, { v: 1e9, s: 'B' }, { v: 1e6, s: 'M' }, { v: 1e3, s: 'K' }
   ];
   function formatShort(n) {

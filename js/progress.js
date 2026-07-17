@@ -98,6 +98,13 @@
   function xpForLevel() { return level() >= MAX_LEVEL ? 0 : reqFor(level()); }
   function isMaxLevel() { return level() >= MAX_LEVEL; }
 
+  // Wie stark Level und Quests das Wieder-Auffüll-Guthaben heben. Bewusst dick:
+  // pro Level 3000 (statt 750), und jede fertige Quest schenkt 40 % ihrer Coin-
+  // Belohnung dauerhaft ins Startguthaben (statt 10 %). So wird das Neustartguthaben
+  // mit Fortschritt richtig fett — vor allem, wenn die Risiko-Mega-Quests fallen.
+  var LEVEL_START_STEP = 3000;   // Guthaben-Zuwachs pro Level
+  var QUEST_START_SHARE = 0.4;   // Anteil der Quest-Belohnung, der ins Startguthaben wandert
+
   // Bonus aus bereits erledigten Quests: jede fertige Quest hebt den Wieder-Auffüll-
   // Betrag dauerhaft um einen Teil ihrer Belohnung an — summiert sich mit jeder weiteren
   // Quest auf, daher kein Deckel mehr nötig.
@@ -105,18 +112,18 @@
     var total = 0, quests = (st && st.quests) || {};
     for (var i = 0; i < QUESTS.length; i++) {
       var q = QUESTS[i], rec = quests[q.id];
-      if (rec && rec.done) total += Math.round(q.reward.coins * 0.1);
+      if (rec && rec.done) total += Math.round(q.reward.coins * QUEST_START_SHARE);
     }
     return total;
   }
   function questBonus() { return questBonusOf(state); }
 
-  // Wieder-Auffüll-/Start-Betrag steigt mit dem Level (L1=1000 … ~L20=15000, dann weiter)
-  // UND mit der Anzahl/Schwere bereits erledigter Quests — kein Deckel mehr bei 200k,
+  // Wieder-Auffüll-/Start-Betrag steigt mit dem Level (L1=1000, +3000 je Level)
+  // UND mit der Anzahl/Schwere bereits erledigter Quests — kein Deckel,
   // der Betrag wächst mit dem Fortschritt unbegrenzt weiter.
   function startBalanceOf(st) {
     var L = levelFromXp(Math.max(0, Math.round(Number(st && st.xp) || 0)));
-    var amt = 1000 + (L - 1) * 750 + questBonusOf(st);
+    var amt = 1000 + (L - 1) * LEVEL_START_STEP + questBonusOf(st);
     return Math.round(amt / 50) * 50;
   }
   function startBalance() { return startBalanceOf(state); }
@@ -177,7 +184,7 @@
       for (var L = from + 1; L <= to; L++) {
         var bonus = 500 + L * 250;           // Level-Up-Bonus aufs Guthaben
         if (App.Coins) App.Coins.add(bonus);
-        celebrate('⭐ Level ' + L + '!', title() + ' · +' + UI.formatCoins(bonus) + ' 🪙 · Auffüllung jetzt ' + UI.formatCoins(1000 + (L - 1) * 750));
+        celebrate('⭐ Level ' + L + '!', title() + ' · +' + UI.formatCoins(bonus) + ' 🪙 · Auffüllung jetzt ' + UI.formatShort(1000 + (L - 1) * LEVEL_START_STEP));
       }
     }
     // Höchstlevel erreicht -> große Feier + goldener Name freigeschaltet.
@@ -237,9 +244,11 @@
 
   // Belohnung anhand der Zielgröße herleiten (Coins wachsen mit dem Ziel, XP nur logarithmisch,
   // damit die Level-Kurve auch bei den ganz großen Zielen sinnvoll bleibt).
+  // Coins deutlich angehoben (0,6× statt 0,25× des Ziels), damit Quests sich richtig
+  // lohnen und über questBonus auch das Neustartguthaben kräftig mitheben.
   function questReward(target) {
     return {
-      coins: Math.max(200, Math.round(target * 0.25)),
+      coins: Math.max(500, Math.round(target * 0.6)),
       xp: Math.max(30, Math.round(40 * Math.log10(target + 10)))
     };
   }
@@ -249,6 +258,42 @@
     });
   }
   var fmt = function (n) { return UI.formatShort(n); };
+
+  /* ---------------- Risiko-Mega-Quests ---------------- */
+  // 150 Quests, bei denen man ASTRONOMISCHE Summen setzt (riskiert) — von 1 Billion
+  // (10^12) bis zu 1 Trilliarde (10^21). Gemessen am gesamten Einsatz (s.wagered),
+  // nahtlose Fortsetzung der normalen 'wager'-Quests (die bei 10^11 enden).
+  //
+  // Belohnung 1:1 zum Einsatz: Coins = Ziel. Über questBonus (40 %, siehe oben)
+  // hebt JEDE geknackte Mega-Quest das Neustartguthaben dauerhaft und gewaltig —
+  // genau der gewünschte Effekt "irgendwann richtig viel Neustartguthaben".
+  function megaReward(target) {
+    return {
+      coins: Math.round(target),
+      xp: Math.max(500, Math.round(80 * Math.log10(target + 10)))
+    };
+  }
+  function megaRiskQuests() {
+    var LO = 1e12, HI = 1e21, N = 150;
+    var span = Math.log10(HI / LO);   // = 9 Größenordnungen
+    var out = [];
+    for (var i = 0; i < N; i++) {
+      // Geometrisch gestaffelt, auf 3 signifikante Stellen gerundet -> streng steigend.
+      var raw = LO * Math.pow(10, span * i / (N - 1));
+      var mag = Math.pow(10, Math.floor(Math.log10(raw)) - 2);
+      var t = Math.round(raw / mag) * mag;
+      out.push({
+        id: 'risk' + i,
+        icon: (i >= 130 ? '💎' : i >= 90 ? '👑' : i >= 45 ? '🐋' : '🎲'),
+        title: 'Risiko ' + fmt(t),
+        desc: 'Setze (riskiere) insgesamt ' + fmt(t) + ' Coins' + (i === N - 1 ? ' — der absolute Wahnsinn!' : ''),
+        target: t,
+        prog: function (s) { return s.wagered; },
+        reward: megaReward(t)
+      });
+    }
+    return out;
+  }
 
   // 16 Solo-Gambling-Spiele + 4 Poker-Tische (Multiplayer per Raum-Code) — je einmal antreten.
   var PLAY_GAMES = [
@@ -332,7 +377,8 @@
         id: 'chip_' + d.v, icon: '🎟️', title: d.label + '-Chip', desc: 'Besitze Pokerchips im Wert von ' + fmt(d.v),
         target: d.v, prog: function () { return App.Chips ? App.Chips.get() : 0; }, reward: questReward(d.v)
       };
-    }));
+    }))
+    .concat(megaRiskQuests());   // 150 Risiko-Mega-Quests (10^12 … 10^21)
 
   var QUESTS = BASE_QUESTS.concat(EXTRA_QUESTS);
   function questById(id) { for (var i = 0; i < QUESTS.length; i++) if (QUESTS[i].id === id) return QUESTS[i]; return null; }
