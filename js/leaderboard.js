@@ -110,7 +110,8 @@
         var k = nameKey(name);
         var e = map[k];
         if (!e) {
-          e = map[k] = { name: cleanName(name), peak: peak, date: opts.date || null, online: false, active: false, me: false, gold: false };
+          e = map[k] = { name: cleanName(name), peak: peak, date: opts.date || null, online: false, active: false, me: false, gold: false,
+            cos: null, level: 1, bulbs: 0, games: [], stats: null };
           keys.push(k);
         } else if (peak > e.peak) {
           e.peak = peak;
@@ -122,6 +123,12 @@
         if (opts.active) e.active = true;
         if (opts.me) e.me = true;
         if (opts.gold) e.gold = true;   // Höchstlevel-Spieler -> goldener Name
+        // Profil-Daten (Kosmetik/Level/Glühbirnen/Spiele) übernehmen, sobald vorhanden.
+        if (opts.cos) e.cos = opts.cos;
+        if (opts.level) e.level = opts.level;
+        if (opts.bulbs != null) e.bulbs = opts.bulbs;
+        if (opts.games && opts.games.length) e.games = opts.games;
+        if (opts.stats) e.stats = opts.stats;
       }
 
       var meMax = !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel());
@@ -133,7 +140,9 @@
         put(p.name, best, {
           date: p.date || null,
           online: !!p.updatedAt && (now - p.updatedAt) < ONLINE_MS,
-          gold: !!p.maxLevel
+          gold: !!p.maxLevel,
+          cos: p.cos || null, level: p.level || 1, bulbs: p.bulbs || 0,
+          games: p.games || [], stats: p.stats || null
         });
       });
 

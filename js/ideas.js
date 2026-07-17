@@ -398,6 +398,7 @@
     MAX_LEVEL: MAX_IDEA_LEVEL,
     LEVEL_AT: LEVEL_AT.slice(),
     level: level,
+    levelForWins: levelFor,
     isMaxLevel: isMaxLevel,
     wins: winCount,
     nextAt: nextAt,

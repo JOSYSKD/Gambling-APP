@@ -120,57 +120,172 @@
     return t.name;
   }
 
+  /* ---- Level-bewusste Varianten für FREMDE Spieler (deren Level, nicht meins) ---- */
+  function chosenAt(arr, id, level) { var it = findById(arr, id); return (level >= it.lv) ? it : arr[0]; }
+  function autoTitleFor(level) {
+    // Spiegelt App.Progress.title() ohne Zugriff auf fremden Zustand.
+    if (level >= (MAX || 99999)) return '👑 Platin-Legende';
+    return TITLES_AUTO[Math.min(TITLES_AUTO.length - 1, Math.floor((level - 1) / 2))];
+  }
+  var TITLES_AUTO = ['Spielhallen-Neuling', 'Anfänger', 'Zocker', 'Stammgast', 'Kartenhai', 'Glücksritter',
+    'High Roller', 'Casino-Profi', 'Roulette-König', 'Poker-Hai', 'Vegas-Veteran', 'Dschungel-Boss',
+    'Neon-Legende', 'Casino-Magnat', 'Glücks-Gott'];
+  function titleTextFor(cos, level) {
+    var t = chosenAt(TITLES, (cos && cos.title) || 'auto', level);
+    return t.id === 'auto' ? autoTitleFor(level) : t.name;
+  }
+
+  /* ---- Spiel-Name/Icon aus der Registry (Gambling + Minigames) ---- */
+  function gameMeta(id) {
+    var g = (App.Games && App.Games[id]) || (App.Minigames && App.Minigames[id]);
+    if (g) return { icon: g.icon || '🎮', title: g.title || g.name || id };
+    return { icon: '🎮', title: id };
+  }
+
   /* ---------------- Ideen-Level: goldene Glühbirnen ----------------
    * Eigene Progression neben dem Spiel-Level: pro Ideen-Level (1–5, siehe
    * js/ideas.js) eine goldene Glühbirne oben auf der Karte. Ohne angenommene
    * Idee gibt es keine — dann bleibt der Banner leer wie bisher. */
   function ideaLevel() { return (App.Ideas && App.Ideas.level) ? App.Ideas.level() : 0; }
-  function renderBulbs() {
-    var lv = ideaLevel();
-    if (lv < 1) return null;
+  function bulbsEl(ideaLv, tipText) {
+    if (!ideaLv || ideaLv < 1) return null;
     var max = (App.Ideas && App.Ideas.MAX_LEVEL) || 5;
     var bulbs = [];
-    for (var i = 0; i < lv; i++) bulbs.push(el('span', { class: 'pc-bulb' }, ['💡']));
-    var tip = 'Ideen-Level ' + lv + '/' + max +
-      ((App.Ideas && App.Ideas.levelText) ? ' · ' + App.Ideas.levelText() : '');
-    return el('div', { class: 'pc-bulbs' + (lv >= max ? ' pc-bulbs-max' : ''), title: tip }, bulbs);
+    for (var i = 0; i < ideaLv; i++) bulbs.push(el('span', { class: 'pc-bulb' }, ['💡']));
+    var tip = tipText || ('Ideen-Level ' + ideaLv + '/' + max);
+    return el('div', { class: 'pc-bulbs' + (ideaLv >= max ? ' pc-bulbs-max' : ''), title: tip }, bulbs);
+  }
+
+  /* ---------------- Daten-Modell ----------------
+   * `viewOf()` baut aus dem lokalen Zustand (mich) bzw. aus einem Spieler-Datensatz
+   * (andere, aus dem Präsenz-Register) ein einheitliches Objekt, das beide Renderer
+   * (Karte + Bestenlisten-Zeile) verstehen. `data == null` => ich selbst. */
+  function viewOf(data) {
+    if (!data) {
+      var s = App.Progress ? App.Progress.stats() : { wins: 0, rounds: 0, biggestWin: 0 };
+      var il = ideaLevel();
+      return {
+        me: true,
+        name: (App.Leaderboard && App.Leaderboard.getPlayerName && App.Leaderboard.getPlayerName()) || 'Spieler',
+        cos: { avatar: sel.avatar, frame: sel.frame, banner: sel.banner, title: sel.title },
+        level: lvl(),
+        xpNow: App.Progress ? App.Progress.xpInLevel() : 0,
+        xpMax: App.Progress ? App.Progress.xpForLevel() : 100,
+        ideaLv: il,
+        ideaTip: 'Ideen-Level ' + il + ((App.Ideas && App.Ideas.levelText) ? ' · ' + App.Ideas.levelText() : ''),
+        gold: !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel()),
+        stats: { wins: s.wins, rounds: s.rounds, biggestWin: s.biggestWin, peak: App.Coins ? App.Coins.getPeak() : 0 },
+        games: Object.keys((s && s.games) || {})
+      };
+    }
+    var level = Math.max(1, Math.round(Number(data.level) || 1));
+    var bulbs = Math.max(0, Math.round(Number(data.bulbs) || 0));
+    var ideaLv = (App.Ideas && App.Ideas.levelForWins) ? App.Ideas.levelForWins(bulbs) : 0;
+    var st = data.stats || {};
+    return {
+      me: false,
+      name: data.name || 'Spieler',
+      cos: data.cos || {},
+      level: level,
+      xpNow: null, xpMax: null,           // fremde XP-Feinheit tracken wir nicht
+      ideaLv: ideaLv,
+      ideaTip: 'Ideen-Level ' + ideaLv,
+      gold: !!data.gold,
+      stats: { wins: st.wins || 0, rounds: st.rounds || 0, biggestWin: st.biggestWin || 0, peak: Number(data.peak) || st.peak || 0 },
+      games: (data.games && data.games.slice) ? data.games.slice() : []
+    };
   }
 
   /* ---------------- Anzeige-Karte ---------------- */
-  function renderCard() {
+  function renderCard() { return renderCardFor(null); }
+  function renderCardFor(data) {
     injectCss();
-    var av = chosen(AVATARS, sel.avatar), fr = chosen(FRAMES, sel.frame), bn = chosen(BANNERS, sel.banner);
-    var name = (App.Leaderboard && App.Leaderboard.getPlayerName && App.Leaderboard.getPlayerName()) || 'Spieler';
-    var L = lvl();
-    var xpNow = App.Progress ? App.Progress.xpInLevel() : 0, xpMax = App.Progress ? App.Progress.xpForLevel() : 100;
-    var pct = Math.max(0, Math.min(100, Math.round(xpNow / xpMax * 100)));
-    var s = App.Progress ? App.Progress.stats() : { wins: 0, rounds: 0, biggestWin: 0 };
-
+    var v = viewOf(data);
+    var av = chosenAt(AVATARS, v.cos.avatar, v.level),
+        fr = chosenAt(FRAMES, v.cos.frame, v.level),
+        bn = chosenAt(BANNERS, v.cos.banner, v.level);
+    var title = v.me ? titleText() : titleTextFor(v.cos, v.level);
+    var nameEl = el('div', { class: 'pc-name' + (v.gold ? ' name-gold' : '') }, [v.name]);
+    var xpBar = (v.xpMax != null && v.xpMax > 0)
+      ? [el('div', { class: 'pc-xp' }, [el('div', { class: 'pc-xp-fill', style: 'width:' + Math.max(0, Math.min(100, Math.round(v.xpNow / v.xpMax * 100))) + '%' })]),
+         el('div', { class: 'pc-xp-l' }, [v.xpNow + ' / ' + v.xpMax + ' XP'])]
+      : [];
     return el('div', { class: 'pc-card pc-frame-' + fr.id }, [
       el('div', { class: 'pc-banner', style: 'background:' + bn.css }),
-      renderBulbs(),
+      bulbsEl(v.ideaLv, v.ideaTip),
       el('div', { class: 'pc-body' }, [
         el('div', { class: 'pc-top' }, [
           el('div', { class: 'pc-avatar' }, [av.e]),
           el('div', { class: 'pc-id' }, [
-            el('div', { class: 'pc-name' }, [name]),
-            el('div', { class: 'pc-title' }, ['⭐ ' + titleText()])
+            nameEl,
+            el('div', { class: 'pc-title' }, ['⭐ ' + title])
           ]),
-          el('div', { class: 'pc-lvl' }, [el('span', { class: 'pc-lvl-n' }, [String(L)]), el('span', { class: 'pc-lvl-t' }, ['LEVEL'])])
-        ]),
-        el('div', { class: 'pc-xp' }, [el('div', { class: 'pc-xp-fill', style: 'width:' + pct + '%' })]),
-        el('div', { class: 'pc-xp-l' }, [xpNow + ' / ' + xpMax + ' XP']),
-        el('div', { class: 'pc-stats' }, [
-          pcStat('🏆', UI.formatCoins(s.wins), 'Siege'),
-          pcStat('🎲', UI.formatCoins(s.rounds), 'Runden'),
-          pcStat('💥', UI.formatCoins(s.biggestWin), 'Top-Gewinn'),
-          pcStat('🪙', UI.formatCoins(App.Coins ? App.Coins.getPeak() : 0), 'Peak')
+          el('div', { class: 'pc-lvl' }, [el('span', { class: 'pc-lvl-n' }, [fmtLv(v.level)]), el('span', { class: 'pc-lvl-t' }, ['LEVEL'])])
         ])
-      ])
+      ].concat(xpBar).concat([
+        el('div', { class: 'pc-stats' }, [
+          pcStat('🏆', UI.formatCoins(v.stats.wins), 'Siege'),
+          pcStat('🎲', UI.formatCoins(v.stats.rounds), 'Runden'),
+          pcStat('💥', UI.formatCoins(v.stats.biggestWin), 'Top-Gewinn'),
+          pcStat('🪙', UI.formatCoins(v.stats.peak), 'Peak')
+        ])
+      ]))
     ]);
   }
   function pcStat(ic, v, l) {
     return el('div', { class: 'pc-stat' }, [el('div', { class: 'pc-stat-ic' }, [ic]), el('div', { class: 'pc-stat-v' }, [v]), el('div', { class: 'pc-stat-l' }, [l])]);
+  }
+
+  /* ---------------- Bestenlisten-Zeile im Profilkarten-Look ----------------
+   * Kompakte Zeile mit Banner-Hintergrund, Avatar im Rahmen, Level-Badge und
+   * Glühbirnen — für die EIGENE Zeile in der Bestenliste (und optional andere). */
+  function renderRow(data, extra) {
+    injectCss();
+    extra = extra || {};
+    var v = viewOf(data);
+    var av = chosenAt(AVATARS, v.cos.avatar, v.level),
+        fr = chosenAt(FRAMES, v.cos.frame, v.level),
+        bn = chosenAt(BANNERS, v.cos.banner, v.level);
+    var right = [];
+    if (extra.rankEl) right.push(el('div', { class: 'pcrow-rank' }, [extra.rankEl]));
+    right.push(el('div', { class: 'pcrow-peak' }, [UI.formatCoins(v.stats.peak) + ' 🪙']));
+    if (extra.tag) right.push(extra.tag);
+    return el('div', { class: 'pcrow pc-frame-' + fr.id + (v.me ? ' pcrow-me' : ''), style: '--pcrow-bn:' + bn.css.replace(/;/g, '') },
+      [
+        el('div', { class: 'pcrow-avatar' }, [av.e]),
+        bulbsEl(v.ideaLv, v.ideaTip),
+        el('div', { class: 'pcrow-id' }, [
+          el('div', { class: 'pcrow-name' + (v.gold ? ' name-gold' : '') }, [v.name]),
+          el('div', { class: 'pcrow-sub' }, ['Lv ' + fmtLv(v.level) + ' · ' + (v.me ? titleText() : titleTextFor(v.cos, v.level))])
+        ]),
+        el('div', { class: 'pcrow-right' }, right)
+      ]);
+  }
+
+  /* ---------------- Liste der gespielten Spiele ---------------- */
+  function gamesEl(gameIds) {
+    var ids = (gameIds && gameIds.slice) ? gameIds.slice() : [];
+    if (!ids.length) return el('p', { class: 'pcg-empty' }, ['Noch keine Spiele gespielt.']);
+    return el('div', { class: 'pcg-grid' }, ids.map(function (id) {
+      var m = gameMeta(id);
+      return el('div', { class: 'pcg-chip', title: m.title }, [
+        el('span', { class: 'pcg-ic' }, [m.icon]),
+        el('span', { class: 'pcg-nm' }, [m.title])
+      ]);
+    }));
+  }
+
+  /* ---------------- Snapshot für den Präsenz-Heartbeat (siehe presence.js) ----------------
+   * Klein halten: nur Auswahl-Ids + Zahlen, keine ganzen Kataloge. */
+  function snapshot() {
+    var s = App.Progress ? App.Progress.stats() : {};
+    return {
+      cos: { avatar: sel.avatar, frame: sel.frame, banner: sel.banner, title: sel.title },
+      level: lvl(),
+      bulbs: (App.Ideas && App.Ideas.wins) ? App.Ideas.wins() : 0,
+      games: Object.keys((s && s.games) || {}),
+      stats: { wins: s.wins || 0, rounds: s.rounds || 0, biggestWin: s.biggestWin || 0 }
+    };
   }
 
   /* ---------------- Editor ---------------- */
@@ -246,6 +361,27 @@
       '.pc-card{position:relative;border-radius:20px;overflow:hidden;border:2px solid var(--stroke);background:rgba(9,32,21,.55);margin-bottom:16px;}',
       '.pc-banner{height:88px;}',
       '.pc-body{padding:0 18px 16px;}',
+      /* ---- Bestenlisten-Zeile im Profilkarten-Look (renderRow) ---- */
+      '.pcrow{position:relative;display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:16px;overflow:hidden;border:2px solid var(--stroke);background:rgba(9,32,21,.55);}',
+      '.pcrow::before{content:"";position:absolute;inset:0;background:var(--pcrow-bn);opacity:.22;z-index:0;}',
+      '.pcrow > *{position:relative;z-index:1;}',
+      '.pcrow-me{box-shadow:0 0 0 2px var(--neon),0 0 18px var(--stroke-2);}',
+      '.pcrow-avatar{width:46px;height:46px;flex:0 0 auto;border-radius:13px;background:rgba(4,16,10,.85);border:2px solid var(--neon);display:flex;align-items:center;justify-content:center;font-size:26px;}',
+      '.pcrow .pc-bulbs{position:static;padding:3px 6px;}',
+      '.pcrow .pc-bulb{font-size:14px;}',
+      '.pcrow-id{flex:1;min-width:0;}',
+      '.pcrow-name{font-size:16px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+      '.pcrow-sub{font-size:12px;color:var(--gold);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+      '.pcrow-right{display:flex;align-items:center;gap:10px;flex:0 0 auto;}',
+      '.pcrow-rank{font-size:15px;font-weight:900;color:var(--muted);min-width:34px;text-align:right;}',
+      '.pcrow-peak{font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums;white-space:nowrap;}',
+      /* ---- gespielte Spiele (gamesEl) ---- */
+      '.pcg-grid{display:flex;flex-wrap:wrap;gap:8px;}',
+      '.pcg-chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:rgba(4,16,10,.6);border:1px solid var(--stroke);font-size:13px;font-weight:700;}',
+      '.pcg-ic{font-size:15px;}',
+      '.pcg-empty{opacity:.6;font-size:14px;}',
+      '.pcp-open{cursor:pointer;transition:transform .12s;}',
+      '.pcp-open:hover{transform:translateY(-1px);}',
       // Ideen-Level: goldene Glühbirnen oben rechts auf dem Banner (siehe js/ideas.js)
       '.pc-bulbs{position:absolute;top:8px;right:10px;display:flex;gap:1px;padding:4px 8px;border-radius:99px;',
       'background:rgba(4,16,10,.55);border:1px solid rgba(255,210,63,.55);backdrop-filter:blur(3px);cursor:help;}',
@@ -383,5 +519,12 @@
     ].join(''));
   }
 
-  App.ProfileCard = { renderCard: renderCard, renderCustomizer: renderCustomizer };
+  App.ProfileCard = {
+    renderCard: renderCard,
+    renderCardFor: renderCardFor,   // Karte für einen fremden Spieler (Daten aus dem Register)
+    renderRow: renderRow,           // Bestenlisten-Zeile im Profilkarten-Look
+    gamesEl: gamesEl,               // Liste der gespielten Spiele
+    snapshot: snapshot,             // kompakter Stand für den Präsenz-Heartbeat
+    renderCustomizer: renderCustomizer
+  };
 })();

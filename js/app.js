@@ -280,8 +280,22 @@
       var rows = board.map(function (entry, i) {
         var rank = i + 1;
         var dateTxt = entry.active ? 'läuft gerade' : (entry.online ? 'online' : (entry.date || '—'));
-        return el('div', { class: 'lb-row glass ' + medalClass(rank) + (entry.active ? ' active' : '') }, [
-          el('div', { class: 'lb-rank' }, [wreath(rank) || ('#' + rank)]),
+        var rankTxt = wreath(rank) || ('#' + rank);
+
+        // Eigene Zeile im Profilkarten-Look (Avatar/Rahmen/Banner/Level/Glühbirnen).
+        if (entry.me && App.ProfileCard && App.ProfileCard.renderRow) {
+          var meRow = App.ProfileCard.renderRow(null, {
+            rankEl: rankTxt,
+            tag: entry.active ? el('span', { class: 'lb-tag' }, ['aktiver Run'])
+              : (entry.online ? el('span', { class: 'lb-tag lb-tag-on' }, ['🟢 online']) : null)
+          });
+          meRow.classList.add('pcp-open');
+          meRow.onclick = function () { openPlayerModal(entry); };
+          return meRow;
+        }
+
+        var row = el('div', { class: 'lb-row glass pcp-open ' + medalClass(rank) + (entry.active ? ' active' : '') }, [
+          el('div', { class: 'lb-rank' }, [rankTxt]),
           el('div', { class: 'lb-name' }, [
             el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym']),
             entry.active ? el('span', { class: 'lb-tag' }, ['aktiver Run'])
@@ -290,6 +304,8 @@
           el('div', { class: 'lb-coins' }, [UI.formatCoins(entry.peak) + ' 🪙']),
           el('div', { class: 'lb-date' }, [dateTxt])
         ]);
+        row.onclick = function () { openPlayerModal(entry); };
+        return row;
       });
       if (!rows.length) rows = [el('div', { class: 'lb-empty' }, ['Noch keine Einträge – spiel eine Runde!'])];
 
@@ -310,6 +326,29 @@
     var off1 = App.Coins.onChange(draw);
     var off2 = App.Leaderboard.onChange(draw);
     return function () { off1(); off2(); };
+  }
+
+  /** Profil eines Spielers aus der Bestenliste: Profilkarte + gespielte Spiele.
+   *  Für sich selbst (entry.me) aus dem lokalen Zustand, für andere aus den
+   *  Präsenz-Daten (siehe js/profile-card.js / js/presence.js). */
+  function openPlayerModal(entry) {
+    if (!App.ProfileCard || !App.ProfileCard.renderCardFor) return;
+    var isMe = !!entry.me;
+    var card = isMe ? App.ProfileCard.renderCard() : App.ProfileCard.renderCardFor(entry);
+    var games = isMe
+      ? App.ProfileCard.gamesEl(Object.keys((App.Progress && App.Progress.stats && App.Progress.stats().games) || {}))
+      : App.ProfileCard.gamesEl(entry.games || []);
+    var overlay = el('div', { class: 'modal-overlay' }, [
+      el('div', { class: 'modal glass', style: 'max-width:520px;width:94%;text-align:left;' }, [
+        card,
+        el('h3', { class: 'neon', style: 'margin:14px 0 8px;font-size:16px;' }, ['🎮 Gespielte Spiele']),
+        games,
+        el('button', { class: 'btn btn-ghost', type: 'button', style: 'margin-top:14px;', onclick: close }, ['Schließen'])
+      ])
+    ]);
+    function close() { if (overlay.parentNode) document.body.removeChild(overlay); }
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    document.body.appendChild(overlay);
   }
 
   /* ---------- PROFIL ---------- */

@@ -124,6 +124,10 @@
         App.Survival.applyGoldGrant(admin.goldGrant);
         admin.goldGrant = null;
       }
+      // Profil-Snapshot (Kosmetik, Level, Glühbirnen, gespielte Spiele) mitschicken,
+      // damit andere Spieler die Profilkarte + Spiele in der Bestenliste sehen können
+      // (siehe js/profile-card.js snapshot + js/app.js renderLeaderboard).
+      var snap = (App.ProfileCard && App.ProfileCard.snapshot) ? App.ProfileCard.snapshot() : null;
       var next = {
         name: (App.Leaderboard && App.Leaderboard.getPlayerName()) || 'Gast',
         balance: App.Coins ? App.Coins.get() : 0,
@@ -135,6 +139,13 @@
         accountKey: loggedIn ? App.Account.currentKey() : null,
         admin: admin
       };
+      if (snap) {
+        next.cos = snap.cos;
+        next.level = snap.level;
+        next.bulbs = snap.bulbs;
+        next.games = snap.games;
+        next.pstats = snap.stats;
+      }
       return App.Account.presenceSet(id, next);
     }).catch(function () {});
   }
