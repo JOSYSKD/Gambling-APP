@@ -386,6 +386,14 @@
     return m ? m[1] : null;
   }
 
+  /** true, wenn die aktuelle Coin-Runde durch ein Verlust-Erstattungs-Power-Up
+   *  risikofrei ist (Freispiel/Schild/Goldene Hand). Dann gibt es weder Wager-
+   *  noch Gewinn-XP und die Runde zählt nicht für Quests — sonst wäre die
+   *  garantierte Erstattung ein XP-Automat (Einsatz raus, Verlust zurück). */
+  function riskFreeRound() {
+    return !!(App.Powerups && App.Powerups.roundProtected && App.Powerups.roundProtected());
+  }
+
   function onWager(amount) {
     amount = Math.round(Math.abs(amount));
     if (amount <= 0) return;
@@ -422,7 +430,7 @@
       var _add = App.Coins.add.bind(App.Coins);
       App.Coins.add = function (delta) {
         var r = _add(delta);
-        if (delta < 0) onWager(delta);
+        if (delta < 0 && !riskFreeRound()) onWager(delta);
         if (App.Coins.get() > peakBalance) { peakBalance = App.Coins.get(); checkQuests(); }
         return r;
       };
@@ -432,7 +440,7 @@
     // Rundenergebnis: UI.flash(delta) wird in Gambling-Spielen mit dem Netto-Gewinn/-Verlust aufgerufen
     if (App.UI && !App.UI.__progHooked) {
       var _flash = App.UI.flash;
-      App.UI.flash = function (amount) { try { onOutcome(Number(amount) || 0); } catch (e) {} return _flash.apply(this, arguments); };
+      App.UI.flash = function (amount) { try { if (!riskFreeRound()) onOutcome(Number(amount) || 0); } catch (e) {} return _flash.apply(this, arguments); };
       App.UI.__progHooked = true;
     }
     // Pokerchip-Einsätze/-Gewinne zählen umgerechnet (× Kurs) genauso für XP & Quests.
