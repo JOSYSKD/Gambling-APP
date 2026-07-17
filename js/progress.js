@@ -24,7 +24,7 @@
   // Survival getrennt (mode.js präfixt gj_progress). Über den Konto-Heartbeat
   // (account.js snapshotToAccount) landet der Reset danach auch in den Cloud-Konten,
   // sodass ein späterer Login den alten Stand NICHT zurückholt.
-  var RESET_GEN = 3;
+  var RESET_GEN = 4;
 
   function freshStats() {
     return {
@@ -42,10 +42,14 @@
   function load() {
     var s = App.Storage ? App.Storage.get(KEY, null) : null;
     if (!s || typeof s !== 'object') s = {};
-    // Globaler Reset (siehe RESET_GEN): alter/kein Generationsstempel -> alles auf null,
-    // sofort persistieren, damit der leere Stand auch in den Konto-Snapshot wandert.
+    // Globaler Reset (siehe RESET_GEN): Level/XP und Quest-Belohnungen auf null.
+    // ABER die STATS (wagered/wins/rounds/games/… = die Lebensleistung) bleiben
+    // erhalten — die will Josl behalten. Ein Marker sorgt dafür, dass die durch die
+    // behaltenen Stats bereits erfüllten Quests danach als „abgeholt" gelten und
+    // NICHT rückwirkend Geld/XP auszahlen (siehe Backfill unten).
     if ((Number(s.resetGen) || 0) < RESET_GEN) {
-      s = { xp: 0, stats: freshStats(), quests: {}, lastDaily: '', daily: [], resetGen: RESET_GEN };
+      var keptStats = (s.stats && typeof s.stats === 'object') ? Object.assign(freshStats(), s.stats) : freshStats();
+      s = { xp: 0, stats: keptStats, quests: {}, lastDaily: s.lastDaily || '', daily: s.daily || [], resetGen: RESET_GEN, _qbf: true };
       if (App.Storage) App.Storage.set(KEY, s);
       return s;
     }
@@ -278,19 +282,26 @@
     { id: 'bal50k', icon: '👑', title: 'Millionär in spe', desc: 'Erreiche 120.000 Coins Guthaben', target: 120000, prog: function (s) { return s.peakBalance || 0; }, reward: { coins: 15000, xp: 520 } }
   ];
 
-  // Belohnung anhand der Zielgröße herleiten (Coins wachsen mit dem Ziel, XP nur logarithmisch,
-  // damit die Level-Kurve auch bei den ganz großen Zielen sinnvoll bleibt).
-  // Coins deutlich angehoben (0,6× statt 0,25× des Ziels), damit Quests sich richtig
-  // lohnen und über questBonus auch das Neustartguthaben kräftig mitheben.
-  function questReward(target) {
+  // FAIRE Belohnung: Coins wachsen mit der Schwierigkeit (Ziel), aber STARK sublinear
+  // (≈ dritte Wurzel) und gedeckelt. Früher war es 0,6× des Ziels — dadurch gab eine
+  // einzige große Quest fast so viel wie ihr Ziel und hebelte jeden Reset sofort aus.
+  // Jetzt: kleine Quests lohnen sich spürbar, riesige Ziele sprengen das Geld nicht mehr.
+  // `weight` = wie schwer der Quest-TYP pro Ziel-Einheit ist: Coins setzen ist leicht
+  // (0,35), eine Sieg-Serie schwer (2,0). So spiegelt die Belohnung die echte Mühe
+  // wider und nicht nur die nackte Zielzahl.
+  var QR_K = 60, QR_P = 0.34, QR_MIN = 150, QR_MAX = 300000;
+  function questReward(target, weight) {
+    var t = Math.max(1, Number(target) || 1);
+    var w = (weight == null) ? 1 : weight;
+    var coins = Math.round(QR_K * Math.pow(t, QR_P) * w);
     return {
-      coins: Math.max(500, Math.round(target * 0.6)),
-      xp: Math.max(30, Math.round(40 * Math.log10(target + 10)))
+      coins: Math.max(QR_MIN, Math.min(QR_MAX, coins)),
+      xp: Math.max(20, Math.round(30 * Math.log10(t + 10)))
     };
   }
-  function tierQuests(prefix, icon, targets, titleFn, descFn, progFn) {
+  function tierQuests(prefix, icon, targets, titleFn, descFn, progFn, weight) {
     return targets.map(function (t) {
-      return { id: prefix + t, icon: icon, title: titleFn(t), desc: descFn(t), target: t, prog: progFn, reward: questReward(t) };
+      return { id: prefix + t, icon: icon, title: titleFn(t), desc: descFn(t), target: t, prog: progFn, reward: questReward(t, weight) };
     });
   }
   var fmt = function (n) { return UI.formatShort(n); };
@@ -300,14 +311,12 @@
   // (10^12) bis zu 1 Trilliarde (10^21). Gemessen am gesamten Einsatz (s.wagered),
   // nahtlose Fortsetzung der normalen 'wager'-Quests (die bei 10^11 enden).
   //
-  // Belohnung = halber Einsatz (Coins = Ziel / 2). Vorher 1:1, das war zu viel:
-  // über questBonus (40 %, siehe oben) wuchs das Neustartguthaben — und damit Level
-  // und Geld — viel zu schnell. Halbiert bremst genau das.
+  // Auch die Mega-Quests bekommen die faire, gedeckelte Belohnung (früher Ziel/2 =
+  // astronomisch und spielbrechend). Sie sind reine Prestige-Ziele; die Belohnung
+  // ist wie bei allen Quests gedeckelt, nur die XP etwas höher.
   function megaReward(target) {
-    return {
-      coins: Math.round(target / 2),
-      xp: Math.max(500, Math.round(80 * Math.log10(target + 10)))
-    };
+    var r = questReward(target);
+    return { coins: r.coins, xp: Math.max(300, r.xp) };
   }
   function megaRiskQuests() {
     var LO = 1e12, HI = 1e21, N = 150;
@@ -349,7 +358,7 @@
   var STREAK_QUESTS = tierQuests('streak', '🔥', [3, 5, 8, 12, 20, 30, 50, 75],
     function (t) { return t + 'er-Serie'; },
     function (t) { return 'Gewinne ' + t + ' Runden HINTEREINANDER (ohne Verlust dazwischen)'; },
-    function (s) { return s.maxStreak || 0; });
+    function (s) { return s.maxStreak || 0; }, 2.0);
 
   // NEUE Quest-Art: Spiel-Meisterschaft — an EINEM bestimmten Spiel oft gewinnen.
   var MASTERY_GAMES = [
@@ -379,23 +388,23 @@
       function (s) { return s.rounds; }))
     .concat(tierQuests('wins', '🍀', [150, 400, 1000, 2500, 6000, 15000, 40000, 100000],
       function (t) { return 'Siegesserie ' + fmt(t); }, function (t) { return 'Gewinne ' + fmt(t) + ' Runden'; },
-      function (s) { return s.wins; }))
+      function (s) { return s.wins; }, 1.3))
     .concat(tierQuests('wager', '💸', [500000, 2000000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000],
       function (t) { return 'Kapitaleinsatz ' + fmt(t); }, function (t) { return 'Setze insgesamt ' + fmt(t) + ' Coins'; },
-      function (s) { return s.wagered; }))
+      function (s) { return s.wagered; }, 0.35))
     .concat(tierQuests('bigwin', '💥', [50000, 250000, 1000000, 5000000, 25000000, 100000000, 500000000, 2000000000],
       function (t) { return 'Mega-Coup ' + fmt(t); }, function (t) { return 'Gewinne ' + fmt(t) + '+ in einer Runde'; },
-      function (s) { return s.biggestWin; }))
+      function (s) { return s.biggestWin; }, 0.7))
     .concat(tierQuests('bal', '👑', [250000, 1000000, 5000000, 25000000, 100000000, 500000000, 2500000000, 10000000000, 50000000000, 250000000000, 1000000000000],
       function (t) { return t >= 1000000000000 ? 'Trillionär' : 'Vermögen ' + fmt(t); },
       function (t) { return 'Erreiche ' + fmt(t) + ' Coins Guthaben' + (t >= 1000000000000 ? ' — die schwerste Quest überhaupt!' : ''); },
-      function (s) { return s.peakBalance || 0; }))
+      function (s) { return s.peakBalance || 0; }, 0.6))
     .concat(tierQuests('games', '🕹️', [10, 15, 20, 25],
       function (t) { return 'Vielspieler ' + t; }, function (t) { return 'Spiele ' + t + ' verschiedene Spiele'; },
-      function (s) { return Object.keys(s.games || {}).length; }))
+      function (s) { return Object.keys(s.games || {}).length; }, 1.5))
     .concat(tierQuests('losses', '🛡️', [10, 50, 150, 400, 1000],
       function (t) { return 'Durchhalten ' + fmt(t); }, function (t) { return 'Verliere ' + fmt(t) + ' Runden — Kopf hoch!'; },
-      function (s) { return s.losses; }))
+      function (s) { return s.losses; }, 0.4))
     .concat(tierQuests('level', '⭐',
       [5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300, 500, 750, 1000,
        1500, 2500, 5000, 7500, 10000, 15000, 25000, 40000, 60000, 80000, 99999],
@@ -421,6 +430,21 @@
       streak: s.streak || 0, maxStreak: s.maxStreak || 0, peakBalance: peakBalance };
   }
   var peakBalance = 0;
+
+  // Backfill nach einem Stats-erhaltenden Reset (siehe load): Quests, die durch die
+  // behaltenen Stats schon erfüllt sind, als abgeholt markieren -> checkQuests zahlt
+  // sie NICHT rückwirkend aus. Guthaben-Quests (peakBalance) bleiben offen, weil der
+  // Kontostand ja mit resettet wurde. Läuft genau einmal (Marker wird gelöscht).
+  if (state._qbf) {
+    delete state._qbf;
+    for (var _qi = 0; _qi < QUESTS.length; _qi++) {
+      var _q = QUESTS[_qi];
+      if (!state.quests[_q.id] && _q.prog(statsView()) >= _q.target) {
+        state.quests[_q.id] = { done: true, claimed: true };
+      }
+    }
+    save();
+  }
 
   // Fertige, noch nicht belohnte Quests automatisch einlösen.
   function checkQuests() {
