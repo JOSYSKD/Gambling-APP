@@ -31,7 +31,7 @@
       id: 'stocks',
       name: 'Aktien',
       icon: '📈',
-      desc: '20 Aktien von 100 bis 1.000 Coins. Alle 10 Sekunden ein neuer Kurs — jetzt EXTREM, Sprünge bis 150 %. Kaufen, halten, im richtigen Moment verkaufen.',
+      desc: '20 Aktien von 100 bis 1.000 Coins. LIVE: jede Sekunde ein neuer Kurs — extrem extrem, Sprünge bis 200 %. Kaufen, halten, im richtigen Moment verkaufen.',
       route: '/stocks',
       mode: 'casino'
     },

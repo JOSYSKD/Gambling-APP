@@ -18,6 +18,14 @@
   var ENTRIES = [
     {
       date: '2026-07-17',
+      title: 'Aktien jetzt LIVE & extrem',
+      items: [
+        'Aktien laufen jetzt LIVE: jede Sekunde ein neuer Kurs (statt alle 10 s) — Preise, Charts und Depotwert aktualisieren sich flüssig.',
+        'Extrem extrem: einzelne Kurssprünge bis zu 200 % pro Tick (vorher 150 %). Bleibt trotzdem im Kursband und für alle Spieler gleich.',
+      ]
+    },
+    {
+      date: '2026-07-17',
       title: 'Farbige Namen & 30 Schriftarten',
       items: [
         'Neu im Profil: färbe deinen Namen — über 60 Farben plus animierte Verläufe (Regenbogen, Feuer, Galaxie, Plasma …).',

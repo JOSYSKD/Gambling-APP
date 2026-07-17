@@ -1,10 +1,10 @@
 /* stocks.js — Aktienmarkt  (App.Stocks)
  *
- * 20 Aktien, Kurse zwischen 100 und 1.000. Alle 10 Sekunden ein neuer Tick:
- * der Kurs steigt, fällt oder bleibt gleich.
+ * 20 Aktien, Kurse zwischen 100 und 1.000. LIVE: jede Sekunde ein neuer Tick,
+ * der Kurs steigt, fällt oder bleibt gleich — extrem extrem, Sprünge bis 200 %.
  *
  * Kernidee — der Markt braucht KEINEN Server: der Kurs ist eine reine Funktion
- * aus (Aktie, Tick-Nummer), wobei die Tick-Nummer = floor(Zeit / 10s) ist.
+ * aus (Aktie, Tick-Nummer), wobei die Tick-Nummer = floor(Zeit / 1s) ist.
  * Daraus folgt alles Angenehme von selbst:
  *   - Alle Spieler sehen zur selben Zeit denselben Kurs (gleiche Formel).
  *   - Der Markt läuft weiter, während die Seite zu ist.
@@ -24,11 +24,11 @@
   window.App = window.App || {};
   var UI = App.UI, el = UI.el;
 
-  var TICK_MS = 10000;          // 10 Sekunden pro Tick
+  var TICK_MS = 1000;           // LIVE: 1 neuer Kurs pro Sekunde
   var KEY = 'gj_stocks';
   var FLAT_CHANCE = 0.14;       // ~14% der Ticks bleiben unverändert
   var MAX_FLAT_RUN = 6;         // …aber höchstens 6 Ticks am Stück
-  var MAX_TICK_MOVE = 1.5;      // höchstens 150 % Kurssprung pro Tick (harte Deckelung)
+  var MAX_TICK_MOVE = 2.0;      // höchstens 200 % Kurssprung pro Tick (extrem extrem, gedeckelt)
   var CLAMP_WARMUP = 90;        // Vorlauf-Ticks für die Sprung-Deckelung (Selbst-Sync)
   var HISTORY = 70;             // Ticks im großen Chart (~12 Minuten)
   var SPARK = 24;               // Ticks in der Mini-Kurve
@@ -306,6 +306,8 @@
     injectCss();
     var selected = null;                 // null = Marktübersicht, sonst Aktien-ID
     var lastTick = tickNow();
+    var marketRefs = [];                 // Live-Refs je Aktien-Kachel (Preis/Chg/Canvas)
+    var detailRefs = null;               // Live-Refs der Detailansicht
     var body = el('div', { class: 'stk-body' });
 
     var head = el('div', { class: 'page-head' }, [
@@ -345,16 +347,19 @@
     function updateTick() {
       var into = msIntoTick();
       tickFill.style.width = Math.round((into / TICK_MS) * 100) + '%';
-      tickTxt.textContent = 'Nächster Kurs in ' + Math.max(0, Math.ceil((TICK_MS - into) / 1000)) + 's';
+      tickTxt.textContent = '🔴 live · neuer Kurs jede Sekunde';
     }
 
     /* --- Marktübersicht: alle 20 Aktien --- */
     function renderMarket() {
       body.innerHTML = '';
+      marketRefs = [];
       var grid = el('div', { class: 'stk-grid' });
       STOCKS.forEach(function (st) {
         var ch = change(st.id), p = priceOf(st.id), owned = sharesOf(st.id);
         var canvas = el('canvas', { class: 'stk-spark' });
+        var priceEl = el('span', { class: 'stk-price' }, [price2(p)]);
+        var chgEl = el('span', { class: 'stk-chg ' + dirClass(ch.dir) }, [dirArrow(ch.dir) + ' ' + pctTxt(ch.pct)]);
         var card = el('button', { class: 'stk-card glass', type: 'button', onclick: function () { selected = st.id; render(); } }, [
           el('div', { class: 'stk-card-top' }, [
             el('span', { class: 'stk-ic' }, [st.icon]),
@@ -363,21 +368,59 @@
           ]),
           el('div', { class: 'stk-name' }, [st.name]),
           canvas,
-          el('div', { class: 'stk-card-bot' }, [
-            el('span', { class: 'stk-price' }, [price2(p)]),
-            el('span', { class: 'stk-chg ' + dirClass(ch.dir) }, [dirArrow(ch.dir) + ' ' + pctTxt(ch.pct)])
-          ])
+          el('div', { class: 'stk-card-bot' }, [priceEl, chgEl])
         ]);
         grid.appendChild(card);
+        marketRefs.push({ st: st, canvas: canvas, priceEl: priceEl, chgEl: chgEl });
         // Canvas braucht seine Layout-Größe, daher erst nach dem Einhängen zeichnen.
         setTimeout(function () { drawChart(canvas, history(st.id, SPARK), { thin: true, pad: 2 }); }, 0);
       });
       body.appendChild(grid);
       body.appendChild(el('p', { class: 'stk-hint' }, [
-        'Alle 10 Sekunden ein neuer Kurs — er steigt, fällt oder bleibt gleich, jetzt EXTREM: ' +
-        'einzelne Sprünge bis zu 150 %. Die Kurse laufen für alle Spieler gleich und auch dann weiter, wenn du nicht da bist. ' +
+        'LIVE: jede Sekunde ein neuer Kurs — er steigt, fällt oder bleibt gleich, jetzt EXTREM EXTREM: ' +
+        'einzelne Sprünge bis zu 200 %. Die Kurse laufen für alle Spieler gleich und auch dann weiter, wenn du nicht da bist. ' +
         'Bezahlt wird mit ' + App.Mode.coinName() + '.'
       ]));
+    }
+
+    /* Live-Update der Marktübersicht ohne DOM-Neuaufbau (kein Flackern). */
+    function refreshMarket() {
+      for (var i = 0; i < marketRefs.length; i++) {
+        var r = marketRefs[i];
+        var ch = change(r.st.id), p = priceOf(r.st.id);
+        r.priceEl.textContent = price2(p);
+        r.chgEl.textContent = dirArrow(ch.dir) + ' ' + pctTxt(ch.pct);
+        r.chgEl.className = 'stk-chg ' + dirClass(ch.dir);
+        drawChart(r.canvas, history(r.st.id, SPARK), { thin: true, pad: 2 });
+      }
+    }
+
+    /* Preis-abhängige Kennzahlen der Detailansicht (für Live-Update wiederverwendet). */
+    function detailStats(st) {
+      var p = priceOf(st.id);
+      var hold = state.holdings[st.id];
+      var avg = hold && hold.shares ? hold.cost / hold.shares : 0;
+      var plNow = hold ? Math.round(p * hold.shares) - hold.cost : 0;
+      return [
+        dStat('Im Depot', hold ? UI.formatCoins(hold.shares) + ' Aktien' : '—'),
+        dStat('Einstand ⌀', avg ? price2(avg) + ' ' + UI.coinIcon() : '—'),
+        dStat('Depotwert', hold ? money(p * hold.shares) : '—'),
+        dStat('G/V', hold ? (plNow >= 0 ? '+' : '') + money(plNow) : '—', hold ? dirClass(plNow) : '')
+      ];
+    }
+
+    /* Live-Update der Detailansicht ohne Neuaufbau der Handels-Knöpfe (kein Flackern). */
+    function refreshDetail() {
+      if (!detailRefs) return;
+      var st = detailRefs.st;
+      var ch = change(st.id), p = priceOf(st.id);
+      detailRefs.priceEl.textContent = price2(p);
+      detailRefs.chgEl.textContent = dirArrow(ch.dir) + ' ' + price2(Math.abs(ch.abs)) + ' (' + pctTxt(ch.pct) + ')';
+      detailRefs.chgEl.className = 'stk-chg big ' + dirClass(ch.dir);
+      var fresh = detailStats(st);
+      detailRefs.statsEl.innerHTML = '';
+      for (var i = 0; i < fresh.length; i++) detailRefs.statsEl.appendChild(fresh[i]);
+      drawChart(detailRefs.canvas, history(st.id, HISTORY), { grid: true, pad: 6 });
     }
 
     /* --- Detail: großer Chart + Kaufen/Verkaufen --- */
@@ -396,6 +439,8 @@
       var chgEl = el('span', { class: 'stk-chg big ' + dirClass(ch.dir) }, [
         dirArrow(ch.dir) + ' ' + price2(Math.abs(ch.abs)) + ' (' + pctTxt(ch.pct) + ')'
       ]);
+      var statsEl = el('div', { class: 'stk-d-stats' }, detailStats(st));
+      detailRefs = { st: st, canvas: canvas, priceEl: priceEl, chgEl: chgEl, statsEl: statsEl };
 
       var maxBuy = maxBuyable(st.id);
       var infoTxt = el('div', { class: 'stk-trade-info' }, [
@@ -460,12 +505,7 @@
           el('div', { class: 'stk-d-right' }, [priceEl, chgEl])
         ]),
         canvas,
-        el('div', { class: 'stk-d-stats' }, [
-          dStat('Im Depot', hold ? UI.formatCoins(hold.shares) + ' Aktien' : '—'),
-          dStat('Einstand ⌀', avg ? price2(avg) + ' ' + UI.coinIcon() : '—'),
-          dStat('Depotwert', hold ? money(p * hold.shares) : '—'),
-          dStat('G/V', hold ? (plNow >= 0 ? '+' : '') + money(plNow) : '—', hold ? dirClass(plNow) : '')
-        ]),
+        statsEl,
         infoTxt,
         tradeRow('buy'),
         tradeRow('sell'),
@@ -486,16 +526,22 @@
       updateSummary();
     }
 
+    /* Live-Aktualisierung ohne DOM-Neuaufbau (kein Flackern der Knöpfe). */
+    function refresh() {
+      if (selected) refreshDetail(); else refreshMarket();
+      updateSummary();
+    }
+
     root.appendChild(el('div', { class: 'stk-page' }, [head, summary, body]));
     render();
     updateTick();
 
-    // Sekundentakt für den Countdown; beim Tickwechsel Kurse neu zeichnen.
+    // Live-Takt: Fortschrittsbalken flüssig, beim Tickwechsel Kurse live nachziehen.
     var timer = setInterval(function () {
       updateTick();
       var t = tickNow();
-      if (t !== lastTick) { lastTick = t; render(); }
-    }, 500);
+      if (t !== lastTick) { lastTick = t; refresh(); }
+    }, 200);
     var offCoins = App.Coins.onChange(updateSummary);
     return function () { clearInterval(timer); offCoins(); };
   }
@@ -515,7 +561,7 @@
       '.stk-sum-v.down{color:var(--danger-2,#ff4d6d);}',
       '.stk-tick{margin-left:auto;display:flex;flex-direction:column;gap:4px;min-width:150px;}',
       '.stk-tick-bar{height:7px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;}',
-      '.stk-tick-fill{height:100%;width:0;background:linear-gradient(90deg,var(--aqua),var(--neon));transition:width .5s linear;}',
+      '.stk-tick-fill{height:100%;width:0;background:linear-gradient(90deg,var(--aqua),var(--neon));transition:width .18s linear;}',
       '.stk-tick-txt{font-size:11px;color:var(--muted);font-weight:800;text-align:right;font-variant-numeric:tabular-nums;}',
       '.stk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}',
       '.stk-card{padding:12px;display:flex;flex-direction:column;gap:6px;cursor:pointer;text-align:left;border-radius:14px;transition:.15s;}',
