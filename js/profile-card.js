@@ -120,6 +120,22 @@
     return t.name;
   }
 
+  /* ---------------- Ideen-Level: goldene Glühbirnen ----------------
+   * Eigene Progression neben dem Spiel-Level: pro Ideen-Level (1–5, siehe
+   * js/ideas.js) eine goldene Glühbirne oben auf der Karte. Ohne angenommene
+   * Idee gibt es keine — dann bleibt der Banner leer wie bisher. */
+  function ideaLevel() { return (App.Ideas && App.Ideas.level) ? App.Ideas.level() : 0; }
+  function renderBulbs() {
+    var lv = ideaLevel();
+    if (lv < 1) return null;
+    var max = (App.Ideas && App.Ideas.MAX_LEVEL) || 5;
+    var bulbs = [];
+    for (var i = 0; i < lv; i++) bulbs.push(el('span', { class: 'pc-bulb' }, ['💡']));
+    var tip = 'Ideen-Level ' + lv + '/' + max +
+      ((App.Ideas && App.Ideas.levelText) ? ' · ' + App.Ideas.levelText() : '');
+    return el('div', { class: 'pc-bulbs' + (lv >= max ? ' pc-bulbs-max' : ''), title: tip }, bulbs);
+  }
+
   /* ---------------- Anzeige-Karte ---------------- */
   function renderCard() {
     injectCss();
@@ -132,6 +148,7 @@
 
     return el('div', { class: 'pc-card pc-frame-' + fr.id }, [
       el('div', { class: 'pc-banner', style: 'background:' + bn.css }),
+      renderBulbs(),
       el('div', { class: 'pc-body' }, [
         el('div', { class: 'pc-top' }, [
           el('div', { class: 'pc-avatar' }, [av.e]),
@@ -229,6 +246,13 @@
       '.pc-card{position:relative;border-radius:20px;overflow:hidden;border:2px solid var(--stroke);background:rgba(9,32,21,.55);margin-bottom:16px;}',
       '.pc-banner{height:88px;}',
       '.pc-body{padding:0 18px 16px;}',
+      // Ideen-Level: goldene Glühbirnen oben rechts auf dem Banner (siehe js/ideas.js)
+      '.pc-bulbs{position:absolute;top:8px;right:10px;display:flex;gap:1px;padding:4px 8px;border-radius:99px;',
+      'background:rgba(4,16,10,.55);border:1px solid rgba(255,210,63,.55);backdrop-filter:blur(3px);cursor:help;}',
+      '.pc-bulb{font-size:17px;line-height:1;filter:drop-shadow(0 0 5px rgba(255,210,63,.95)) saturate(1.5);}',
+      // Höchstes Ideen-Level (5): die Reihe pulsiert golden
+      '.pc-bulbs-max{border-color:var(--gold);box-shadow:0 0 12px rgba(255,210,63,.55);animation:pc-bulbpulse 1.8s ease-in-out infinite;}',
+      '@keyframes pc-bulbpulse{0%,100%{box-shadow:0 0 10px rgba(255,210,63,.45);}50%{box-shadow:0 0 20px rgba(255,210,63,.9);}}',
       '.pc-top{display:flex;align-items:flex-end;gap:14px;margin-top:-38px;}',
       '.pc-avatar{width:78px;height:78px;flex:0 0 auto;border-radius:20px;background:rgba(4,16,10,.85);border:3px solid var(--neon);display:flex;align-items:center;justify-content:center;font-size:42px;box-shadow:0 6px 18px rgba(0,0,0,.4);}',
       '.pc-id{flex:1;min-width:0;padding-bottom:4px;}',

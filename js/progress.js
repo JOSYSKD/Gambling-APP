@@ -101,22 +101,34 @@
   // Bonus aus bereits erledigten Quests: jede fertige Quest hebt den Wieder-Auffüll-
   // Betrag dauerhaft um einen Teil ihrer Belohnung an — summiert sich mit jeder weiteren
   // Quest auf, daher kein Deckel mehr nötig.
-  function questBonus() {
-    var total = 0;
+  function questBonusOf(st) {
+    var total = 0, quests = (st && st.quests) || {};
     for (var i = 0; i < QUESTS.length; i++) {
-      var q = QUESTS[i], rec = state.quests[q.id];
+      var q = QUESTS[i], rec = quests[q.id];
       if (rec && rec.done) total += Math.round(q.reward.coins * 0.1);
     }
     return total;
   }
+  function questBonus() { return questBonusOf(state); }
 
   // Wieder-Auffüll-/Start-Betrag steigt mit dem Level (L1=1000 … ~L20=15000, dann weiter)
   // UND mit der Anzahl/Schwere bereits erledigter Quests — kein Deckel mehr bei 200k,
   // der Betrag wächst mit dem Fortschritt unbegrenzt weiter.
-  function startBalance() {
-    var L = level();
-    var amt = 1000 + (L - 1) * 750 + questBonus();
+  function startBalanceOf(st) {
+    var L = levelFromXp(Math.max(0, Math.round(Number(st && st.xp) || 0)));
+    var amt = 1000 + (L - 1) * 750 + questBonusOf(st);
     return Math.round(amt / 50) * 50;
+  }
+  function startBalance() { return startBalanceOf(state); }
+
+  /* Einstiegsguthaben eines BESTIMMTEN Modus — auch wenn gerade der andere aktiv
+   * ist. Nötig für die Ideen-Belohnung (js/ideas.js), die immer in Casino-Silber
+   * ausgezahlt wird, egal ob der Spieler gerade Survival spielt. */
+  function startBalanceIn(m) {
+    if (!App.Mode || !App.Mode.readIn) return startBalance();
+    var st = App.Mode.readIn(m, KEY, null);
+    if (!st || typeof st !== 'object') return 1000;
+    return startBalanceOf(st);
   }
 
   var TITLES = ['Spielhallen-Neuling', 'Anfänger', 'Zocker', 'Stammgast', 'Kartenhai', 'Glücksritter',
@@ -594,7 +606,7 @@
   App.Progress = {
     MAX_LEVEL: MAX_LEVEL,
     level: level, xpInLevel: xpInLevel, xpForLevel: xpForLevel, title: title,
-    startBalance: startBalance, addXp: addXp,
+    startBalance: startBalance, startBalanceIn: startBalanceIn, addXp: addXp,
     /** true, sobald der Spieler das Höchstlevel (99999) erreicht hat -> goldener Name. */
     isMaxLevel: isMaxLevel,
     /** Baut einen Namens-Span; ist gold=true (oder der Spieler selbst Maxlevel),

@@ -119,8 +119,19 @@
       '.idea-who{font-weight:800;color:#eaffe2;}',
       '.idea-when{font-size:12px;color:var(--muted);}',
       '.idea-text{font-size:15px;white-space:pre-wrap;word-break:break-word;}',
-      '.idea-actions{display:flex;gap:8px;flex-wrap:wrap;}',
+      '.idea-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}',
       '.admin-ideas-empty{opacity:.6;font-size:14px;}',
+      // Belohnung: Faktor auf das Einstiegsguthaben (siehe js/ideas.js)
+      '.idea-reward{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:6px;',
+      'border-top:1px dashed var(--stroke);}',
+      '.idea-rw-lab{font-size:12px;color:var(--muted);font-weight:800;}',
+      '.idea-rw-btn{padding:6px 10px;font-size:13px;}',
+      '.idea-rw-btn b{color:var(--gold);}',
+      '.idea-rw-given{font-weight:900;color:var(--gold);font-size:13px;}',
+      '.idea-rw-state{font-size:12px;color:var(--muted);}',
+      '.idea-rw-state.paid{color:var(--neon);font-weight:800;}',
+      '.idea-row.rewarded{opacity:1;border-color:rgba(255,210,63,.5);background:rgba(255,210,63,.06);}',
+      '.idea-row.rewarded .idea-text{text-decoration:none;}',
       // Mobil: Karten stapeln, Steuerelemente umbrechen bereits per flex-wrap
       '@media (max-width:560px){.admin-grid{grid-template-columns:1fr;}.admin-head-spacer{display:none;}}'
     ].join(''));
@@ -276,6 +287,12 @@
     listIdeas: function () { return App.Ideas ? App.Ideas.list() : Promise.resolve([]); },
     deleteIdea: function (id) { return App.Ideas ? App.Ideas.remove(id) : Promise.resolve(); },
     setIdeaDone: function (id, done) { return App.Ideas ? App.Ideas.setDone(id, done) : Promise.resolve(); },
+
+    /** Idee annehmen und belohnen: Faktor (5/10/20/30) auf das Einstiegsguthaben des
+     *  Spielers. Die Summe schreibt sich sein Client beim nächsten Abholen selbst gut
+     *  (einmalig) — genau wie bei giftGold/giftTickets. */
+    rewardIdea: function (id, mult) { return App.Ideas ? App.Ideas.setReward(id, mult) : Promise.resolve(); },
+    clearIdeaReward: function (id) { return App.Ideas ? App.Ideas.clearReward(id) : Promise.resolve(); },
 
     renderPage: function (root) {
       injectCss();
@@ -702,17 +719,59 @@
           return new Date(at).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
         } catch (e) { return ''; }
       }
+      /* Belohnungs-Zeile einer Idee: Faktor wählen bzw. den vergebenen Faktor anzeigen.
+       * Die Vorschau-Summe basiert auf dem Einstiegsguthaben, das beim Einreichen
+       * gespeichert wurde (idea.startBal) — ausgezahlt wird der AKTUELLE Stand des
+       * Spielers, daher „≈". */
+      function ideaRewardRow(idea, reload) {
+        var base = Math.max(0, Math.round(Number(idea.startBal) || 0));
+        var mults = (App.Ideas && App.Ideas.MULTS) || [5, 10, 20, 30];
+
+        if (idea.reward && idea.reward.mult) {
+          var got = idea.paid
+            ? el('span', { class: 'idea-rw-state paid' }, ['✓ ausgezahlt: ' + UI.formatCoins(idea.paid) + ' 🪙'])
+            : el('span', { class: 'idea-rw-state' }, ['⏳ wird beim nächsten Login des Spielers gutgeschrieben']);
+          return el('div', { class: 'idea-reward' }, [
+            el('span', { class: 'idea-rw-given' }, ['🏅 Belohnt ×' + idea.reward.mult]),
+            got,
+            el('button', { class: 'btn btn-ghost admin-rig-btn idea-rw-btn', type: 'button', onclick: function () {
+              Admin.clearIdeaReward(idea.id).then(reload).catch(function (e) { UI.toast(e.message, 'lose'); });
+            } }, ['↩ Zurücknehmen'])
+          ]);
+        }
+
+        var kids = [el('span', { class: 'idea-rw-lab' }, [
+          base ? 'Belohnen (Einstiegsguthaben ' + UI.formatCoins(base) + ' 🪙):' : 'Belohnen (× Einstiegsguthaben):'
+        ])];
+        mults.forEach(function (m) {
+          kids.push(el('button', {
+            class: 'btn btn-ghost admin-rig-btn idea-rw-btn', type: 'button',
+            title: base ? '≈ ' + UI.formatCoins(base * m) + ' 🪙' : '',
+            onclick: function () {
+              Admin.rewardIdea(idea.id, m).then(function () {
+                UI.toast('🏅 Idee belohnt: ×' + m + ' Einstiegsguthaben', 'win');
+                reload();
+              }).catch(function (e) { UI.toast(e.message, 'lose'); });
+            }
+          }, [el('b', {}, ['×' + m]), base ? ' ≈ ' + UI.formatShort(base * m) : '']));
+        });
+        return el('div', { class: 'idea-reward' }, kids);
+      }
+
       function renderIdeas(ideas) {
         ideas = ideas || [];
         var offen = ideas.filter(function (i) { return !i.done; }).length;
-        ideasHeadEl.textContent = '💡 Spielideen (' + ideas.length + (offen ? ' · ' + offen + ' offen' : '') + ')';
+        var belohnt = ideas.filter(function (i) { return i.reward; }).length;
+        ideasHeadEl.textContent = '💡 Spielideen (' + ideas.length +
+          (offen ? ' · ' + offen + ' offen' : '') + (belohnt ? ' · ' + belohnt + ' belohnt' : '') + ')';
         ideasListEl.innerHTML = '';
         if (!ideas.length) {
           ideasListEl.appendChild(el('p', { class: 'admin-ideas-empty' }, ['Noch keine Ideen eingegangen. Spieler schicken sie über den 💡-Knopf oben in der Leiste.']));
           return;
         }
         ideas.forEach(function (idea) {
-          var row = el('div', { class: 'idea-row' + (idea.done ? ' done' : '') }, [
+          var cls = 'idea-row' + (idea.reward ? ' rewarded' : (idea.done ? ' done' : ''));
+          var row = el('div', { class: cls }, [
             el('div', { class: 'idea-meta' }, [
               el('span', { class: 'idea-who' }, [idea.name || 'Gast']),
               el('span', { class: 'idea-when' }, [fmtWhen(idea.at)])
@@ -725,7 +784,8 @@
               el('button', { class: 'btn btn-ghost admin-rig-btn', type: 'button', onclick: function () {
                 Admin.deleteIdea(idea.id).then(loadIdeas).catch(function (e) { UI.toast(e.message, 'lose'); });
               } }, ['🗑 Löschen'])
-            ])
+            ]),
+            ideaRewardRow(idea, loadIdeas)
           ]);
           ideasListEl.appendChild(row);
         });
