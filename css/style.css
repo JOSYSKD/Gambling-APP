@@ -402,4 +402,12 @@ body {
   .mg-play .pwr-stage { max-height: 34vh; width: auto; }
   .mg-play .pwr-bars { gap: 2px; padding: 4px 12px; }
   .mg-play .pwr-bar { gap: 1px; }
+  /* 40er-Charge — hochkantige Arcade-Felder im Querformat deckeln */
+  .mg-play .tet-board { height: 42vh; }                          /* Tetris */
+  .mg-play .brk-stage { max-height: 44vh; width: auto; }         /* Breakout */
+  .mg-play .bub-canvas { max-height: 46vh; width: auto; }        /* Bubble Shooter */
+  /* Doodle Jump: hohes Feld — quer die Live-Rangliste ausblenden (hochkant bleibt
+   * sie da), damit Feld + Steuerung ohne Scrollen passen. */
+  .mg-play .jmp-canvas { max-height: 52vh; width: auto; }
+  .mg-play .jmp-board-wrap { display: none; }
 }
