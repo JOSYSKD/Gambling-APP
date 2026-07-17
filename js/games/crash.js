@@ -15,8 +15,9 @@
   var GROWTH = 0.00019;
 
   // Frühester Cashout-Multiplikator: vorher ist der Knopf gesperrt. Man muss also
-  // mindestens bis 1.20× "drin bleiben", bevor man aussteigen darf.
-  var MIN_CASHOUT = 1.2;
+  // mindestens bis 1.10× "drin bleiben", bevor man aussteigen darf. (Label/Logik
+  // ziehen den Wert dynamisch aus dieser Konstante.)
+  var MIN_CASHOUT = 1.1;
 
   App.UI.injectStyle('game-crash-css', [
     '.crash-stage{position:relative;padding:0;overflow:hidden;height:clamp(280px,44vh,440px);min-height:280px;}',
