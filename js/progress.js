@@ -24,7 +24,7 @@
   // Survival getrennt (mode.js präfixt gj_progress). Über den Konto-Heartbeat
   // (account.js snapshotToAccount) landet der Reset danach auch in den Cloud-Konten,
   // sodass ein späterer Login den alten Stand NICHT zurückholt.
-  var RESET_GEN = 6;
+  var RESET_GEN = 7;
 
   function freshStats() {
     return {
@@ -42,14 +42,13 @@
   function load() {
     var s = App.Storage ? App.Storage.get(KEY, null) : null;
     if (!s || typeof s !== 'object') s = {};
-    // Globaler Reset (siehe RESET_GEN): Level/XP und Quest-Belohnungen auf null.
-    // ABER die STATS (wagered/wins/rounds/games/… = die Lebensleistung) bleiben
-    // erhalten — die will Josl behalten. Ein Marker sorgt dafür, dass die durch die
-    // behaltenen Stats bereits erfüllten Quests danach als „abgeholt" gelten und
-    // NICHT rückwirkend Geld/XP auszahlen (siehe Backfill unten).
+    // Globaler Reset (siehe RESET_GEN): Level/XP, Quests UND Stats komplett auf null.
+    // Die Stats werden bewusst mit zurückgesetzt: die Quests hängen an ihnen, und das
+    // durch den alten Geld-Bug astronomisch verfälschte `wagered` (10^21) hielt die
+    // Risiko-Quests dauerhaft erfüllt. Nur ein voller Reset macht ALLE Quests wieder
+    // offen. Der checkQuests-Backfill (unten) bleibt als Schutz gegen Rest-Stände.
     if ((Number(s.resetGen) || 0) < RESET_GEN) {
-      var keptStats = (s.stats && typeof s.stats === 'object') ? Object.assign(freshStats(), s.stats) : freshStats();
-      s = { xp: 0, stats: keptStats, quests: {}, lastDaily: s.lastDaily || '', daily: s.daily || [], resetGen: RESET_GEN, _qbf: true };
+      s = { xp: 0, stats: freshStats(), quests: {}, lastDaily: s.lastDaily || '', daily: s.daily || [], resetGen: RESET_GEN };
       if (App.Storage) App.Storage.set(KEY, s);
       return s;
     }
