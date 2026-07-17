@@ -400,15 +400,23 @@
       var loginForm = el('div', { class: 'profile-account-form' }, [
         loginName, loginPw,
         el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
-          if (App.Admin && App.Admin.tryLogin(loginName.value, loginPw.value)) {
-            UI.toast('🛠 Admin-Modus aktiviert', 'win');
-            go('/category/gambling');
-            return;
-          }
-          App.Account.login(loginName.value, loginPw.value).then(function () {
-            UI.toast('Angemeldet als ' + loginName.value, 'win');
-            draw();
-          }).catch(function (e) { UI.toast(e.message, 'lose'); });
+          var name = loginName.value, pw = loginPw.value;
+          // Admin-Zugang schaltet nur die Admin-Rechte frei. Der Login LÄUFT TROTZDEM
+          // WEITER als normales Konto — sonst wäre der Host ein Gast mit Admin-Rechten
+          // und sein Level/Kontostand läge nur in diesem Browser (auf jedem anderen
+          // Gerät wieder Level 1). Beim ersten Mal wird sein Konto dabei angelegt und
+          // nimmt den aktuellen Spielstand mit.
+          var isAdmin = !!(App.Admin && App.Admin.tryLogin(name, pw));
+          if (isAdmin) UI.toast('🛠 Admin-Modus aktiviert', 'win');
+          var go2 = function () { if (isAdmin) go('/category/gambling'); else draw(); };
+          var doLogin = isAdmin ? App.Account.loginOrRegister(name, pw) : App.Account.login(name, pw);
+          doLogin.then(function () {
+            UI.toast('Angemeldet als ' + name, 'win');
+            go2();
+          }).catch(function (e) {
+            UI.toast(e.message, 'lose');
+            if (isAdmin) go2();   // Admin-Rechte gelten auch, wenn der Konto-Login klemmt
+          });
         } }, ['Anmelden'])
       ]);
       var regForm = el('div', { class: 'profile-account-form', style: 'display:none' }, [

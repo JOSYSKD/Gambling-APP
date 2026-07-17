@@ -463,6 +463,17 @@
       });
     },
 
+    /** Anmelden — und falls es das Konto noch nicht gibt, es mit dem aktuellen
+     *  Spielstand anlegen. Gedacht für den Admin-Login (siehe js/app.js): auch der
+     *  Host soll ein echtes Konto haben, sonst lägen sein Level und sein Kontostand
+     *  nur im Browser und wären auf jedem anderen Gerät wieder bei Level 1. */
+    loginOrRegister: function (name, password) {
+      var A = this, key = sanitizeKey(name);
+      return state.backend.getAccount(key).then(function (existing) {
+        return existing ? A.login(name, password) : A.register(name, password);
+      });
+    },
+
     login: function (name, password) {
       var key = sanitizeKey(name);
       return state.backend.getAccount(key).then(function (acct) {
