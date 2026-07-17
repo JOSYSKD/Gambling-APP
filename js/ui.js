@@ -3,9 +3,19 @@
   'use strict';
   window.App = window.App || {};
 
-  function formatCoins(n) {
+  /** Volle, ausgeschriebene Zahl (1.234.567) — nur noch für Sonderfälle, in denen
+   *  der exakte Betrag zählt. Die normale Coin-Anzeige (formatCoins) kürzt ab. */
+  function formatFull(n) {
     n = Math.round(Number(n) || 0);
     return n.toLocaleString('de-DE');
+  }
+
+  /** Coin-/Zahl-Anzeige der GESAMTEN App: kürzt große Zahlen ab (1.234 -> "1,23K",
+   *  … bis "Sx" = 10^21), damit auch riesige Beträge auf der Bestenliste, im
+   *  Guthaben, in Quests usw. überall kompakt und lesbar bleiben. Zahlen < 1000
+   *  bleiben exakt. (Früher: volle Zahl — auf Wunsch überall auf Kurzform umgestellt.) */
+  function formatCoins(n) {
+    return formatShort(n);
   }
 
   /** Große Zahlen abgekürzt: 1.234 -> "1,23K", 2.500.000 -> "2,5M", … bis "Sx" (10^21).
