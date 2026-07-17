@@ -36,6 +36,14 @@
       mode: 'casino'
     },
     {
+      id: 'cours',
+      name: 'COURS',
+      icon: '🎢',
+      desc: 'Ein einziger, wilder Kurs — 3 Ticks pro Sekunde, jeder Tick 1–10 % rauf oder runter. Läuft nie aus, für alle gleich. Steig ein und im richtigen Moment wieder aus.',
+      route: '/cours',
+      mode: 'casino'
+    },
+    {
       id: 'minigames',
       name: 'Online Minigames',
       icon: '🎮',
@@ -155,6 +163,7 @@
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chips'); } }, ['🎟️ Pokerchips-Kasse']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/leaderboard'); } }, ['🏆 Bestenliste']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/profile'); } }, ['👤 Profil']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/changelog'); } }, ['🆕 Update-News']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/settings'); } }, ['⚙️ Einstellungen'])
       ])
     ]));
@@ -614,11 +623,13 @@
     .add('/leaderboard', renderLeaderboard)
     .add('/survival', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Survival.renderPage(d); })
     .add('/stocks', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Stocks.renderPage(d); })
+    .add('/cours', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.Cours.renderPage(d); })
     .add('/chat', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chat.renderPage(d); })
     .add('/quests', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Progress.renderPage(d); })
     .add('/chips', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chips.renderPage(d); })
     .add('/settings', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Settings.renderPage(d); })
     .add('/profile', renderProfile)
+    .add('/changelog', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Changelog.renderPage(d); })
     .add('/tournament', function () {
       // Auch beim direkten Aufruf über die Adresszeile: im Turnier wird mit
       // Silber gespielt, nie mit dem Survival-Gold.
