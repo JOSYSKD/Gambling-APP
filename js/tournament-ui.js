@@ -250,6 +250,24 @@
       ]));
     }
 
+    /* Zum Hosten muss man auch dann kommen, wenn gerade ein Turnier im
+     * Wartebereich steht — sonst wäre der Weg ausgerechnet immer dann versperrt,
+     * wenn überhaupt eins angesetzt ist. */
+    var H = App.TournamentHost;
+    var sched = App.TournamentHostUI.scheduleList();
+    var hostPanel = el('div', { class: 'glass', style: 'padding:16px;margin-top:14px;' }, [
+      el('h3', { style: 'margin-top:0;' }, ['🗓 Weitere Turniere']),
+      sched.root,
+      el('div', { class: 'admin-row-actions', style: 'margin-top:10px;' }, [
+        el('button', {
+          class: 'btn btn-primary', type: 'button',
+          onclick: function () { App.Router.go('/tournament/host'); }
+        }, ['🏆 Eigenes Turnier hosten']),
+        el('span', { class: 'cf-info-l' }, ['Dein Einsatz wird zum Preisgeld — ab ' + UI.formatShort(H.minFee()) + ' Coins.'])
+      ])
+    ]);
+
+    var schedDraw = Date.now();
     function refresh() {
       var ms = T.untilStart();
       clock.textContent = ms > 0 ? fmtClock(ms) : 'Startet …';
@@ -260,6 +278,8 @@
         ? 'Noch niemand angemeldet — sei der Erste.'
         : (n + ' Spieler' + (n === 1 ? '' : '') + ' in der Queue. Die Tickets werden erst abgebucht, wenn es losgeht.');
       if (chat) chat.refresh();
+      // Der Zeitplan baut seine Zeilen neu — nicht im 500ms-Takt (Flackern).
+      if (Date.now() - schedDraw > 4000) { schedDraw = Date.now(); sched.refresh(); }
     }
 
     var plan = el('div', { class: 'tq-plan' }, (cfg.rounds || []).map(function (gid, i) {
@@ -296,6 +316,7 @@
       hint
     ]));
     root.appendChild(grid);
+    root.appendChild(hostPanel);
     if (chat) root.appendChild(chat.root);
 
     drawActions();
