@@ -252,6 +252,9 @@
       acct.balResetGen = GEN;
       App.Storage.set('gj_bal_reset_gen', GEN);
     }
+    // Ergänzung zum Geld-Reset: Depot, Survival-Stand, Level/Quests und Alt-Chips
+    // eines noch nicht zurückgesetzten Kontos nullen (siehe js/hardreset.js).
+    if (App.HardReset && App.HardReset.accountNeedsReset(acct)) acct = App.HardReset.cleanAccount(acct);
     if (typeof acct.balance === 'number') M.writeIn('casino', 'gj_balance', acct.balance);
     if (typeof acct.runPeak === 'number') M.writeIn('casino', 'gj_run_peak', Math.max(acct.runPeak, acct.balance || 0));
     // Alt-Pokerchips ins Guthaben falten (Chips wurden abgeschafft, siehe js/chips.js):
@@ -316,6 +319,9 @@
     // Erfolgreiche Spielideen (goldene Glühbirnen, siehe js/ideas.js): einmal verdient,
     // für immer behalten — also ans Konto binden statt nur ans Gerät.
     acct.ideaWins = App.Storage.get('gj_idea_wins', 0) || 0;
+    // Hard-Reset-Zusatz-Stempel mitschreiben -> Depot/Survival/Level eines Kontos
+    // werden nicht erneut gekappt (siehe js/hardreset.js).
+    if (App.HardReset) acct.hardGen = App.HardReset.GEN;
     return acct;
   }
 

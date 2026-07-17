@@ -24,7 +24,7 @@
   // Survival getrennt (mode.js präfixt gj_progress). Über den Konto-Heartbeat
   // (account.js snapshotToAccount) landet der Reset danach auch in den Cloud-Konten,
   // sodass ein späterer Login den alten Stand NICHT zurückholt.
-  var RESET_GEN = 2;
+  var RESET_GEN = 3;
 
   function freshStats() {
     return {
@@ -69,20 +69,31 @@
   // Höchstlevel. Wer es erreicht, bekommt einen goldenen Namen (siehe isMaxLevel()).
   var MAX_LEVEL = 99999;
 
-  // XP von Level L nach L+1 — BEWUSST STEIL (quadratisch statt linear), damit
-  // Aufleveln sich erarbeitet anfühlt und nicht in Minuten passiert. Zusammen mit
-  // den stark reduzierten XP-Gewinnen (siehe onWager/onOutcome) ist das ~5-6× so
-  // langsam wie vorher.
-  function reqFor(level) { return Math.round(500 + (level - 1) * (level - 1) * 130); }
+  // XP von Level L nach L+1 — BRUTAL STEIL und mit dem Level immer steiler: ein
+  // quadratischer PLUS ein kubischer Term, damit jedes weitere Level spürbar
+  // länger dauert als das vorige. AB HARD_AT (3000) legt ein zusätzlicher, eigener
+  // kubischer Term obendrauf -> ab dort wird es extrem. Zusammen mit den stark
+  // reduzierten XP-Gewinnen (siehe onWager/onOutcome) ist Aufleveln richtig zäh.
+  var LC_BASE = 500, LC_Q = 200, LC_K = 3, LC_XTRA = 50, HARD_AT = 3000;
+  function reqFor(level) {
+    var d = level - 1;
+    var r = LC_BASE + LC_Q * d * d + LC_K * d * d * d;
+    if (level > HARD_AT) r += LC_XTRA * Math.pow(level - HARD_AT, 3);
+    return Math.round(r);
+  }
 
-  // Kumulierte XP bis zum Beginn von Level L — GESCHLOSSENE FORMEL statt Schleife.
-  // Bei einem Höchstlevel von 99999 wäre die frühere O(L)-Summe (in einer O(L)-Level-
-  // Suche = O(L²)) katastrophal und würde den Browser einfrieren. cumFor(L) ist die
-  // Summe von reqFor(1..L-1) = 500·n + 130·Σ(k=0..n-1) k²   mit n = L-1.
+  // Kumulierte XP bis zum Beginn von Level L — GESCHLOSSENE FORMEL statt Schleife
+  // (bei Höchstlevel 99999 wäre eine O(L)-Summe in der O(L)-Level-Suche = O(L²) ein
+  // Browser-Freeze). cumFor(L) = Summe reqFor(1..L-1). Mit n = L-1:
+  //   500·n + 200·Σk² + 3·Σk³ (k=0..n-1)  [+ 50·Σk³ (k=0..n-3000) ab HARD_AT].
+  function sumSq(m) { return m < 0 ? 0 : m * (m + 1) * (2 * m + 1) / 6; }   // Σ_{k=0..m} k²
+  function sumCu(m) { if (m < 0) return 0; var t = m * (m + 1) / 2; return t * t; }  // Σ_{k=0..m} k³
   function cumFor(level) {
     var n = level - 1;
     if (n <= 0) return 0;
-    return 500 * n + 130 * ((n - 1) * n * (2 * n - 1) / 6);
+    var c = LC_BASE * n + LC_Q * sumSq(n - 1) + LC_K * sumCu(n - 1);
+    if (n > HARD_AT) c += LC_XTRA * sumCu(n - HARD_AT);
+    return c;
   }
   // Level aus XP per Binärsuche über [1, MAX_LEVEL] (O(log) statt O(L)).
   function levelFromXp(xp) {
