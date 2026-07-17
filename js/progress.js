@@ -131,6 +131,20 @@
     return startBalanceOf(st);
   }
 
+  /* Längste Sieg-Serie (Siege in Folge über ALLE Gambling-Spiele; reißt bei jedem
+   * Verlust). state.stats.maxStreak wird in onOutcome geführt — Quelle für die
+   * Serien-Quests UND die Streak-Bestenliste (js/leaderboard.js getStreakBoard). */
+  function maxStreak() { return Math.max(0, Math.round(Number(state.stats.maxStreak) || 0)); }
+  function curStreak() { return Math.max(0, Math.round(Number(state.stats.streak) || 0)); }
+  /* Wie maxStreak(), aber für einen BESTIMMTEN Modus — auch wenn gerade der andere
+   * aktiv ist. Die Bestenliste soll immer die Casino-Serie zeigen (wie der
+   * Casino-Peak in js/presence.js), egal ob der Spieler gerade Survival spielt. */
+  function maxStreakIn(m) {
+    if (!App.Mode || !App.Mode.readIn) return maxStreak();
+    var st = App.Mode.readIn(m, KEY, null);
+    return Math.max(0, Math.round(Number(st && st.stats && st.stats.maxStreak) || 0));
+  }
+
   var TITLES = ['Spielhallen-Neuling', 'Anfänger', 'Zocker', 'Stammgast', 'Kartenhai', 'Glücksritter',
     'High Roller', 'Casino-Profi', 'Roulette-König', 'Poker-Hai', 'Vegas-Veteran', 'Dschungel-Boss',
     'Neon-Legende', 'Casino-Magnat', 'Glücks-Gott'];
@@ -624,6 +638,8 @@
       return el('span', { class: 'gj-name' + (isGold ? ' name-gold' : '') }, [String(name == null ? '' : name)]);
     },
     stats: function () { return statsView(); },
+    /** Längste Sieg-Serie (aktiver Modus) bzw. für einen bestimmten Modus. */
+    maxStreak: maxStreak, maxStreakIn: maxStreakIn, curStreak: curStreak,
     quests: function () { return QUESTS.slice(); },
     onChange: onChange, renderPage: renderPage,
 

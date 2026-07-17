@@ -63,7 +63,8 @@
     return Object.keys(val).map(function (k) {
       var p = val[k] || {};
       return {
-        name: p.name, peak: Number(p.casinoPeak) || 0, updatedAt: Number(p.lastSeen) || 0, maxLevel: !!p.maxLevel,
+        name: p.name, peak: Number(p.casinoPeak) || 0, streak: Number(p.streak) || 0,
+        updatedAt: Number(p.lastSeen) || 0, maxLevel: !!p.maxLevel,
         // Profil-Daten für die Bestenliste (Profilkarte + gespielte Spiele, siehe presence.js).
         cos: p.cos || null, level: Number(p.level) || 1, bulbs: Number(p.bulbs) || 0,
         games: (p.games && p.games.slice) ? p.games : [], stats: p.pstats || null

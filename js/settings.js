@@ -17,6 +17,9 @@
   window.App = window.App || {};
   var UI = App.UI, el = UI.el;
   var KEY = 'gj_theme', KEY_RM = 'gj_reduce_motion', KEY_BG = 'gj_bgstyle';
+  // Schnelles-Weiterspielen-Optionen (siehe app.js Game-Over + ui.js createBetPanel):
+  var KEY_AUTORESTART = 'gj_auto_restart';   // kein Game-Over-Overlay, sofort Einstiegsgeld
+  var KEY_AUTOMAX = 'gj_auto_maxbet';        // Einsatz automatisch auf Max vorwählen
 
   function hexRgb(hex) {
     hex = hex.replace('#', '');
@@ -61,6 +64,10 @@
   try { reduceMotion = App.Storage ? App.Storage.get(KEY_RM, false) : (localStorage.getItem(KEY_RM) === '1'); } catch (e) {}
   var currentBg = 'jungle';
   try { currentBg = (App.Storage ? App.Storage.get(KEY_BG, null) : localStorage.getItem(KEY_BG)) || 'jungle'; } catch (e) {}
+  var autoRestart = false;
+  try { autoRestart = App.Storage ? App.Storage.get(KEY_AUTORESTART, false) : (localStorage.getItem(KEY_AUTORESTART) === '1'); } catch (e) {}
+  var autoMax = false;
+  try { autoMax = App.Storage ? App.Storage.get(KEY_AUTOMAX, false) : (localStorage.getItem(KEY_AUTOMAX) === '1'); } catch (e) {}
 
   var listeners = [];
   function onChange(cb) { listeners.push(cb); return function () { var i = listeners.indexOf(cb); if (i >= 0) listeners.splice(i, 1); }; }
@@ -108,6 +115,15 @@
     reduceMotion = !!v;
     document.documentElement.classList.toggle('reduce-motion', reduceMotion);
     try { App.Storage ? App.Storage.set(KEY_RM, reduceMotion) : localStorage.setItem(KEY_RM, reduceMotion ? '1' : '0'); } catch (e) {}
+  }
+
+  function setAutoRestart(v) {
+    autoRestart = !!v;
+    try { App.Storage ? App.Storage.set(KEY_AUTORESTART, autoRestart) : localStorage.setItem(KEY_AUTORESTART, autoRestart ? '1' : '0'); } catch (e) {}
+  }
+  function setAutoMax(v) {
+    autoMax = !!v;
+    try { App.Storage ? App.Storage.set(KEY_AUTOMAX, autoMax) : localStorage.setItem(KEY_AUTOMAX, autoMax ? '1' : '0'); } catch (e) {}
   }
 
   // ---------- Hintergrund-Bausteine (rein CSS/JS, keine externen Assets) ----------
@@ -459,6 +475,8 @@
     var rmSwitch = el('div', { class: 'switch' + (reduceMotion ? ' on' : ''), onclick: function () { setReduceMotion(!reduceMotion); this.classList.toggle('on', reduceMotion); } }, [el('span', { class: 'knob' })]);
     var soundOn = !(App.Audio && App.Audio.isMuted && App.Audio.isMuted());
     var sndSwitch = el('div', { class: 'switch' + (soundOn ? ' on' : ''), onclick: function () { if (App.Audio) { App.Audio.start(); App.Audio.setMuted(!App.Audio.isMuted()); } this.classList.toggle('on', !(App.Audio && App.Audio.isMuted())); } }, [el('span', { class: 'knob' })]);
+    var arSwitch = el('div', { class: 'switch' + (autoRestart ? ' on' : ''), onclick: function () { setAutoRestart(!autoRestart); this.classList.toggle('on', autoRestart); } }, [el('span', { class: 'knob' })]);
+    var amSwitch = el('div', { class: 'switch' + (autoMax ? ' on' : ''), onclick: function () { setAutoMax(!autoMax); this.classList.toggle('on', autoMax); } }, [el('span', { class: 'knob' })]);
 
     var page = el('div', { class: 'set-page' }, [
       el('div', { class: 'page-head' }, [
@@ -471,7 +489,10 @@
       bgGrid,
       el('div', { class: 'set-sec-h' }, ['Optionen']),
       el('div', { class: 'set-toggle' }, [el('div', {}, [el('div', { class: 'st-l' }, ['🔊 Sound & Musik']), el('div', { class: 'st-d' }, ['Effekte + Menü-Musik'])]), sndSwitch]),
-      el('div', { class: 'set-toggle' }, [el('div', {}, [el('div', { class: 'st-l' }, ['🎞️ Bewegung reduzieren']), el('div', { class: 'st-d' }, ['Weniger Animationen (schont schwache Geräte)'])]), rmSwitch])
+      el('div', { class: 'set-toggle' }, [el('div', {}, [el('div', { class: 'st-l' }, ['🎞️ Bewegung reduzieren']), el('div', { class: 'st-d' }, ['Weniger Animationen (schont schwache Geräte)'])]), rmSwitch]),
+      el('div', { class: 'set-sec-h' }, ['Nach Pleite']),
+      el('div', { class: 'set-toggle' }, [el('div', {}, [el('div', { class: 'st-l' }, ['🌱 Sofort weiterspielen']), el('div', { class: 'st-d' }, ['Kein „Neustart"-Fenster mehr — bei Pleite gibt es sofort das Einstiegsgeld zurück.'])]), arSwitch]),
+      el('div', { class: 'set-toggle' }, [el('div', {}, [el('div', { class: 'st-l' }, ['💰 Max-Einsatz vorwählen']), el('div', { class: 'st-d' }, ['Der Einsatz steht (auch nach der Pleite) automatisch auf Maximum.'])]), amSwitch])
     ]);
     root.innerHTML = ''; root.appendChild(page);
   }
@@ -490,6 +511,9 @@
   App.Settings = {
     apply: apply, current: function () { return current; }, themes: function () { return THEMES.slice(); },
     theme: function () { return byId(current); }, setReduceMotion: setReduceMotion, onChange: onChange, renderPage: renderPage,
+    // Schnelles-Weiterspielen-Optionen (app.js Game-Over + ui.js Wett-Panel):
+    autoRestart: function () { return autoRestart; }, setAutoRestart: setAutoRestart,
+    autoMaxBet: function () { return autoMax; }, setAutoMaxBet: setAutoMax,
     // Stil-/Hintergrund-API (unabhängig von den Farb-Themes)
     applyBg: applyBg, currentBg: function () { return currentBg; }, bgStyles: function () { return BG_STYLES.slice(); }
   };

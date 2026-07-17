@@ -96,7 +96,10 @@
     // Freispiel-Power-Up (siehe powerups.js): die nächste Runde soll mit dem
     // Maximaleinsatz laufen -> Feld direkt auf das ganze Guthaben vorbelegen.
     var freebet = !!(App.Powerups && App.Powerups.freebetArmed && App.Powerups.freebetArmed());
-    var startBet = freebet ? App.Coins.get() : Math.min(Math.max(MIN, options.initial || 50), Math.max(MIN, App.Coins.get()));
+    // Einstellung „Max-Einsatz vorwählen" (siehe settings.js): Feld startet auf
+    // dem ganzen Guthaben — greift auch nach einer Pleite (Panel wird neu gebaut).
+    var autoMax = !!(App.Settings && App.Settings.autoMaxBet && App.Settings.autoMaxBet());
+    var startBet = (freebet || autoMax) ? App.Coins.get() : Math.min(Math.max(MIN, options.initial || 50), Math.max(MIN, App.Coins.get()));
 
     var input = el('input', {
       class: 'bet-input', type: 'number', min: MIN, step: 10,

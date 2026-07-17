@@ -162,6 +162,55 @@
       return list.slice(0, limit);
     },
 
+    /**
+     * Streak-Bestenliste: längste Sieg-Serie (Siege in Folge über ALLE Gambling-
+     * Spiele) pro Spieler, absteigend. Quelle = Präsenz-Register (js/presence.js
+     * meldet `streak` = Casino-maxStreak) + eigene Live-Serie. Ein Eintrag pro
+     * Spieler; wer noch keine Serie hat (0), erscheint nicht.
+     */
+    getStreakBoard: function (activeStreak, limit) {
+      limit = limit || 200;
+      var now = Date.now();
+      var map = {}, keys = [];
+
+      function put(name, streak, opts) {
+        streak = Math.round(Number(streak) || 0);
+        if (!isFinite(streak) || streak <= 0) return;
+        opts = opts || {};
+        var k = nameKey(name);
+        var e = map[k];
+        if (!e) {
+          e = map[k] = { name: cleanName(name), streak: streak, online: false, me: false, gold: false };
+          keys.push(k);
+        } else if (streak > e.streak) {
+          e.streak = streak;
+        }
+        if (opts.online) e.online = true;
+        if (opts.me) e.me = true;
+        if (opts.gold) e.gold = true;
+      }
+
+      var meMax = !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel());
+
+      // 1) Register: jeder Spieler, der die Seite offen hat/hatte.
+      this.getPlayers().forEach(function (p) {
+        if (!p || !p.name) return;
+        put(p.name, p.streak, {
+          online: !!p.updatedAt && (now - p.updatedAt) < ONLINE_MS,
+          gold: !!p.maxLevel
+        });
+      });
+
+      // 2) Eigene Live-Serie — sofort sichtbar, ohne auf die Cloud zu warten.
+      if (typeof activeStreak === 'number') {
+        put(this.getPlayerName() || 'Du', activeStreak, { online: true, me: true, gold: meMax });
+      }
+
+      var list = keys.map(function (k) { return map[k]; });
+      list.sort(function (a, b) { return (b.streak - a.streak) || a.name.localeCompare(b.name); });
+      return list.slice(0, limit);
+    },
+
     /** Einen abgeschlossenen Run eintragen (bei Game Over). */
     recordRun: function (name, peak, dateStr) {
       var entry = {

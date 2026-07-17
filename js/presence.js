@@ -48,6 +48,14 @@
 
   function isMax() { return !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel()); }
 
+  /* Längste Sieg-Serie dieses Geräts über alle Gambling-Spiele — IMMER aus dem
+   * Casino-Stand (wie casinoPeak), damit die Streak-Bestenliste (js/leaderboard.js
+   * getStreakBoard) auch dann die Casino-Serie zeigt, wenn gerade Survival läuft. */
+  function casinoStreak() {
+    if (App.Progress && App.Progress.maxStreakIn) return App.Progress.maxStreakIn('casino');
+    return (App.Progress && App.Progress.maxStreak) ? App.Progress.maxStreak() : 0;
+  }
+
   // Antwort eines Gastes auf eine Admin-Nachricht in seinen Präsenz-Eintrag schreiben
   // (Feld `replies`). Der Heartbeat bewahrt replies (siehe next.replies).
   function pushGuestReply(text, msg) {
@@ -133,6 +141,7 @@
         balance: App.Coins ? App.Coins.get() : 0,
         tickets: App.Tickets ? App.Tickets.get() : 0,
         casinoPeak: casinoPeak(),
+        streak: casinoStreak(),                  // längste Sieg-Serie (Streak-Bestenliste)
         maxLevel: isMax(),                       // goldener Name (Level 99999)
         replies: (rec && rec.replies) || [],     // Antworten an den Admin bewahren
         lastSeen: Date.now(),
