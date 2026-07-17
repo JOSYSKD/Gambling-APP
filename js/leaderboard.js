@@ -180,7 +180,7 @@
         var k = nameKey(name);
         var e = map[k];
         if (!e) {
-          e = map[k] = { name: cleanName(name), streak: streak, online: false, me: false, gold: false };
+          e = map[k] = { name: cleanName(name), streak: streak, online: false, me: false, gold: false, cos: null, level: 1 };
           keys.push(k);
         } else if (streak > e.streak) {
           e.streak = streak;
@@ -188,6 +188,8 @@
         if (opts.online) e.online = true;
         if (opts.me) e.me = true;
         if (opts.gold) e.gold = true;
+        if (opts.cos) e.cos = opts.cos;
+        if (opts.level) e.level = opts.level;
       }
 
       var meMax = !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel());
@@ -197,13 +199,16 @@
         if (!p || !p.name) return;
         put(p.name, p.streak, {
           online: !!p.updatedAt && (now - p.updatedAt) < ONLINE_MS,
-          gold: !!p.maxLevel
+          gold: !!p.maxLevel,
+          cos: p.cos || null, level: p.level || 1
         });
       });
 
       // 2) Eigene Live-Serie — sofort sichtbar, ohne auf die Cloud zu warten.
       if (typeof activeStreak === 'number') {
-        put(this.getPlayerName() || 'Du', activeStreak, { online: true, me: true, gold: meMax });
+        put(this.getPlayerName() || 'Du', activeStreak, { online: true, me: true, gold: meMax,
+          cos: (App.ProfileCard && App.ProfileCard.myNameCos) ? App.ProfileCard.myNameCos() : null,
+          level: (App.Progress && App.Progress.level) ? App.Progress.level() : 1 });
       }
 
       var list = keys.map(function (k) { return map[k]; });

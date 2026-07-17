@@ -18,6 +18,15 @@
   var ENTRIES = [
     {
       date: '2026-07-17',
+      title: 'Farbige Namen & 30 Schriftarten',
+      items: [
+        'Neu im Profil: färbe deinen Namen — über 60 Farben plus animierte Verläufe (Regenbogen, Feuer, Galaxie, Plasma …).',
+        '30 richtig coole Schriftarten für deinen Namen zur Auswahl (Orbitron, Bungee, Press Start 2P, Nabla u. v. m.).',
+        'Deine Farbe & Schrift sieht jeder — in der Bestenliste, im Chat und auf deiner Profilkarte.',
+      ]
+    },
+    {
+      date: '2026-07-17',
       title: 'COURS & Update-News',
       items: [
         'COURS deutlich steiler gemacht: jeder Tick bewegt den Kurs jetzt um 3–22 % (statt 1–10 %) — viel heftigere Ausschläge.',

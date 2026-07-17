@@ -310,7 +310,7 @@
         var row = el('div', { class: 'lb-row glass pcp-open ' + medalClass(rank) + (entry.active ? ' active' : '') }, [
           el('div', { class: 'lb-rank' }, [rankTxt]),
           el('div', { class: 'lb-name' }, [
-            el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym']),
+            (App.ProfileCard && App.ProfileCard.styleName ? App.ProfileCard.styleName(el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym']), entry.cos, entry.level, entry.gold) : el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym'])),
             entry.active ? el('span', { class: 'lb-tag' }, ['aktiver Run'])
               : (entry.online ? el('span', { class: 'lb-tag lb-tag-on' }, ['🟢 online']) : null)
           ]),
@@ -332,7 +332,7 @@
         return el('div', { class: 'lb-row glass ' + medalClass(rank) + (entry.me ? ' active' : '') }, [
           el('div', { class: 'lb-rank' }, [wreath(rank) || ('#' + rank)]),
           el('div', { class: 'lb-name' }, [
-            el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym']),
+            (App.ProfileCard && App.ProfileCard.styleName ? App.ProfileCard.styleName(el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym']), entry.cos, entry.level, entry.gold) : el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym'])),
             entry.me ? el('span', { class: 'lb-tag' }, ['du'])
               : (entry.online ? el('span', { class: 'lb-tag lb-tag-on' }, ['🟢 online']) : null)
           ]),
