@@ -110,7 +110,7 @@
         var k = nameKey(name);
         var e = map[k];
         if (!e) {
-          e = map[k] = { name: cleanName(name), peak: peak, date: opts.date || null, online: false, active: false, me: false };
+          e = map[k] = { name: cleanName(name), peak: peak, date: opts.date || null, online: false, active: false, me: false, gold: false };
           keys.push(k);
         } else if (peak > e.peak) {
           e.peak = peak;
@@ -121,7 +121,10 @@
         if (opts.online) e.online = true;
         if (opts.active) e.active = true;
         if (opts.me) e.me = true;
+        if (opts.gold) e.gold = true;   // Höchstlevel-Spieler -> goldener Name
       }
+
+      var meMax = !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel());
 
       // 1) Register: jeder Spieler, der die Seite offen hat/hatte — auch ohne Game Over.
       this.getPlayers().forEach(function (p) {
@@ -129,19 +132,20 @@
         var best = Math.max(Number(p.peak) || 0, Number(p.balance) || 0);
         put(p.name, best, {
           date: p.date || null,
-          online: !!p.updatedAt && (now - p.updatedAt) < ONLINE_MS
+          online: !!p.updatedAt && (now - p.updatedAt) < ONLINE_MS,
+          gold: !!p.maxLevel
         });
       });
 
       // 2) Run-Historie (auch von Spielern, die gerade offline sind).
       this.getEntries().forEach(function (e) {
         if (!e) return;
-        put(e.name, e.peak, { date: e.date });
+        put(e.name, e.peak, { date: e.date, gold: !!e.gold });
       });
 
       // 3) Eigener laufender Run — sofort sichtbar, auch wenn die Cloud hakt.
       if (typeof activePeak === 'number') {
-        put(this.getPlayerName() || 'Du', activePeak, { active: true, online: true, me: true });
+        put(this.getPlayerName() || 'Du', activePeak, { active: true, online: true, me: true, gold: meMax });
       }
 
       var list = keys.map(function (k) { return map[k]; });
@@ -155,7 +159,8 @@
         name: cleanName(name),
         peak: Math.round(peak),
         date: dateStr,
-        active: false
+        active: false,
+        gold: !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel())
       };
       // Driver mit additivem push() (z. B. Firebase) vermeiden ein Read-Modify-Write
       // über die komplette Liste, damit gleichzeitige Runs anderer Spieler nicht

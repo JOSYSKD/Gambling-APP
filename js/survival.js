@@ -194,6 +194,7 @@
       driver.put({
         key: myKey(),
         name: (App.Leaderboard.getPlayerName() || 'Anonym').slice(0, 18),
+        crown: !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel()),
         gold: gold, peak: peak, alive: runActive(), at: now()
       });
     };
@@ -400,7 +401,7 @@
         return el('div', { class: 'sv-row' + (mine ? ' mine' : '') + (rank <= 3 ? ' top' + rank : '') }, [
           el('span', { class: 'sv-rank' }, [rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '#' + rank]),
           el('span', { class: 'sv-pname' }, [
-            e.name || 'Anonym',
+            el('span', { class: e.crown ? 'name-gold' : '' }, [e.name || 'Anonym']),
             e.alive ? el('span', { class: 'sv-tag alive' }, ['läuft']) : el('span', { class: 'sv-tag dead' }, ['pleite'])
           ]),
           el('span', { class: 'sv-pgold' }, [UI.formatShort(e.peak) + ' 🥇']),

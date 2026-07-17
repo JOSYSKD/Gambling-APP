@@ -1,10 +1,10 @@
 /* stocks.js — Aktienmarkt  (App.Stocks)
  *
- * 20 Aktien, Kurse zwischen 100 und 1.000. Alle 25 Sekunden ein neuer Tick:
+ * 20 Aktien, Kurse zwischen 100 und 1.000. Alle 10 Sekunden ein neuer Tick:
  * der Kurs steigt, fällt oder bleibt gleich.
  *
  * Kernidee — der Markt braucht KEINEN Server: der Kurs ist eine reine Funktion
- * aus (Aktie, Tick-Nummer), wobei die Tick-Nummer = floor(Zeit / 25s) ist.
+ * aus (Aktie, Tick-Nummer), wobei die Tick-Nummer = floor(Zeit / 10s) ist.
  * Daraus folgt alles Angenehme von selbst:
  *   - Alle Spieler sehen zur selben Zeit denselben Kurs (gleiche Formel).
  *   - Der Markt läuft weiter, während die Seite zu ist.
@@ -24,11 +24,11 @@
   window.App = window.App || {};
   var UI = App.UI, el = UI.el;
 
-  var TICK_MS = 25000;          // 25 Sekunden pro Tick
+  var TICK_MS = 10000;          // 10 Sekunden pro Tick
   var KEY = 'gj_stocks';
   var FLAT_CHANCE = 0.14;       // ~14% der Ticks bleiben unverändert
   var MAX_FLAT_RUN = 6;         // …aber höchstens 6 Ticks am Stück
-  var HISTORY = 70;             // Ticks im großen Chart (~29 Minuten)
+  var HISTORY = 70;             // Ticks im großen Chart (~12 Minuten)
   var SPARK = 24;               // Ticks in der Mini-Kurve
 
   /* ---------------- Markt-Definition ---------------- */
@@ -347,7 +347,7 @@
       });
       body.appendChild(grid);
       body.appendChild(el('p', { class: 'stk-hint' }, [
-        'Alle 25 Sekunden ein neuer Kurs — er steigt, fällt oder bleibt gleich. ' +
+        'Alle 10 Sekunden ein neuer Kurs — er steigt, fällt oder bleibt gleich. ' +
         'Die Kurse laufen für alle Spieler gleich und auch dann weiter, wenn du nicht da bist. ' +
         'Bezahlt wird mit ' + App.Mode.coinName() + '.'
       ]));
@@ -386,6 +386,12 @@
           }, [String(q)]);
         });
         var maxN = isBuy ? maxBuy : sharesOf(st.id);
+        var quarterN = Math.floor(maxN / 4);   // ¼ der maximal möglichen Menge
+        btns.push(el('button', {
+          class: 'btn ' + (isBuy ? 'btn-primary' : 'btn-aqua') + ' stk-qty stk-qty-max',
+          type: 'button', disabled: quarterN <= 0 || null,
+          onclick: function () { doTrade(kind, quarterN); }
+        }, ['¼']));
         btns.push(el('button', {
           class: 'btn ' + (isBuy ? 'btn-primary' : 'btn-aqua') + ' stk-qty stk-qty-max',
           type: 'button', disabled: maxN <= 0 || null,
@@ -498,8 +504,8 @@
       '.stk-price{font-size:17px;font-weight:900;font-variant-numeric:tabular-nums;}',
       '.stk-chg{font-size:11px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap;}',
       '.stk-chg.big{font-size:14px;}',
-      '.stk-chg.up,.stk-d-stat-v.up{color:var(--neon);}',
-      '.stk-chg.down,.stk-d-stat-v.down{color:var(--danger-2,#ff4d6d);}',
+      '.stk-chg.up,.stk-d-stat-v.up{color:var(--neon,#39ff14);text-shadow:0 0 8px rgba(57,255,20,.6);}',
+      '.stk-chg.down,.stk-d-stat-v.down{color:var(--danger-2,#ff4d6d);text-shadow:0 0 8px rgba(255,77,109,.5);}',
       '.stk-chg.flat{color:var(--muted);}',
       '.stk-hint{color:var(--muted);font-size:12px;text-align:center;line-height:1.5;margin:2px 0 0;}',
       '.stk-detail{padding:16px;display:flex;flex-direction:column;gap:14px;}',

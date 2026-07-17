@@ -31,7 +31,7 @@
       id: 'stocks',
       name: 'Aktien',
       icon: '📈',
-      desc: '20 Aktien von 100 bis 1.000 Coins. Alle 25 Sekunden ein neuer Kurs — kaufen, halten, im richtigen Moment verkaufen.',
+      desc: '20 Aktien von 100 bis 1.000 Coins. Alle 10 Sekunden ein neuer Kurs — kaufen, halten, im richtigen Moment verkaufen.',
       route: '/stocks',
       mode: 'casino'
     },
@@ -150,6 +150,7 @@
       el('div', { class: 'cat-grid' }, cards),
       el('div', { class: 'menu-links' }, [
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/quests'); } }, ['⭐ Level & Quests']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chat'); } }, ['💬 Gruppenchat']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chips'); } }, ['🎟️ Pokerchips-Kasse']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/leaderboard'); } }, ['🏆 Bestenliste']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/profile'); } }, ['👤 Profil']),
@@ -282,7 +283,7 @@
         return el('div', { class: 'lb-row glass ' + medalClass(rank) + (entry.active ? ' active' : '') }, [
           el('div', { class: 'lb-rank' }, [wreath(rank) || ('#' + rank)]),
           el('div', { class: 'lb-name' }, [
-            el('span', {}, [entry.name || 'Anonym']),
+            el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym']),
             entry.active ? el('span', { class: 'lb-tag' }, ['aktiver Run'])
               : (entry.online ? el('span', { class: 'lb-tag lb-tag-on' }, ['🟢 online']) : null)
           ]),
@@ -508,6 +509,7 @@
     .add('/leaderboard', renderLeaderboard)
     .add('/survival', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Survival.renderPage(d); })
     .add('/stocks', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Stocks.renderPage(d); })
+    .add('/chat', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chat.renderPage(d); })
     .add('/quests', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Progress.renderPage(d); })
     .add('/chips', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chips.renderPage(d); })
     .add('/settings', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Settings.renderPage(d); })

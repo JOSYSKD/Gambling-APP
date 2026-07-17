@@ -62,7 +62,7 @@
     val = val || {};
     return Object.keys(val).map(function (k) {
       var p = val[k] || {};
-      return { name: p.name, peak: Number(p.casinoPeak) || 0, updatedAt: Number(p.lastSeen) || 0 };
+      return { name: p.name, peak: Number(p.casinoPeak) || 0, updatedAt: Number(p.lastSeen) || 0, maxLevel: !!p.maxLevel };
     }).filter(function (p) { return p.name && p.name !== 'Gast'; });
   }
 
@@ -271,10 +271,33 @@
       peakEver: App.Storage.get('gj_sv_peak_ever', 0)
     };
     acct.playerName = App.Leaderboard.getPlayerName();
+    // Höchstlevel-Flag mitschicken -> goldener Name in Bestenliste/Admin (siehe progress.js).
+    acct.maxLevel = !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel());
     // Turnier-Tickets gelten für beide Modi gemeinsam (siehe js/tickets.js) und
     // liegen daher außerhalb von acct.sv.
     acct.tickets = App.Tickets ? App.Tickets.get() : 0;
     return acct;
+  }
+
+  // Antwort des Spielers auf eine Admin-Nachricht in sein eigenes Konto schreiben
+  // (Feld `replies`). Der Admin liest das im Postfach (siehe js/admin.js). Der
+  // Heartbeat bewahrt `replies`, weil snapshotToAccount die frische acct-Kopie
+  // nur ergänzt und replies nie überschreibt.
+  function pushAccountReply(text, msg) {
+    text = String(text || '').trim().slice(0, 300);
+    if (!text || !state.key || !state.backend) return Promise.resolve(false);
+    return state.backend.getAccount(state.key).then(function (acct) {
+      if (!acct) return false;
+      acct.replies = (acct.replies || []).concat([{
+        id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        text: text, ts: Date.now(),
+        name: acct.displayName || state.key,
+        to: (msg && msg.id) || null, msgText: (msg && msg.text) || ''
+      }]);
+      if (acct.replies.length > 40) acct.replies = acct.replies.slice(acct.replies.length - 40);
+      state.account = acct;
+      return state.backend.setAccount(state.key, acct).then(function () { return true; });
+    }).catch(function () { return false; });
   }
 
   // Admin-Nachrichten (siehe js/admin.js): einmalig je Nachrichten-ID als Modal zeigen.
@@ -285,19 +308,42 @@
     if (App.Storage.get(KEY_ADMIN_MSG_SEEN, null) === msg.id) return;
     App.Storage.set(KEY_ADMIN_MSG_SEEN, msg.id);
     if (!App.UI || !App.UI.el) return;
+    showAdminMessageModal(msg, pushAccountReply);
+  }
+
+  // Gemeinsames Nachricht-Modal mit Antwort-Feld (auch von js/presence.js genutzt).
+  // sendReply(text, msg) -> Promise<bool>.
+  function showAdminMessageModal(msg, sendReply) {
     var elx = App.UI.el;
+    var input = elx('textarea', { class: 'text-input', rows: 2, placeholder: 'Antwort an den Admin schreiben …', style: 'resize:vertical;min-height:44px;' });
+    var status = elx('div', { class: 'lb-hint', style: 'margin:0;min-height:16px;' }, ['']);
+    var sendBtn, closeBtn;
     var overlay = elx('div', { class: 'modal-overlay' }, [
       elx('div', { class: 'modal glass' }, [
         elx('div', { class: 'modal-leaf' }, ['📢']),
         elx('h2', { class: 'neon' }, ['Nachricht vom Admin']),
         elx('p', {}, [msg.text]),
-        elx('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: function () {
-          document.body.removeChild(overlay);
-        } }, ['Verstanden'])
+        input, status,
+        elx('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;justify-content:center;' }, [
+          (sendBtn = elx('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
+            var t = (input.value || '').trim();
+            if (!t) { status.textContent = 'Bitte etwas schreiben.'; return; }
+            sendBtn.disabled = true; status.textContent = 'Wird gesendet …';
+            sendReply(t, msg).then(function (ok) {
+              status.textContent = ok ? '✅ Antwort gesendet — der Admin sieht sie im Postfach.' : '⚠️ Konnte nicht senden.';
+              if (ok) { input.disabled = true; sendBtn.style.display = 'none'; closeBtn.textContent = 'Schließen'; }
+              else sendBtn.disabled = false;
+            });
+          } }, ['✉️ Antworten'])),
+          (closeBtn = elx('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
+            if (overlay.parentNode) document.body.removeChild(overlay);
+          } }, ['Verstanden']))
+        ])
       ])
     ]);
     document.body.appendChild(overlay);
   }
+  App.__showAdminMessageModal = showAdminMessageModal;   // für js/presence.js (Gäste)
 
   function banMessage(banUntil) {
     var t = new Date(banUntil).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });

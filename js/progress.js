@@ -66,21 +66,37 @@
   function emit() { for (var i = 0; i < listeners.length; i++) { try { listeners[i](); } catch (e) {} } }
 
   /* ---------------- Level-Kurve ---------------- */
+  // Höchstlevel. Wer es erreicht, bekommt einen goldenen Namen (siehe isMaxLevel()).
+  var MAX_LEVEL = 99999;
+
   // XP von Level L nach L+1 — BEWUSST STEIL (quadratisch statt linear), damit
   // Aufleveln sich erarbeitet anfühlt und nicht in Minuten passiert. Zusammen mit
   // den stark reduzierten XP-Gewinnen (siehe onWager/onOutcome) ist das ~5-6× so
   // langsam wie vorher.
   function reqFor(level) { return Math.round(500 + (level - 1) * (level - 1) * 130); }
-  // kumulierte XP bis zum Beginn von Level L.
-  function cumFor(level) { var t = 0; for (var l = 1; l < level; l++) t += reqFor(l); return t; }
+
+  // Kumulierte XP bis zum Beginn von Level L — GESCHLOSSENE FORMEL statt Schleife.
+  // Bei einem Höchstlevel von 99999 wäre die frühere O(L)-Summe (in einer O(L)-Level-
+  // Suche = O(L²)) katastrophal und würde den Browser einfrieren. cumFor(L) ist die
+  // Summe von reqFor(1..L-1) = 500·n + 130·Σ(k=0..n-1) k²   mit n = L-1.
+  function cumFor(level) {
+    var n = level - 1;
+    if (n <= 0) return 0;
+    return 500 * n + 130 * ((n - 1) * n * (2 * n - 1) / 6);
+  }
+  // Level aus XP per Binärsuche über [1, MAX_LEVEL] (O(log) statt O(L)).
   function levelFromXp(xp) {
-    var l = 1;
-    while (xp >= cumFor(l + 1) && l < 999) l++;
-    return l;
+    var lo = 1, hi = MAX_LEVEL;
+    while (lo < hi) {
+      var mid = Math.floor((lo + hi + 1) / 2);
+      if (cumFor(mid) <= xp) lo = mid; else hi = mid - 1;
+    }
+    return lo;
   }
   function level() { return levelFromXp(state.xp); }
   function xpInLevel() { return state.xp - cumFor(level()); }
-  function xpForLevel() { return reqFor(level()); }
+  function xpForLevel() { return level() >= MAX_LEVEL ? 0 : reqFor(level()); }
+  function isMaxLevel() { return level() >= MAX_LEVEL; }
 
   // Bonus aus bereits erledigten Quests: jede fertige Quest hebt den Wieder-Auffüll-
   // Betrag dauerhaft um einen Teil ihrer Belohnung an — summiert sich mit jeder weiteren
@@ -106,7 +122,11 @@
   var TITLES = ['Spielhallen-Neuling', 'Anfänger', 'Zocker', 'Stammgast', 'Kartenhai', 'Glücksritter',
     'High Roller', 'Casino-Profi', 'Roulette-König', 'Poker-Hai', 'Vegas-Veteran', 'Dschungel-Boss',
     'Neon-Legende', 'Casino-Magnat', 'Glücks-Gott'];
-  function title() { var L = level(); return TITLES[Math.min(TITLES.length - 1, Math.floor((L - 1) / 2))]; }
+  function title() {
+    if (isMaxLevel()) return '👑 Platin-Legende';   // Höchstlevel-Titel
+    var L = level();
+    return TITLES[Math.min(TITLES.length - 1, Math.floor((L - 1) / 2))];
+  }
 
   /* ---------------- XP / Level-Up ---------------- */
   function addXp(amount) {
@@ -119,10 +139,25 @@
     save(); emit();
   }
   function onLevelUp(from, to) {
-    for (var L = from + 1; L <= to; L++) {
-      var bonus = 500 + L * 250;           // Level-Up-Bonus aufs Guthaben
-      if (App.Coins) App.Coins.add(bonus);
-      celebrate('⭐ Level ' + L + '!', title() + ' · +' + UI.formatCoins(bonus) + ' 🪙 · Auffüllung jetzt ' + UI.formatCoins(1000 + (L - 1) * 750));
+    // Bei einem sehr großen Sprung (z. B. riesige Quest-XP) nicht pro Level eine
+    // eigene Feier zeigen — das wären sonst Tausende Popups. Dann Bonus als Summe
+    // gutschreiben und nur EINE Feier zeigen.
+    if (to - from > 25) {
+      var lump = 0;
+      for (var k = from + 1; k <= to; k++) lump += 500 + k * 250;
+      if (App.Coins) App.Coins.add(lump);
+      celebrate('⭐ Level ' + from + ' → ' + to + '!', title() + ' · +' + UI.formatCoins(lump) + ' 🪙');
+    } else {
+      for (var L = from + 1; L <= to; L++) {
+        var bonus = 500 + L * 250;           // Level-Up-Bonus aufs Guthaben
+        if (App.Coins) App.Coins.add(bonus);
+        celebrate('⭐ Level ' + L + '!', title() + ' · +' + UI.formatCoins(bonus) + ' 🪙 · Auffüllung jetzt ' + UI.formatCoins(1000 + (L - 1) * 750));
+      }
+    }
+    // Höchstlevel erreicht -> große Feier + goldener Name freigeschaltet.
+    if (to >= MAX_LEVEL && from < MAX_LEVEL) {
+      confetti(90);
+      celebrate('👑 LEVEL 99.999 — MAXIMUM!', 'Dein Name glänzt ab jetzt überall golden.');
     }
     if (App.Audio) App.Audio.sfx('levelup');
   }
@@ -254,8 +289,11 @@
     .concat(tierQuests('losses', '🛡️', [10, 50, 150, 400, 1000],
       function (t) { return 'Durchhalten ' + fmt(t); }, function (t) { return 'Verliere ' + fmt(t) + ' Runden — Kopf hoch!'; },
       function (s) { return s.losses; }))
-    .concat(tierQuests('level', '⭐', [5, 10, 15, 20, 25, 30, 35, 40],
-      function (t) { return 'Level ' + t + ' erreicht'; }, function (t) { return 'Erreiche Level ' + t; },
+    .concat(tierQuests('level', '⭐',
+      [5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300, 500, 750, 1000,
+       1500, 2500, 5000, 7500, 10000, 15000, 25000, 40000, 60000, 80000, 99999],
+      function (t) { return t >= MAX_LEVEL ? '👑 Höchstlevel 99.999' : 'Level ' + fmt(t) + ' erreicht'; },
+      function (t) { return t >= MAX_LEVEL ? 'Erreiche das Maximallevel 99.999 — goldener Name!' : 'Erreiche Level ' + fmt(t); },
       function () { return level(); }))
     .concat(PLAY_GAMES.map(function (g) {
       return {
@@ -412,23 +450,30 @@
     if (nav) host.insertBefore(chip, nav); else host.appendChild(chip);
     updateChip();
   }
+  // Fortschritt 0..100 im aktuellen Level; bei Maxlevel (xpForLevel=0) volle 100 %.
+  function levelPct() {
+    var need = xpForLevel();
+    if (need <= 0) return 100;
+    return Math.max(0, Math.min(100, Math.round(xpInLevel() / need * 100)));
+  }
   function updateChip() {
     if (!chip) return;
-    chipLvl.textContent = String(level());
-    var pct = Math.max(0, Math.min(100, Math.round(xpInLevel() / xpForLevel() * 100)));
-    chipFill.style.width = pct + '%';
+    chipLvl.textContent = isMaxLevel() ? 'MAX' : String(level());
+    chip.classList.toggle('chip-max', isMaxLevel());
+    chipFill.style.width = levelPct() + '%';
   }
 
   /* ---------------- Quest-/Level-Seite ---------------- */
   function renderPage(root) {
     injectCss();
     var L = level();
-    var pct = Math.round(xpInLevel() / xpForLevel() * 100);
+    var maxed = isMaxLevel();
+    var pct = levelPct();
     var head = el('div', { class: 'lvl-head glass' }, [
-      el('div', { class: 'lvl-badge' }, ['⭐', el('span', { class: 'lvl-badge-n' }, [String(L)])]),
+      el('div', { class: 'lvl-badge' }, ['⭐', el('span', { class: 'lvl-badge-n' }, [maxed ? 'MAX' : String(L)])]),
       el('div', { class: 'lvl-meta' }, [
-        el('div', { class: 'lvl-title neon' }, [title()]),
-        el('div', { class: 'lvl-sub' }, ['Level ' + L + ' · ' + xpInLevel() + ' / ' + xpForLevel() + ' XP']),
+        el('div', { class: 'lvl-title neon' + (maxed ? ' name-gold' : '') }, [title()]),
+        el('div', { class: 'lvl-sub' }, [maxed ? ('Level ' + UI.formatCoins(L) + ' · HÖCHSTLEVEL erreicht 👑') : ('Level ' + L + ' · ' + xpInLevel() + ' / ' + xpForLevel() + ' XP')]),
         el('div', { class: 'lvl-bar' }, [el('div', { class: 'lvl-bar-fill', style: 'width:' + pct + '%' })]),
         el('div', { class: 'lvl-start' }, ['Auffüllung bei Pleite: ', el('b', {}, [UI.formatCoins(startBalance()) + ' 🪙'])])
       ])
@@ -485,10 +530,18 @@
   function injectCss() {
     if (cssDone) return; cssDone = true;
     UI.injectStyle('progress-css', [
+      // Goldener Name für Höchstlevel-Spieler (Level 99999) — überall verwendbar
+      // via Klasse `name-gold` (Bestenliste, Survival-Rangliste, Profil, Chat …).
+      '.name-gold{background:linear-gradient(90deg,#fff6c0,#ffd23f,#ffb700,#fff6c0,#ffd23f);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#ffd23f;font-weight:900;text-shadow:0 0 10px rgba(255,210,63,.5);animation:gj-goldshine 3s linear infinite;}',
+      '.name-gold::after{content:"👑";-webkit-text-fill-color:initial;margin-left:4px;font-size:.82em;filter:drop-shadow(0 0 4px rgba(255,210,63,.8));}',
+      '@keyframes gj-goldshine{to{background-position:200% center;}}',
+      '@media(prefers-reduced-motion:reduce){.name-gold{animation:none;}}',
       '.level-chip{display:inline-flex;align-items:center;gap:5px;background:rgba(9,32,21,.7);border:1px solid var(--stroke);border-radius:999px;padding:5px 10px 5px 8px;cursor:pointer;color:var(--text);font-weight:800;font-size:13px;transition:.15s;}',
       '.level-chip:hover{border-color:var(--neon);box-shadow:0 0 0 1px rgba(57,255,20,.35);}',
       '.level-chip-star{filter:drop-shadow(0 0 5px rgba(255,210,63,.6));}',
       '.level-chip-lvl{color:var(--gold);font-variant-numeric:tabular-nums;}',
+      '.level-chip.chip-max{border-color:var(--gold);box-shadow:0 0 0 1px rgba(255,210,63,.5),0 0 12px rgba(255,210,63,.35);}',
+      '.level-chip.chip-max .level-chip-lvl{font-weight:900;}',
       '.level-chip-bar{width:34px;height:6px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;}',
       '.level-chip-fill{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--neon),var(--gold));transition:width .4s ease;}',
       '@media(max-width:520px){.level-chip-bar{display:none;}}',
@@ -539,8 +592,17 @@
 
   /* ---------------- API + Boot ---------------- */
   App.Progress = {
+    MAX_LEVEL: MAX_LEVEL,
     level: level, xpInLevel: xpInLevel, xpForLevel: xpForLevel, title: title,
     startBalance: startBalance, addXp: addXp,
+    /** true, sobald der Spieler das Höchstlevel (99999) erreicht hat -> goldener Name. */
+    isMaxLevel: isMaxLevel,
+    /** Baut einen Namens-Span; ist gold=true (oder der Spieler selbst Maxlevel),
+     *  bekommt er die global definierte Klasse `name-gold` (goldener, glänzender Name). */
+    nameEl: function (name, gold) {
+      var isGold = gold === undefined ? isMaxLevel() : !!gold;
+      return el('span', { class: 'gj-name' + (isGold ? ' name-gold' : '') }, [String(name == null ? '' : name)]);
+    },
     stats: function () { return statsView(); },
     quests: function () { return QUESTS.slice(); },
     onChange: onChange, renderPage: renderPage,
@@ -558,6 +620,7 @@
   onChange(updateChip);
 
   function boot() {
+    injectCss();            // `.name-gold` global bereitstellen (auch ohne /quests-Besuch)
     hook();
     installChip();
     updateChip();

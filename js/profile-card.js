@@ -11,23 +11,55 @@
   var KEY = 'gj_cosmetics';
 
   function lvl() { return (App.Progress && App.Progress.level) ? App.Progress.level() : 1; }
+  // Maximales Level der Progression (jetzt 99999). App.Progress.MAX_LEVEL nutzen, falls
+  // vorhanden — sonst der bekannte Deckel. So folgen die Top-Freischaltungen automatisch,
+  // falls der Deckel später zentral geändert wird.
+  var MAX = (App.Progress && App.Progress.MAX_LEVEL) || 99999;
+  // Level lesbar formatieren (99999 -> 99.999), damit hohe Freischalt-Stufen sauber anzeigen.
+  function fmtLv(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 
-  /* ---------------- Kosmetik-Kataloge (unlock = benötigtes Level) ---------------- */
+  /* ---------------- Kosmetik-Kataloge (unlock = benötigtes Level) ----------------
+   * Die Freischalt-Level sind bewusst über die GESAMTE Spanne bis MAX (=99999) verteilt,
+   * damit es auf jeder Progressions-Stufe noch etwas zu holen gibt. Bestehende Einträge
+   * behalten ihr Level unverändert — Neues kommt oben drauf. */
   var AVATARS = [
+    // Basis (unverändert)
     { id: 'monkey', e: '🐵', lv: 1 }, { id: 'parrot', e: '🦜', lv: 1 }, { id: 'clover', e: '🍀', lv: 1 }, { id: 'slot', e: '🎰', lv: 1 },
     { id: 'frog', e: '🐸', lv: 2 }, { id: 'gecko', e: '🦎', lv: 3 }, { id: 'tiger', e: '🐯', lv: 4 },
     { id: 'lion', e: '🦁', lv: 5 }, { id: 'snake', e: '🐍', lv: 6 }, { id: 'unicorn', e: '🦄', lv: 7 },
     { id: 'dragon', e: '🐉', lv: 8 }, { id: 'fire', e: '🔥', lv: 9 }, { id: 'crown', e: '👑', lv: 10 },
-    { id: 'gem', e: '💎', lv: 11 }, { id: 'robot', e: '🤖', lv: 12 }, { id: 'alien', e: '👽', lv: 14 }, { id: 'goat', e: '🐐', lv: 16 }
+    { id: 'gem', e: '💎', lv: 11 }, { id: 'robot', e: '🤖', lv: 12 }, { id: 'alien', e: '👽', lv: 14 }, { id: 'goat', e: '🐐', lv: 16 },
+    // Neu — über die ganze Spanne verteilt
+    { id: 'wolf', e: '🐺', lv: 18 }, { id: 'eagle', e: '🦅', lv: 20 }, { id: 'shark', e: '🦈', lv: 22 },
+    { id: 'octopus', e: '🐙', lv: 25 }, { id: 'gorilla', e: '🦍', lv: 30 }, { id: 'leopard', e: '🐆', lv: 40 },
+    { id: 'peacock', e: '🦚', lv: 55 }, { id: 'trex', e: '🦖', lv: 75 }, { id: 'ninja', e: '🥷', lv: 100 },
+    { id: 'wizard', e: '🧙', lv: 150 }, { id: 'joker', e: '🃏', lv: 250 }, { id: 'devil', e: '😈', lv: 400 },
+    { id: 'ghost', e: '👻', lv: 650 }, { id: 'whale', e: '🐋', lv: 1000 }, { id: 'bolt', e: '⚡', lv: 1600 },
+    { id: 'star', e: '🌟', lv: 2500 }, { id: 'comet', e: '☄️', lv: 4000 }, { id: 'planet', e: '🪐', lv: 6500 },
+    { id: 'volcano', e: '🌋', lv: 10000 }, { id: 'trident', e: '🔱', lv: 16000 }, { id: 'moneybag', e: '💰', lv: 26000 },
+    { id: 'trophy', e: '🏆', lv: 42000 }, { id: 'fleur', e: '⚜️', lv: 68000 }, { id: 'diamondblue', e: '💠', lv: MAX }
   ];
   var FRAMES = [
+    // Basis (unverändert)
     { id: 'default', name: 'Standard', lv: 1 }, { id: 'neon', name: 'Neon', lv: 2 },
     { id: 'aqua', name: 'Aqua', lv: 3 }, { id: 'double', name: 'Doppellinie', lv: 4 },
     { id: 'gold', name: 'Gold', lv: 5 }, { id: 'grad', name: 'Verlauf', lv: 6 },
     { id: 'ice', name: 'Eis', lv: 7 }, { id: 'rainbow', name: 'Regenbogen', lv: 8 },
-    { id: 'fire', name: 'Feuer', lv: 10 }, { id: 'royal', name: 'Königlich', lv: 12 }
+    { id: 'fire', name: 'Feuer', lv: 10 }, { id: 'royal', name: 'Königlich', lv: 12 },
+    // Neu — 20 animierte Premium-Rahmen, verteilt bis MAX
+    { id: 'emerald', name: 'Smaragd-Puls', lv: 14 }, { id: 'amber', name: 'Bernstein-Glut', lv: 18 },
+    { id: 'sapphire', name: 'Saphir-Welle', lv: 25 }, { id: 'magma', name: 'Magma-Fluss', lv: 40 },
+    { id: 'frost', name: 'Kristall-Frost', lv: 60 }, { id: 'pulse', name: 'Neon-Herzschlag', lv: 90 },
+    { id: 'prism', name: 'Prisma-Lauf', lv: 140 }, { id: 'voltage', name: 'Blitzschlag', lv: 220 },
+    { id: 'stardust', name: 'Sternenstaub', lv: 350 }, { id: 'aurora', name: 'Aurora', lv: 600 },
+    { id: 'inferno', name: 'Inferno', lv: 1000 }, { id: 'cosmos', name: 'Kosmos', lv: 1800 },
+    { id: 'goldrain', name: 'Goldregen', lv: 3200 }, { id: 'toxic', name: 'Toxisch', lv: 5500 },
+    { id: 'royalaura', name: 'Königs-Aura', lv: 9000 }, { id: 'phoenix', name: 'Phönix', lv: 15000 },
+    { id: 'obsidian', name: 'Obsidian-Blitz', lv: 25000 }, { id: 'spectrum', name: 'Prisma Maximum', lv: 42000 },
+    { id: 'solar', name: 'Sonnenkorona', lv: 70000 }, { id: 'platinum', name: 'Platin-Diamant', lv: MAX }
   ];
   var BANNERS = [
+    // Basis (unverändert)
     { id: 'jungle', name: 'Dschungel', lv: 1, css: 'linear-gradient(135deg,#0d3a22,#061a10)' },
     { id: 'aqua', name: 'Lagune', lv: 2, css: 'linear-gradient(135deg,#0d2a3a,#062028)' },
     { id: 'sunset', name: 'Sonnenuntergang', lv: 4, css: 'linear-gradient(135deg,#ff7a3c,#ff3d6d)' },
@@ -35,14 +67,37 @@
     { id: 'gold', name: 'Goldbarren', lv: 8, css: 'linear-gradient(135deg,#ffd23f,#e08a3c)' },
     { id: 'fire', name: 'Lava', lv: 10, css: 'linear-gradient(135deg,#ff2d55,#ff7a3c)' },
     { id: 'galaxy', name: 'Galaxie', lv: 12, css: 'linear-gradient(135deg,#22d3ff,#a855f7,#ff2fb9)' },
-    { id: 'rainbow', name: 'Regenbogen', lv: 15, css: 'linear-gradient(90deg,#ff2d55,#ff9d3c,#ffd23f,#39ff14,#22d3ff,#a855f7)' }
+    { id: 'rainbow', name: 'Regenbogen', lv: 15, css: 'linear-gradient(90deg,#ff2d55,#ff9d3c,#ffd23f,#39ff14,#22d3ff,#a855f7)' },
+    // Neu — verteilt bis MAX
+    { id: 'emberglow', name: 'Glut', lv: 18, css: 'linear-gradient(135deg,#7a1f1f,#ff5a1f)' },
+    { id: 'ocean', name: 'Tiefsee', lv: 25, css: 'linear-gradient(135deg,#012a4a,#2a6f97)' },
+    { id: 'polar', name: 'Polarlicht', lv: 35, css: 'linear-gradient(135deg,#00f5a0,#00d9f5,#7a5cff)' },
+    { id: 'candy', name: 'Bonbon', lv: 55, css: 'linear-gradient(135deg,#ff5fa2,#ff9a3c,#ffd23f)' },
+    { id: 'toxic', name: 'Giftgrün', lv: 90, css: 'linear-gradient(135deg,#2bff88,#00b36b)' },
+    { id: 'midnight', name: 'Mitternacht', lv: 160, css: 'linear-gradient(135deg,#0a0f2b,#3a1c71,#00d4ff)' },
+    { id: 'inferno', name: 'Inferno', lv: 320, css: 'linear-gradient(135deg,#3a0000,#ff2d55,#ff9d3c)' },
+    { id: 'nebula', name: 'Nebula', lv: 700, css: 'linear-gradient(135deg,#5f0f8b,#c31432,#22d3ff)' },
+    { id: 'emeraldfield', name: 'Smaragdfeld', lv: 1500, css: 'linear-gradient(135deg,#004d40,#00e676,#b2ff59)' },
+    { id: 'solarflare', name: 'Sonneneruption', lv: 4000, css: 'linear-gradient(135deg,#ff6a00,#ffd23f,#fff6b0)' },
+    { id: 'obsidian', name: 'Obsidian', lv: 12000, css: 'linear-gradient(135deg,#0b0b0f,#2c2c3a,#00e5ff)' },
+    { id: 'cosmos', name: 'Kosmos', lv: 40000, css: 'radial-gradient(circle at 30% 20%,#3a1c71,#0a0a1a 72%)' },
+    { id: 'platinum', name: 'Platin', lv: MAX, css: 'linear-gradient(135deg,#8f9aa6,#e9eef5,#b9c4d0,#ffffff)' }
   ];
   var TITLES = [
+    // Basis (unverändert)
     { id: 'auto', name: 'Level-Titel (automatisch)', lv: 1 },
     { id: 'rookie', name: 'Frischling', lv: 1 }, { id: 'lucky', name: 'Glückspilz', lv: 3 },
     { id: 'shark', name: 'Kartenhai', lv: 5 }, { id: 'highroller', name: 'High Roller', lv: 7 },
     { id: 'boss', name: 'Dschungel-Boss', lv: 9 }, { id: 'legend', name: 'Neon-Legende', lv: 12 },
-    { id: 'god', name: 'Glücks-Gott', lv: 15 }
+    { id: 'god', name: 'Glücks-Gott', lv: 15 },
+    // Neu — verteilt bis MAX
+    { id: 'magician', name: 'Jackpot-Magier', lv: 20 }, { id: 'chipprince', name: 'Chip-Fürst', lv: 30 },
+    { id: 'roulking', name: 'Roulette-König', lv: 45 }, { id: 'cardmage', name: 'Karten-Zauberer', lv: 70 },
+    { id: 'diamondshark', name: 'Diamant-Hai', lv: 120 }, { id: 'neontitan', name: 'Neon-Titan', lv: 250 },
+    { id: 'mogul', name: 'Millionen-Mogul', lv: 500 }, { id: 'overlord', name: 'Casino-Overlord', lv: 1200 },
+    { id: 'emperor', name: 'Glücks-Imperator', lv: 3000 }, { id: 'whalelord', name: 'Legendärer Whale', lv: 8000 },
+    { id: 'immortal', name: 'Unsterblicher Zocker', lv: 20000 }, { id: 'mythos', name: 'Lebende Legende', lv: 50000 },
+    { id: 'platinlegend', name: 'Platin-Diamant-Legende', lv: MAX }
   ];
 
   function firstOf(arr) { return arr[0].id; }
@@ -123,11 +178,11 @@
     function drawBody() { var t = TABS.filter(function (x) { return x.key === active; })[0]; body.innerHTML = ''; body.appendChild(t.render()); }
 
     function pick(kind, id, item) {
-      if (!unlocked(item)) { UI.toast('Schaltet auf Level ' + item.lv + ' frei', 'info'); if (App.Audio) App.Audio.sfx('error'); return; }
+      if (!unlocked(item)) { UI.toast('Schaltet auf Level ' + fmtLv(item.lv) + ' frei', 'info'); if (App.Audio) App.Audio.sfx('error'); return; }
       sel[kind] = id; save(); if (App.Audio) App.Audio.sfx('select');
       drawBody(); if (onChange) onChange();
     }
-    function lockTag(item) { return unlocked(item) ? null : el('span', { class: 'pc-lock' }, ['🔒 Lv ' + item.lv]); }
+    function lockTag(item) { return unlocked(item) ? null : el('span', { class: 'pc-lock' }, ['🔒 Lv ' + fmtLv(item.lv)]); }
 
     function avatarGrid() {
       return el('div', { class: 'pc-grid' }, AVATARS.map(function (a) {
@@ -220,7 +275,87 @@
       '.pc-titlelist{display:flex;flex-direction:column;gap:8px;}',
       '.pc-titleopt{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border-radius:12px;border:1px solid var(--stroke);background:rgba(4,16,10,.5);color:var(--text);font-weight:800;cursor:pointer;}',
       '.pc-titleopt.sel{border-color:var(--neon);box-shadow:0 0 0 1px var(--stroke-2);}',
-      '.pc-titleopt.locked{opacity:.55;}'
+      '.pc-titleopt.locked{opacity:.55;}',
+
+      /* =============================================================================
+       * PREMIUM-RAHMEN (neu) — bewusst NACH .pc-opt platziert, damit die Effekte
+       * (gleiche Spezifität, spätere Quelle) auch in der Customizer-Vorschau
+       * gewinnen und nicht vom Editor-Basis-Style überschrieben werden.
+       * Reines CSS, keine externen Assets -> file://-tauglich.
+       * ============================================================================= */
+      // Gemeinsame Keyframes
+      '@keyframes pc-flow{to{background-position:0 0,300% 0;}}',
+      '@keyframes pc-flow4{to{background-position:0 0,400% 0;}}',
+      '@keyframes pc-twinkle{0%,100%{opacity:.35;}50%{opacity:1;}}',
+      '@keyframes pc-sheen{0%{left:-70%;}55%,100%{left:130%;}}',
+      '@keyframes pc-diamond{0%,100%{opacity:.5;transform:scale(1);}50%{opacity:1;transform:scale(1.06);}}',
+      // Fließende Farbverlaufs-Rahmen teilen sich eine Grund-Deko
+      '.pc-frame-sapphire,.pc-frame-magma,.pc-frame-prism,.pc-frame-aurora,.pc-frame-inferno,.pc-frame-cosmos,.pc-frame-goldrain,.pc-frame-phoenix,.pc-frame-spectrum,.pc-frame-platinum{background-origin:border-box;background-clip:padding-box,border-box;background-size:100% 100%,300% 100%;background-position:0 0,0 0;}',
+
+      // 1 Smaragd-Puls — grüner Neon-Puls
+      '.pc-frame-emerald{border-color:#00ff9d;animation:pc-p-emerald 1.9s ease-in-out infinite;}',
+      '@keyframes pc-p-emerald{0%,100%{box-shadow:0 0 8px rgba(0,255,157,.35),inset 0 0 6px rgba(0,255,157,.18);}50%{box-shadow:0 0 26px rgba(0,255,157,.9),inset 0 0 16px rgba(0,255,157,.4);}}',
+      // 2 Bernstein-Glut — warmes Flackern
+      '.pc-frame-amber{border-color:#ffb347;animation:pc-p-amber 1.5s ease-in-out infinite;}',
+      '@keyframes pc-p-amber{0%,100%{box-shadow:0 0 8px rgba(255,140,0,.4),inset 0 0 8px rgba(255,90,0,.25);}45%{box-shadow:0 0 22px rgba(255,170,40,.9),inset 0 0 14px rgba(255,110,0,.5);}70%{box-shadow:0 0 12px rgba(255,120,0,.6);}}',
+      // 3 Saphir-Welle — fließender blauer Verlauf
+      '.pc-frame-sapphire{border:3px solid transparent;background-image:linear-gradient(rgba(9,32,21,.85),rgba(9,32,21,.85)),linear-gradient(90deg,#0a2a6b,#2a6ff2,#7ab8ff,#2a6ff2,#0a2a6b);box-shadow:0 0 16px rgba(60,140,255,.5);animation:pc-flow 5s linear infinite;}',
+      // 4 Magma-Fluss — fließende Lava
+      '.pc-frame-magma{border:3px solid transparent;background-image:linear-gradient(rgba(9,32,21,.85),rgba(9,32,21,.85)),linear-gradient(90deg,#7a0000,#ff2d00,#ff9d3c,#ff2d00,#7a0000);box-shadow:0 0 20px rgba(255,70,0,.55);animation:pc-flow 4s linear infinite;}',
+      // 5 Kristall-Frost — eisiger Schimmer + Frost-Funkeln
+      '.pc-frame-frost{border-color:#aee9ff;animation:pc-p-frost 3s ease-in-out infinite;}',
+      '@keyframes pc-p-frost{0%,100%{box-shadow:0 0 14px rgba(174,233,255,.45),inset 0 0 10px rgba(174,233,255,.2);}50%{box-shadow:0 0 28px rgba(210,245,255,.9),inset 0 0 18px rgba(174,233,255,.45);}}',
+      '.pc-frame-frost::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;border-radius:inherit;background-image:radial-gradient(2px 2px at 8% 20%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 92% 30%,#e6f9ff,transparent 60%),radial-gradient(2px 2px at 20% 88%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 80% 82%,#cdefff,transparent 60%),radial-gradient(2px 2px at 50% 6%,#fff,transparent 60%);animation:pc-twinkle 2.6s ease-in-out infinite;}',
+      // 6 Neon-Herzschlag — doppelter Puls
+      '.pc-frame-pulse{border-color:#39ff14;animation:pc-heart 1.4s ease-in-out infinite;}',
+      '@keyframes pc-heart{0%,100%{box-shadow:0 0 6px rgba(57,255,20,.4);}20%{box-shadow:0 0 22px rgba(57,255,20,.95),inset 0 0 12px rgba(57,255,20,.5);}35%{box-shadow:0 0 8px rgba(57,255,20,.4);}55%{box-shadow:0 0 22px rgba(57,255,20,.95);}}',
+      // 7 Prisma-Lauf — schneller Regenbogen-Lauf
+      '.pc-frame-prism{border:3px solid transparent;background-image:linear-gradient(rgba(9,32,21,.85),rgba(9,32,21,.85)),linear-gradient(90deg,#ff2d55,#ff9d3c,#ffd23f,#39ff14,#22d3ff,#a855f7,#ff2d55);box-shadow:0 0 16px rgba(120,200,255,.4);animation:pc-flow 3s linear infinite;}',
+      // 8 Blitzschlag — elektrisches Flackern
+      '.pc-frame-voltage{border-color:#7df9ff;animation:pc-volt 1.1s steps(1,end) infinite;}',
+      '@keyframes pc-volt{0%,100%{box-shadow:0 0 10px rgba(125,249,255,.5),inset 0 0 8px rgba(125,249,255,.3);border-color:#7df9ff;}12%{box-shadow:0 0 30px rgba(220,255,255,1),inset 0 0 16px rgba(125,249,255,.6);border-color:#fff;}18%{box-shadow:0 0 6px rgba(125,249,255,.3);border-color:#3a86ff;}55%{box-shadow:0 0 26px rgba(180,240,255,.95);border-color:#fff;}62%{box-shadow:0 0 8px rgba(125,249,255,.4);}}',
+      // 9 Sternenstaub — funkelnde Sterne auf Violett
+      '.pc-frame-stardust{border-color:#b388ff;box-shadow:0 0 16px rgba(160,110,255,.5),inset 0 0 12px rgba(80,40,160,.4);}',
+      '.pc-frame-stardust::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;border-radius:inherit;background-image:radial-gradient(2px 2px at 10% 22%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 88% 18%,#d6bcff,transparent 60%),radial-gradient(2px 2px at 24% 82%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 78% 78%,#fff,transparent 60%),radial-gradient(2px 2px at 55% 40%,#c9a8ff,transparent 60%),radial-gradient(1.5px 1.5px at 40% 12%,#fff,transparent 60%);animation:pc-twinkle 2.2s ease-in-out infinite;}',
+      // 10 Aurora — sanft fließendes Polarlicht
+      '.pc-frame-aurora{border:3px solid transparent;background-image:linear-gradient(rgba(9,32,21,.85),rgba(9,32,21,.85)),linear-gradient(90deg,#00f5a0,#00d9f5,#7a5cff,#00f5a0);box-shadow:0 0 20px rgba(0,220,180,.5);animation:pc-flow 6s linear infinite;}',
+      // 11 Inferno — intensiver Flammenlauf + Glut-Puls
+      '.pc-frame-inferno{border:3px solid transparent;background-image:linear-gradient(rgba(9,32,21,.85),rgba(9,32,21,.85)),linear-gradient(90deg,#3a0000,#ff2d00,#ff6a00,#ffd23f,#ff2d00,#3a0000);animation:pc-flow 3s linear infinite,pc-p-inferno 1.6s ease-in-out infinite;}',
+      '@keyframes pc-p-inferno{0%,100%{box-shadow:0 0 14px rgba(255,60,0,.5);}50%{box-shadow:0 0 30px rgba(255,120,0,.95),inset 0 0 16px rgba(255,60,0,.4);}}',
+      // 12 Kosmos — Galaxie-Lauf + Sterne
+      '.pc-frame-cosmos{border:3px solid transparent;background-image:linear-gradient(rgba(9,32,21,.85),rgba(9,32,21,.85)),linear-gradient(90deg,#3a1c71,#c31432,#22d3ff,#a855f7,#3a1c71);box-shadow:0 0 20px rgba(120,80,255,.55);animation:pc-flow 7s linear infinite;}',
+      '.pc-frame-cosmos::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;border-radius:inherit;background-image:radial-gradient(2px 2px at 14% 24%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 84% 20%,#bfe0ff,transparent 60%),radial-gradient(2px 2px at 30% 80%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 70% 84%,#fff,transparent 60%),radial-gradient(2px 2px at 52% 14%,#e0c8ff,transparent 60%);animation:pc-twinkle 2s ease-in-out infinite;}',
+      // 13 Goldregen — Gold-Schimmer + Glitzer
+      '.pc-frame-goldrain{border:3px solid transparent;background-image:linear-gradient(rgba(9,32,21,.85),rgba(9,32,21,.85)),linear-gradient(90deg,#8a5a00,#ffd23f,#fff3b0,#ffd23f,#8a5a00);box-shadow:0 0 20px rgba(255,210,63,.6);animation:pc-flow 4.5s linear infinite;}',
+      '.pc-frame-goldrain::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;border-radius:inherit;background-image:radial-gradient(2px 2px at 12% 20%,#fff6c0,transparent 60%),radial-gradient(1.5px 1.5px at 86% 26%,#ffe98a,transparent 60%),radial-gradient(2px 2px at 22% 84%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 78% 80%,#ffe98a,transparent 60%),radial-gradient(2px 2px at 50% 10%,#fff6c0,transparent 60%);animation:pc-twinkle 1.8s ease-in-out infinite;}',
+      // 14 Toxisch — radioaktiver Säure-Puls
+      '.pc-frame-toxic{border-color:#aaff00;animation:pc-p-toxic 1.7s ease-in-out infinite;}',
+      '@keyframes pc-p-toxic{0%,100%{box-shadow:0 0 10px rgba(170,255,0,.45),inset 0 0 8px rgba(120,200,0,.3);}50%{box-shadow:0 0 30px rgba(170,255,0,1),inset 0 0 18px rgba(120,255,0,.5);}}',
+      // 15 Königs-Aura — Lila/Gold-Aura
+      '.pc-frame-royalaura{border:3px double #ffd23f;animation:pc-royalaura 3.5s ease-in-out infinite;}',
+      '@keyframes pc-royalaura{0%,100%{box-shadow:0 0 16px rgba(255,210,63,.5),inset 0 0 14px rgba(168,85,247,.35);}50%{box-shadow:0 0 30px rgba(168,85,247,.85),inset 0 0 20px rgba(255,210,63,.5);}}',
+      // 16 Phönix — Feuerlauf + Glut-Funken + Glut-Puls
+      '.pc-frame-phoenix{border:4px solid transparent;background-image:linear-gradient(rgba(9,32,21,.9),rgba(9,32,21,.9)),linear-gradient(90deg,#ff2d00,#ff9d3c,#ffd23f,#fff3b0,#ff9d3c,#ff2d00);animation:pc-flow 3.5s linear infinite,pc-p-inferno 1.8s ease-in-out infinite;}',
+      '.pc-frame-phoenix::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;border-radius:inherit;background-image:radial-gradient(2px 2px at 16% 24%,#fff3b0,transparent 60%),radial-gradient(1.5px 1.5px at 82% 22%,#ffb060,transparent 60%),radial-gradient(2px 2px at 26% 82%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 74% 80%,#ff9d3c,transparent 60%);animation:pc-twinkle 1.6s ease-in-out infinite;}',
+      // 17 Obsidian-Blitz — dunkles Metall + Cyan-Sheen + Funken
+      '.pc-frame-obsidian{border:3px solid #2c2c3a;background:linear-gradient(160deg,rgba(10,10,16,.92),rgba(30,30,44,.92));box-shadow:0 0 18px rgba(0,229,255,.35),inset 0 0 14px rgba(0,0,0,.6);overflow:hidden;}',
+      '.pc-frame-obsidian::before{content:"";position:absolute;top:0;left:-70%;width:55%;height:100%;pointer-events:none;z-index:5;background:linear-gradient(115deg,transparent 0%,rgba(120,240,255,.55) 50%,transparent 100%);transform:skewX(-18deg);animation:pc-sheen 3s ease-in-out infinite;}',
+      '.pc-frame-obsidian::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;border-radius:inherit;background-image:radial-gradient(1.5px 1.5px at 18% 26%,#aef6ff,transparent 60%),radial-gradient(2px 2px at 82% 24%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 30% 82%,#8fefff,transparent 60%),radial-gradient(1.5px 1.5px at 70% 80%,#fff,transparent 60%);animation:pc-twinkle 1.4s ease-in-out infinite;}',
+      // 18 Prisma Maximum — volles Spektrum, sehr schnell + Sheen + Funkeln
+      '.pc-frame-spectrum{border:4px solid transparent;background-image:linear-gradient(rgba(9,32,21,.85),rgba(9,32,21,.85)),linear-gradient(90deg,#ff2d55,#ff9d3c,#ffd23f,#39ff14,#22d3ff,#3a86ff,#a855f7,#ff2fb9,#ff2d55);background-size:100% 100%,400% 100%;box-shadow:0 0 24px rgba(160,120,255,.55);animation:pc-flow4 2.5s linear infinite;}',
+      '.pc-frame-spectrum::before{content:"";position:absolute;top:0;left:-70%;width:55%;height:100%;pointer-events:none;z-index:5;background:linear-gradient(115deg,transparent 0%,rgba(255,255,255,.5) 50%,transparent 100%);transform:skewX(-18deg);animation:pc-sheen 3.2s ease-in-out infinite;}',
+      '.pc-frame-spectrum::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;border-radius:inherit;background-image:radial-gradient(2px 2px at 14% 22%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 86% 26%,#fff,transparent 60%),radial-gradient(2px 2px at 50% 12%,#fff,transparent 60%);animation:pc-twinkle 1.9s ease-in-out infinite;}',
+      // 19 Sonnenkorona — strahlendes Gold/Weiss + Funkeln
+      '.pc-frame-solar{border:4px solid transparent;background-image:linear-gradient(rgba(9,32,21,.9),rgba(9,32,21,.9)),radial-gradient(circle,#fff6b0,#ffd23f 40%,#ff9d3c 72%);background-origin:border-box;background-clip:padding-box,border-box;animation:pc-p-solar 2.4s ease-in-out infinite;}',
+      '@keyframes pc-p-solar{0%,100%{box-shadow:0 0 18px rgba(255,210,63,.6),inset 0 0 14px rgba(255,180,40,.35);}50%{box-shadow:0 0 40px rgba(255,240,160,1),inset 0 0 22px rgba(255,200,60,.55);}}',
+      '.pc-frame-solar::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;border-radius:inherit;background-image:radial-gradient(2px 2px at 16% 22%,#fff,transparent 60%),radial-gradient(2px 2px at 84% 24%,#fff6c0,transparent 60%),radial-gradient(2px 2px at 30% 82%,#fff,transparent 60%),radial-gradient(2px 2px at 72% 78%,#fff,transparent 60%),radial-gradient(2.5px 2.5px at 50% 10%,#fff,transparent 60%);animation:pc-twinkle 1.5s ease-in-out infinite;}',
+
+      // 20 PLATIN-DIAMANT — der edelste Rahmen (höchste Stufe, Richtung 99999).
+      // Schimmerndes Platin (fließender Metall-Verlauf) + wandernder Sheen (::before)
+      // + funkelnde Diamant-Facetten (::after). Deutlich aufwendiger als alle anderen.
+      '.pc-frame-platinum{border:4px solid transparent;background-image:linear-gradient(rgba(9,32,21,.92),rgba(9,32,21,.92)),linear-gradient(120deg,#6e7885,#c7d2de,#ffffff,#9aa6b2,#eef3f9,#b9c4d0,#6e7885);box-shadow:0 0 30px rgba(220,235,255,.6),0 0 60px rgba(180,210,255,.25),inset 0 0 18px rgba(210,225,255,.28);animation:pc-flow 5s linear infinite;overflow:hidden;}',
+      '.pc-frame-platinum::before{content:"";position:absolute;top:0;left:-70%;width:55%;height:100%;pointer-events:none;z-index:5;background:linear-gradient(115deg,transparent 0%,rgba(255,255,255,.15) 35%,rgba(255,255,255,.9) 50%,rgba(255,255,255,.15) 65%,transparent 100%);transform:skewX(-18deg);animation:pc-sheen 3.4s ease-in-out infinite;}',
+      '.pc-frame-platinum::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:6;border-radius:inherit;background-image:radial-gradient(2.5px 2.5px at 10% 18%,#fff,transparent 60%),radial-gradient(2px 2px at 90% 24%,#d8ecff,transparent 60%),radial-gradient(2.5px 2.5px at 16% 84%,#fff,transparent 60%),radial-gradient(2px 2px at 84% 80%,#eaf4ff,transparent 60%),radial-gradient(3px 3px at 50% 8%,#fff,transparent 60%),radial-gradient(2px 2px at 72% 54%,#fff,transparent 60%),radial-gradient(2px 2px at 30% 46%,#d8ecff,transparent 60%);animation:pc-diamond 1.9s ease-in-out infinite;}'
     ].join(''));
   }
 

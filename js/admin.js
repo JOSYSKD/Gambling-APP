@@ -55,6 +55,14 @@
       '.admin-wrap{display:flex;flex-direction:column;gap:18px;}',
       '.admin-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}',
       '.admin-head .page-title{margin:0;}',
+      '.admin-mail-btn{position:relative;}',
+      '.admin-mail-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:99px;background:var(--danger-2,#ff4d6d);color:#fff;font-size:11px;font-weight:900;vertical-align:middle;box-shadow:0 0 8px rgba(255,77,109,.6);}',
+      '.admin-inbox{max-width:560px;text-align:left;}',
+      '.admin-inbox-list{display:flex;flex-direction:column;gap:10px;max-height:56vh;overflow-y:auto;margin-bottom:12px;}',
+      '.admin-inbox-item{background:rgba(0,0,0,.22);border:1px solid var(--stroke);border-radius:12px;padding:10px 12px;}',
+      '.admin-inbox-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}',
+      '.admin-inbox-quote{font-size:11px;color:var(--muted);font-style:italic;margin:2px 0;}',
+      '.admin-inbox-text{font-weight:700;margin:4px 0 8px;white-space:pre-wrap;word-break:break-word;}',
       '.admin-head-spacer{flex:1 1 auto;}',
       // Statistik-Leiste
       '.admin-stats{display:flex;flex-wrap:wrap;gap:12px;}',
@@ -174,7 +182,9 @@
             balance: acct.balance || 0,
             tickets: acct.tickets || 0,
             lastSeen: (acct.session && acct.session.lastSeen) || 0,
-            admin: acct.admin || {}
+            admin: acct.admin || {},
+            replies: acct.replies || [],
+            maxLevel: !!acct.maxLevel
           });
         });
         Object.keys(presence).forEach(function (id) {
@@ -186,7 +196,9 @@
             balance: p.balance || 0,
             tickets: p.tickets || 0,
             lastSeen: p.lastSeen || 0,
-            admin: p.admin || {}
+            admin: p.admin || {},
+            replies: p.replies || [],
+            maxLevel: !!p.maxLevel
           });
         });
         rows.presenceFailed = presenceFailed;
@@ -274,6 +286,8 @@
       var banDrafts = {};
       var goldDrafts = {};
       var loading = false;
+      var lastRows = [];            // letzter geladener Spieler-Stand (fürs Postfach)
+      var mailBadge = null;         // Zähler-Badge am Postfach-Knopf
 
       // Persistente Referenzen auf das Grundgerüst (einmalig gebaut, nie ersetzt).
       var statTotal, statOnline, statAccounts, statGuests;
@@ -315,6 +329,10 @@
           } }, ['← Zurück']),
           el('h2', { class: 'page-title neon' }, ['🛠 Admin Panel']),
           el('div', { class: 'admin-head-spacer' }),
+          (function () {
+            mailBadge = el('span', { class: 'admin-mail-badge', style: 'display:none;' }, ['0']);
+            return el('button', { class: 'btn btn-primary admin-mail-btn', type: 'button', onclick: openInbox }, ['📬 Postfach', mailBadge]);
+          })(),
           el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
             App.Router.go('/admin/tournament');
           } }, ['🏆 Turniere & Sieger']),
@@ -713,6 +731,62 @@
         });
       }
 
+      // Alle Antworten aus allen Spielern einsammeln, neueste zuerst.
+      function collectReplies() {
+        var all = [];
+        lastRows.forEach(function (row) {
+          (row.replies || []).forEach(function (r) {
+            if (r && r.text) all.push({ row: row, r: r });
+          });
+        });
+        all.sort(function (a, b) { return (b.r.ts || 0) - (a.r.ts || 0); });
+        return all;
+      }
+      function updateMailBadge() {
+        if (!mailBadge) return;
+        var n = collectReplies().length;
+        mailBadge.textContent = String(n);
+        mailBadge.style.display = n ? '' : 'none';
+      }
+      function openInbox() {
+        var list = collectReplies();
+        var body;
+        var overlay = el('div', { class: 'modal-overlay' }, [
+          el('div', { class: 'modal glass admin-inbox' }, [
+            el('h2', { class: 'neon' }, ['📬 Postfach']),
+            el('p', { class: 'lb-hint', style: 'margin:0 0 8px;' }, [list.length ? (list.length + ' Antwort(en) von Spielern — neueste zuerst.') : 'Noch keine Antworten von Spielern.']),
+            (body = el('div', { class: 'admin-inbox-list' }, list.map(function (item) {
+              var when = item.r.ts ? new Date(item.r.ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+              var replyInput = el('input', { class: 'text-input', type: 'text', placeholder: '↩︎ Antwort an ' + (item.r.name || item.row.displayName) + ' …' });
+              return el('div', { class: 'admin-inbox-item' }, [
+                el('div', { class: 'admin-inbox-top' }, [
+                  el('b', {}, [item.r.name || item.row.displayName]),
+                  el('span', { class: 'cf-info-l' }, [when])
+                ]),
+                item.r.msgText ? el('div', { class: 'admin-inbox-quote' }, ['Auf: „' + item.r.msgText + '"']) : null,
+                el('div', { class: 'admin-inbox-text' }, [item.r.text]),
+                el('div', { class: 'admin-row-actions' }, [
+                  replyInput,
+                  el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
+                    var t = (replyInput.value || '').trim();
+                    if (!t) return;
+                    Admin.sendMessage(item.row.kind, item.row.key, t).then(function () {
+                      UI.toast('Antwort an ' + (item.r.name || item.row.displayName) + ' gesendet', 'win');
+                      replyInput.value = '';
+                    }).catch(function (e) { UI.toast(e.message, 'lose'); });
+                  } }, ['Senden'])
+                ])
+              ]);
+            }))),
+            el('button', { class: 'btn btn-ghost btn-lg', type: 'button', onclick: function () {
+              if (overlay.parentNode) document.body.removeChild(overlay);
+            } }, ['Schließen'])
+          ])
+        ]);
+        if (!list.length) body.appendChild(el('p', { class: 'lb-empty' }, ['—']));
+        document.body.appendChild(overlay);
+      }
+
       function refresh() {
         if (loading) return;
         // Fokus-Schutz: während der Admin in einem Panel-Feld tippt, gar nichts tun.
@@ -722,6 +796,8 @@
         Admin.listPlayers().then(function (rows) {
           loading = false;
           errEl.hidden = true;
+          lastRows = rows || [];
+          updateMailBadge();
           reconcile(rows || []);
         }).catch(function () {
           // listPlayers() fängt Teil-Fehler inzwischen selbst ab und wirft praktisch

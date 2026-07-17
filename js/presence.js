@@ -46,11 +46,35 @@
     return (App.Coins && App.Coins.getPeak()) || 0;
   }
 
+  function isMax() { return !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel()); }
+
+  // Antwort eines Gastes auf eine Admin-Nachricht in seinen Präsenz-Eintrag schreiben
+  // (Feld `replies`). Der Heartbeat bewahrt replies (siehe next.replies).
+  function pushGuestReply(text, msg) {
+    text = String(text || '').trim().slice(0, 300);
+    if (!text || !App.Account || !App.Account.presenceGet) return Promise.resolve(false);
+    var id = deviceId();
+    return App.Account.presenceGet(id).then(function (rec) {
+      rec = rec || {};
+      rec.replies = (rec.replies || []).concat([{
+        id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        text: text, ts: Date.now(),
+        name: (App.Leaderboard && App.Leaderboard.getPlayerName()) || 'Gast',
+        to: (msg && msg.id) || null, msgText: (msg && msg.text) || ''
+      }]);
+      if (rec.replies.length > 40) rec.replies = rec.replies.slice(rec.replies.length - 40);
+      return App.Account.presenceSet(id, rec).then(function () { return true; });
+    }).catch(function () { return false; });
+  }
+
   function showMessage(msg) {
     if (!msg || !msg.id) return;
     if (App.Storage.get(KEY_MSG_SEEN, null) === msg.id) return;
     App.Storage.set(KEY_MSG_SEEN, msg.id);
     if (!App.UI || !App.UI.el) return;
+    // Gemeinsames Modal mit Antwort-Feld (definiert in js/account.js). Fallback:
+    // schlichtes Modal ohne Antwort, falls account.js (noch) nicht geladen ist.
+    if (App.__showAdminMessageModal) { App.__showAdminMessageModal(msg, pushGuestReply); return; }
     var el = App.UI.el;
     var overlay = el('div', { class: 'modal-overlay' }, [
       el('div', { class: 'modal glass' }, [
@@ -105,6 +129,8 @@
         balance: App.Coins ? App.Coins.get() : 0,
         tickets: App.Tickets ? App.Tickets.get() : 0,
         casinoPeak: casinoPeak(),
+        maxLevel: isMax(),                       // goldener Name (Level 99999)
+        replies: (rec && rec.replies) || [],     // Antworten an den Admin bewahren
         lastSeen: Date.now(),
         accountKey: loggedIn ? App.Account.currentKey() : null,
         admin: admin

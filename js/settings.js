@@ -1,14 +1,22 @@
-/* settings.js — Einstellungen: Farb-Themes ("Styles") + Optionen  (App.Settings)
+/* settings.js — Einstellungen: Farb-Themes ("Styles") + Stil/Hintergrund + Optionen  (App.Settings)
  *
  * Themes überschreiben die CSS-Variablen aus style.css (Akzente, Hintergrund, Glow)
  * live auf :root, plus ein injiziertes <style> für den Body-Hintergrund. Auswahl in
  * localStorage. Wird so früh wie möglich angewandt.
+ *
+ * ZUSÄTZLICH (unabhängig von den Farbpaletten): ein STIL-/HINTERGRUND-Wähler mit 7
+ * aufwändigen, rein per CSS/JS erzeugten Szenen (jungle/water/fire/stone/ice/storm/
+ * galaxy). Das komplette Hintergrundsystem lebt hier: CSS wird per
+ * App.UI.injectStyle('bgstyle-css', ...) injiziert, ein fixierter Container
+ * <div id="bg-scene" class="bg-scene"> hinter dem Inhalt (z-index unter dem Content,
+ * pointer-events:none) wird per JS befüllt, und am <body> hängt eine Klasse
+ * bgstyle-<id>. index.html/style.css bleiben unangetastet.
  */
 (function () {
   'use strict';
   window.App = window.App || {};
   var UI = App.UI, el = UI.el;
-  var KEY = 'gj_theme', KEY_RM = 'gj_reduce_motion';
+  var KEY = 'gj_theme', KEY_RM = 'gj_reduce_motion', KEY_BG = 'gj_bgstyle';
 
   function hexRgb(hex) {
     hex = hex.replace('#', '');
@@ -33,10 +41,26 @@
   ];
   function byId(id) { for (var i = 0; i < THEMES.length; i++) if (THEMES[i].id === id) return THEMES[i]; return THEMES[0]; }
 
+  // ==========================================================================
+  //  STIL / HINTERGRUND — 7 aufwändige Szenen (unabhängig von den Farb-Themes)
+  // ==========================================================================
+  var BG_STYLES = [
+    { id: 'jungle', name: 'Dschungel', emoji: '🌿', desc: 'Ranken, Blätter & Glühwürmchen' },
+    { id: 'water',  name: 'Wasser',    emoji: '🌊', desc: 'Kaustik-Licht & Blasen' },
+    { id: 'fire',   name: 'Feuer',     emoji: '🔥', desc: 'Glut, Funken & Rauch' },
+    { id: 'stone',  name: 'Stein',     emoji: '🪨', desc: 'Höhle, Adern & Staub' },
+    { id: 'ice',    name: 'Eis',       emoji: '❄️', desc: 'Frost, Schnee & Glitzer' },
+    { id: 'storm',  name: 'Gewitter',  emoji: '⛈️', desc: 'Wolken, Blitze & Regen' },
+    { id: 'galaxy', name: 'Galaxie',   emoji: '🌌', desc: 'Sterne, Nebel & Parallax' }
+  ];
+  function byBgId(id) { for (var i = 0; i < BG_STYLES.length; i++) if (BG_STYLES[i].id === id) return BG_STYLES[i]; return BG_STYLES[0]; }
+
   var current = 'jungle';
   try { current = (App.Storage ? App.Storage.get(KEY, null) : localStorage.getItem(KEY)) || 'jungle'; } catch (e) {}
   var reduceMotion = false;
   try { reduceMotion = App.Storage ? App.Storage.get(KEY_RM, false) : (localStorage.getItem(KEY_RM) === '1'); } catch (e) {}
+  var currentBg = 'jungle';
+  try { currentBg = (App.Storage ? App.Storage.get(KEY_BG, null) : localStorage.getItem(KEY_BG)) || 'jungle'; } catch (e) {}
 
   var listeners = [];
   function onChange(cb) { listeners.push(cb); return function () { var i = listeners.indexOf(cb); if (i >= 0) listeners.splice(i, 1); }; }
@@ -86,6 +110,281 @@
     try { App.Storage ? App.Storage.set(KEY_RM, reduceMotion) : localStorage.setItem(KEY_RM, reduceMotion ? '1' : '0'); } catch (e) {}
   }
 
+  // ---------- Hintergrund-Bausteine (rein CSS/JS, keine externen Assets) ----------
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function rndi(a, b) { return Math.floor(rnd(a, b + 1)); }
+  // Weniger Partikel auf schmalen Geräten (Performance).
+  function cnt(n) { var d = (window.innerWidth && window.innerWidth < 640) ? 0.55 : 1; return Math.max(1, Math.round(n * d)); }
+
+  // box-shadow-„Sternenfeld": ein Punkt-Element, das per box-shadow N Kopien streut.
+  function fieldShadow(n, w, h, colors) {
+    var a = [];
+    for (var i = 0; i < n; i++) {
+      a.push(rndi(0, w) + 'px ' + rndi(0, h) + 'px ' + colors[i % colors.length]);
+    }
+    return a.join(',');
+  }
+  function L(cls) { return el('div', { class: 'full ' + cls }); }
+  function F(n, colors, size, cls) {
+    return el('div', { class: 'field ' + cls, style: 'width:' + size + 'px;height:' + size + 'px;box-shadow:' + fieldShadow(cnt(n), 1920, 1160, colors) + ';' });
+  }
+  // Aufsteigende/fallende Partikel (Blasen, Funken, Schnee, Blätter, Rauch, Regen).
+  function particles(n, cls, o) {
+    var arr = [];
+    n = cnt(n);
+    for (var i = 0; i < n; i++) {
+      var size = rnd(o.min, o.max);
+      var dur = rnd(o.durMin, o.durMax);
+      var delay = -(Math.random() * dur);
+      var dx = (Math.random() * 2 - 1) * (o.dx || 20);
+      var s = 'left:' + rnd(0, 100).toFixed(2) + '%;width:' + size.toFixed(1) + 'px;height:' + size.toFixed(1) + 'px;' +
+        'animation-duration:' + dur.toFixed(2) + 's;animation-delay:' + delay.toFixed(2) + 's;--dx:' + dx.toFixed(1) + 'px;';
+      if (o.extra) s += o.extra(size, i);
+      arr.push(el('span', { class: cls, style: s }));
+    }
+    return arr;
+  }
+  function svgUrl(svg) { return 'background-image:url("data:image/svg+xml,' + encodeURIComponent(svg) + '");'; }
+
+  function vineSvg(stroke, leaf) {
+    var pts = [[80, 120, 40], [120, 80, -50], [110, 160, 25], [160, 110, -65], [50, 60, 45], [95, 200, 20], [200, 95, -70], [60, 150, 35], [150, 60, -40], [130, 130, 10], [40, 100, 55], [100, 40, -35]];
+    var leaves = '';
+    for (var i = 0; i < pts.length; i++) { var p = pts[i]; leaves += "<ellipse cx='" + p[0] + "' cy='" + p[1] + "' rx='16' ry='8' transform='rotate(" + p[2] + " " + p[0] + " " + p[1] + ")'/>"; }
+    return "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 260'>" +
+      "<g fill='none' stroke='" + stroke + "' stroke-width='3' stroke-linecap='round' opacity='0.9'>" +
+      "<path d='M-10 20 Q70 40 80 120 T150 250'/><path d='M20 -10 Q40 70 120 80 T250 150'/>" +
+      "<path d='M-10 60 Q90 70 110 160 T170 260'/><path d='M60 -10 Q70 90 160 110 T260 170'/></g>" +
+      "<g fill='" + leaf + "' opacity='0.9'>" + leaves + "</g></svg>";
+  }
+  function frostSvg(c) {
+    var b = "<path d='M0 0 L120 120'/>";
+    for (var i = 1; i <= 7; i++) { var t = i * 16; b += "<path d='M" + t + " " + t + " l14 -6'/><path d='M" + t + " " + t + " l-6 14'/>"; }
+    b += "<path d='M0 40 L90 130'/><path d='M40 0 L130 90'/>";
+    for (var j = 1; j <= 5; j++) { var u = j * 16; b += "<path d='M" + u + " " + (u + 40) + " l10 -4'/><path d='M" + (u + 40) + " " + u + " l-4 10'/>"; }
+    return "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'><g fill='none' stroke='" + c + "' stroke-width='2' stroke-linecap='round' opacity='0.85'>" + b + "</g></svg>";
+  }
+  function veinSvg(c) {
+    return "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'><g fill='none' stroke='" + c + "' stroke-width='1.5' opacity='0.8'>" +
+      "<path d='M20 0 L60 90 L40 160 L90 250 L70 300'/><path d='M60 90 L120 120'/><path d='M40 160 L110 180'/><path d='M90 250 L150 240'/>" +
+      "<path d='M300 40 L230 110 L250 190 L200 260'/><path d='M230 110 L170 140'/><path d='M250 190 L190 210'/><path d='M150 0 L160 70 L140 130'/>" +
+      "</g></svg>";
+  }
+  function boltSvg() {
+    return "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 200'><polyline points='55,0 40,80 60,80 30,200 50,95 32,95' fill='none' stroke='#eaf0ff' stroke-width='4' stroke-linejoin='round' opacity='0.95'/></svg>";
+  }
+  function vine(pos, flip, svg) {
+    return el('div', { class: 'jgl-vine ' + pos, style: flip ? ('transform:' + flip + ';') : null }, [
+      el('div', { class: 'jgl-vine-in', style: svgUrl(svg) })
+    ]);
+  }
+  function frost(pos, svg) { return el('div', { class: 'ice-frost ' + pos, style: svgUrl(svg) }); }
+  function rainDrops(n) {
+    var arr = [];
+    n = cnt(n);
+    for (var i = 0; i < n; i++) {
+      var dur = rnd(0.5, 1.1);
+      var s = 'left:' + rnd(0, 100).toFixed(2) + '%;width:' + rnd(1, 2).toFixed(1) + 'px;height:' + rndi(30, 70) + 'px;' +
+        'animation-duration:' + dur.toFixed(2) + 's;animation-delay:' + (-Math.random() * dur).toFixed(2) + 's;--dx:' + rndi(20, 60) + 'px;';
+      arr.push(el('span', { class: 'p streak fall', style: s }));
+    }
+    return arr;
+  }
+
+  var SCENES = {
+    jungle: function () {
+      return [
+        L('jgl-sky'), L('jgl-canopy'), L('jgl-rays'), L('jgl-fog'),
+        vine('tl', '', vineSvg('#39ff14', '#9dff7a')),
+        vine('tr', 'scaleX(-1)', vineSvg('#33e6d0', '#7ff3e6')),
+        vine('bl', 'scaleY(-1)', vineSvg('#33e6d0', '#7ff3e6')),
+        vine('br', 'scale(-1)', vineSvg('#39ff14', '#9dff7a')),
+        F(70, ['rgba(157,255,122,.9)', 'rgba(57,255,20,.85)', 'rgba(127,243,230,.8)'], 2, 'jgl-flies'),
+        F(40, ['rgba(157,255,122,.7)', 'rgba(51,230,208,.6)'], 3, 'jgl-flies2')
+      ].concat(particles(14, 'p leaf', { min: 8, max: 18, durMin: 16, durMax: 30, dx: 70 }));
+    },
+    water: function () {
+      return [
+        L('wtr-deep'), L('wtr-caustic'), L('wtr-caustic2'), L('wtr-rays'),
+        el('div', { class: 'wtr-surface' })
+      ].concat(particles(26, 'p bub', { min: 4, max: 16, durMin: 7, durMax: 16, dx: 30 }));
+    },
+    fire: function () {
+      return [L('fire-base'), L('fire-glow'), L('fire-flick')]
+        .concat(particles(9, 'p smoke', { min: 60, max: 150, durMin: 9, durMax: 16, dx: 40 }))
+        .concat(particles(34, 'p ember', { min: 2, max: 6, durMin: 3, durMax: 8, dx: 40 }));
+    },
+    stone: function () {
+      return [
+        L('stn-base'), L('stn-mottle'),
+        el('div', { class: 'stn-vein', style: svgUrl(veinSvg('#7fe3ff')) }),
+        L('stn-light'),
+        F(60, ['rgba(200,190,170,.5)', 'rgba(170,160,140,.4)'], 2, 'stn-dust')
+      ].concat(particles(16, 'p dust', { min: 2, max: 5, durMin: 18, durMax: 34, dx: 30 }));
+    },
+    ice: function () {
+      return [
+        L('ice-base'), L('ice-shimmer'),
+        frost('tl', frostSvg('#bfe9ff')), frost('tr', frostSvg('#dff4ff')),
+        frost('bl', frostSvg('#dff4ff')), frost('br', frostSvg('#bfe9ff')),
+        F(80, ['rgba(210,240,255,.9)', 'rgba(255,255,255,.85)', 'rgba(150,220,255,.7)'], 2, 'ice-glint')
+      ].concat(particles(34, 'p flake fall', { min: 3, max: 8, durMin: 7, durMax: 15, dx: 40 }));
+    },
+    storm: function () {
+      return [
+        L('stm-base'), L('stm-cloud'), L('stm-cloud2'), L('stm-flash'),
+        el('div', { class: 'stm-bolt', style: svgUrl(boltSvg()) })
+      ].concat(rainDrops(60));
+    },
+    galaxy: function () {
+      return [
+        L('gal-base'), L('gal-neb'), L('gal-neb2'),
+        F(120, ['rgba(255,255,255,.9)', 'rgba(180,200,255,.8)', 'rgba(255,180,230,.7)', 'rgba(160,255,240,.7)'], 1.5, 'gal-far'),
+        F(70, ['rgba(255,255,255,.95)', 'rgba(190,210,255,.85)'], 2, 'gal-mid'),
+        F(30, ['rgba(255,255,255,1)', 'rgba(255,190,235,.9)', 'rgba(160,255,245,.9)'], 3, 'gal-near')
+      ];
+    }
+  };
+
+  function bgKeyframes() {
+    return [
+      '@keyframes bgk-rise{from{transform:translateY(0)}to{transform:translateY(-118vh)}}',
+      '@keyframes bgk-bub{0%{transform:translateY(0) translateX(0);opacity:0}10%{opacity:.85}90%{opacity:.7}100%{transform:translateY(-118vh) translateX(var(--dx,0));opacity:0}}',
+      '@keyframes bgk-ember{0%{transform:translateY(0) translateX(0);opacity:0}12%{opacity:1}80%{opacity:.8}100%{transform:translateY(-118vh) translateX(var(--dx,0));opacity:0}}',
+      '@keyframes bgk-smoke{0%{transform:translateY(0) scale(.6);opacity:0}20%{opacity:.5}100%{transform:translateY(-110vh) scale(1.9);opacity:0}}',
+      '@keyframes bgk-leaf{0%{transform:translateY(0) rotate(0);opacity:0}10%{opacity:.9}100%{transform:translateY(-118vh) rotate(360deg) translateX(var(--dx,0));opacity:0}}',
+      '@keyframes bgk-flake{0%{transform:translateY(0) translateX(0)}50%{transform:translateY(59vh) translateX(var(--dx,12px))}100%{transform:translateY(118vh) translateX(0)}}',
+      '@keyframes bgk-rainfall{from{transform:translateY(0) translateX(0)}to{transform:translateY(124vh) translateX(var(--dx,30px))}}',
+      '@keyframes bgk-twinkle{0%,100%{opacity:.25}50%{opacity:1}}',
+      '@keyframes bgk-twinkle2{0%,100%{opacity:1}50%{opacity:.35}}',
+      '@keyframes bgk-driftx{from{transform:translate(0,0)}to{transform:translate(30px,-20px)}}',
+      '@keyframes bgk-drifty{from{transform:translate(0,0)}to{transform:translate(-24px,18px)}}',
+      '@keyframes bgk-sway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}',
+      '@keyframes bgk-caustic{0%{transform:translate(-5%,-5%) scale(1)}50%{transform:translate(5%,5%) scale(1.15)}100%{transform:translate(-5%,-5%) scale(1)}}',
+      '@keyframes bgk-flicker{0%,100%{opacity:.55}25%{opacity:.85}50%{opacity:.4}75%{opacity:.95}}',
+      '@keyframes bgk-cloud{from{transform:translateX(-6%)}to{transform:translateX(6%)}}',
+      '@keyframes bgk-nebula{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:.85;transform:scale(1.1)}}',
+      '@keyframes bgk-shimmer{0%,100%{opacity:.2}50%{opacity:.55}}',
+      '@keyframes bgk-light{0%,92%,100%{opacity:0}93%{opacity:.9}94%{opacity:.15}95%{opacity:.85}96.5%{opacity:0}}'
+    ].join('');
+  }
+
+  function bgCss() {
+    var base = [
+      '.bg-scene{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;isolation:isolate;}',
+      '.bg-scene>*{position:absolute;pointer-events:none;}',
+      '.bg-scene .full{inset:0;}',
+      '.bg-scene .field{top:0;left:0;border-radius:50%;background:transparent;will-change:transform,opacity;}',
+      '.bg-scene .p{position:absolute;bottom:-6%;border-radius:50%;will-change:transform,opacity;animation-iteration-count:infinite;animation-timing-function:linear;}',
+      '.bg-scene .p.fall{top:-6%;bottom:auto;}',
+      // In JEDEM Stil ersetzt die neue Szene die alten Deko-Elemente aus index.html.
+      'body[class*="bgstyle-"] .vines,body[class*="bgstyle-"] .fireflies{display:none !important;}',
+      // Bewegung reduzieren: OS-Präferenz + App-Schalter (.reduce-motion am <html>).
+      '@media (prefers-reduced-motion:reduce){.bg-scene *{animation:none !important;}.bg-scene .p{display:none;}}',
+      '.reduce-motion .bg-scene *{animation:none !important;}',
+      '.reduce-motion .bg-scene .p{display:none;}'
+    ].join('');
+
+    var jungle = [
+      '.bgstyle-jungle .jgl-sky{background:radial-gradient(120% 90% at 50% -10%,rgba(20,80,40,.55),transparent 60%),linear-gradient(180deg,rgba(3,20,10,.2),rgba(2,12,7,.6));}',
+      '.bgstyle-jungle .jgl-canopy{background:radial-gradient(60% 42% at 15% 0%,rgba(10,60,30,.7),transparent 70%),radial-gradient(60% 42% at 85% 0%,rgba(8,50,26,.7),transparent 70%);mix-blend-mode:screen;}',
+      '.bgstyle-jungle .jgl-rays{background:repeating-linear-gradient(100deg,transparent 0 42px,rgba(157,255,122,.05) 42px 70px);mix-blend-mode:screen;transform-origin:50% 0;opacity:.7;animation:bgk-sway 16s ease-in-out infinite;}',
+      '.bgstyle-jungle .jgl-fog{background:linear-gradient(0deg,rgba(4,18,10,.85),transparent 45%);}',
+      '.jgl-vine{width:min(48vw,440px);height:min(48vw,440px);}',
+      '.jgl-vine.tl{top:-2%;left:-2%;}.jgl-vine.tr{top:-2%;right:-2%;}.jgl-vine.bl{bottom:-2%;left:-2%;}.jgl-vine.br{bottom:-2%;right:-2%;}',
+      '.jgl-vine-in{position:absolute;inset:0;background-repeat:no-repeat;background-size:contain;opacity:.6;}',
+      '.jgl-vine.tl .jgl-vine-in{transform-origin:0 0;animation:bgk-sway 9s ease-in-out infinite;}',
+      '.jgl-vine.tr .jgl-vine-in{transform-origin:100% 0;animation:bgk-sway 11s ease-in-out infinite reverse;}',
+      '.jgl-vine.bl .jgl-vine-in{transform-origin:0 100%;animation:bgk-sway 12s ease-in-out infinite;}',
+      '.jgl-vine.br .jgl-vine-in{transform-origin:100% 100%;animation:bgk-sway 10s ease-in-out infinite reverse;}',
+      '.bgstyle-jungle .jgl-flies{animation:bgk-twinkle 3.5s ease-in-out infinite,bgk-driftx 26s ease-in-out infinite alternate;}',
+      '.bgstyle-jungle .jgl-flies2{animation:bgk-twinkle2 5s ease-in-out infinite,bgk-drifty 34s ease-in-out infinite alternate;}',
+      '.bgstyle-jungle .leaf{background:linear-gradient(135deg,rgba(120,220,90,.9),rgba(40,150,60,.7));border-radius:0 100% 0 100%;box-shadow:0 0 6px rgba(57,255,20,.4);animation-name:bgk-leaf;}'
+    ].join('');
+
+    var water = [
+      '.bgstyle-water .wtr-deep{background:radial-gradient(120% 100% at 50% -20%,rgba(30,150,220,.5),transparent 55%),linear-gradient(180deg,rgba(8,60,100,.6) 0%,rgba(3,20,40,.85) 60%,rgba(1,8,20,.95) 100%);}',
+      '.bgstyle-water .wtr-caustic{background:radial-gradient(40% 30% at 20% 20%,rgba(120,220,255,.16),transparent 60%),radial-gradient(35% 25% at 70% 40%,rgba(120,220,255,.14),transparent 60%),radial-gradient(30% 22% at 45% 70%,rgba(150,240,255,.14),transparent 60%),radial-gradient(30% 22% at 85% 75%,rgba(120,220,255,.12),transparent 60%);mix-blend-mode:screen;animation:bgk-caustic 18s ease-in-out infinite;}',
+      '.bgstyle-water .wtr-caustic2{background:radial-gradient(45% 30% at 60% 15%,rgba(90,200,255,.12),transparent 60%),radial-gradient(30% 22% at 25% 55%,rgba(120,230,255,.12),transparent 60%),radial-gradient(35% 25% at 80% 60%,rgba(150,240,255,.1),transparent 60%);mix-blend-mode:screen;animation:bgk-caustic 26s ease-in-out infinite reverse;}',
+      '.bgstyle-water .wtr-rays{background:repeating-linear-gradient(102deg,transparent 0 60px,rgba(150,235,255,.05) 60px 90px);mix-blend-mode:screen;opacity:.7;animation:bgk-cloud 20s ease-in-out infinite alternate;}',
+      '.bgstyle-water .wtr-surface{top:0;left:0;right:0;height:22%;background:linear-gradient(180deg,rgba(120,220,255,.18),transparent);animation:bgk-shimmer 6s ease-in-out infinite;}',
+      '.bgstyle-water .bub{background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),rgba(150,220,255,.15) 60%,transparent 72%);border:1px solid rgba(190,235,255,.4);animation-name:bgk-bub;animation-timing-function:ease-in;}'
+    ].join('');
+
+    var fire = [
+      '.bgstyle-fire .fire-base{background:radial-gradient(120% 80% at 50% 120%,rgba(255,120,20,.55),transparent 55%),linear-gradient(0deg,rgba(60,12,4,.9) 0%,rgba(30,8,6,.7) 45%,rgba(10,4,6,.4) 100%);}',
+      '.bgstyle-fire .fire-glow{background:radial-gradient(80% 50% at 50% 108%,rgba(255,180,40,.55),rgba(255,90,20,.25) 40%,transparent 70%);mix-blend-mode:screen;animation:bgk-flicker 3s ease-in-out infinite;}',
+      '.bgstyle-fire .fire-flick{background:radial-gradient(50% 40% at 30% 110%,rgba(255,140,30,.4),transparent 60%),radial-gradient(50% 40% at 72% 112%,rgba(255,90,20,.4),transparent 60%);mix-blend-mode:screen;animation:bgk-flicker 1.7s ease-in-out infinite reverse;}',
+      '.bgstyle-fire .ember{background:radial-gradient(circle,rgba(255,230,150,1),rgba(255,120,20,.9) 55%,transparent 72%);box-shadow:0 0 6px rgba(255,140,30,.9);animation-name:bgk-ember;animation-timing-function:ease-out;}',
+      '.bgstyle-fire .smoke{background:radial-gradient(circle,rgba(40,30,30,.5),transparent 70%);animation-name:bgk-smoke;animation-timing-function:ease-out;}'
+    ].join('');
+
+    var stone = [
+      '.bgstyle-stone .stn-base{background:radial-gradient(120% 90% at 50% -10%,rgba(80,74,60,.5),transparent 55%),linear-gradient(160deg,rgba(28,26,22,.85),rgba(12,11,9,.95));}',
+      '.bgstyle-stone .stn-mottle{background:radial-gradient(18% 14% at 20% 30%,rgba(90,84,70,.35),transparent 60%),radial-gradient(14% 12% at 65% 25%,rgba(70,66,56,.3),transparent 60%),radial-gradient(20% 16% at 40% 70%,rgba(80,74,62,.32),transparent 60%),radial-gradient(16% 12% at 82% 62%,rgba(60,56,48,.3),transparent 60%),radial-gradient(15% 12% at 12% 80%,rgba(74,70,58,.3),transparent 60%);}',
+      '.bgstyle-stone .stn-vein{inset:0;background-repeat:no-repeat;background-size:cover;opacity:.55;filter:drop-shadow(0 0 5px rgba(90,200,230,.5));animation:bgk-shimmer 7s ease-in-out infinite;}',
+      '.bgstyle-stone .stn-light{background:radial-gradient(45% 60% at 68% -5%,rgba(200,210,220,.14),transparent 55%);}',
+      '.bgstyle-stone .stn-dust{animation:bgk-twinkle 6s ease-in-out infinite,bgk-drifty 40s ease-in-out infinite alternate;}',
+      '.bgstyle-stone .dust{background:rgba(200,190,170,.5);opacity:.5;animation-name:bgk-rise;}'
+    ].join('');
+
+    var ice = [
+      '.bgstyle-ice .ice-base{background:radial-gradient(120% 90% at 50% -10%,rgba(120,200,255,.4),transparent 55%),linear-gradient(160deg,rgba(12,44,66,.8),rgba(4,18,30,.92));}',
+      '.bgstyle-ice .ice-shimmer{background:linear-gradient(115deg,transparent 30%,rgba(200,240,255,.1) 50%,transparent 70%);mix-blend-mode:screen;animation:bgk-cloud 12s ease-in-out infinite alternate;}',
+      '.ice-frost{width:min(42vw,380px);height:min(42vw,380px);background-repeat:no-repeat;background-size:contain;opacity:.7;}',
+      '.ice-frost.tl{top:-1%;left:-1%;}.ice-frost.tr{top:-1%;right:-1%;transform:scaleX(-1);}.ice-frost.bl{bottom:-1%;left:-1%;transform:scaleY(-1);}.ice-frost.br{bottom:-1%;right:-1%;transform:scale(-1);}',
+      '.bgstyle-ice .ice-glint{animation:bgk-twinkle 2.6s ease-in-out infinite;}',
+      '.bgstyle-ice .flake{background:radial-gradient(circle,rgba(255,255,255,.95),rgba(200,235,255,.5) 60%,transparent 72%);box-shadow:0 0 4px rgba(210,240,255,.7);animation-name:bgk-flake;}'
+    ].join('');
+
+    var storm = [
+      '.bgstyle-storm .stm-base{background:radial-gradient(120% 90% at 50% -10%,rgba(60,66,84,.5),transparent 55%),linear-gradient(160deg,rgba(16,18,26,.9),rgba(4,5,10,.96));}',
+      '.bgstyle-storm .stm-cloud{background:radial-gradient(50% 40% at 25% 15%,rgba(40,44,58,.9),transparent 60%),radial-gradient(45% 35% at 70% 10%,rgba(30,34,46,.85),transparent 60%),radial-gradient(55% 40% at 50% 0%,rgba(22,26,38,.9),transparent 65%);animation:bgk-cloud 26s ease-in-out infinite alternate;}',
+      '.bgstyle-storm .stm-cloud2{background:radial-gradient(40% 30% at 15% 25%,rgba(48,52,66,.6),transparent 60%),radial-gradient(45% 32% at 80% 20%,rgba(36,40,54,.6),transparent 60%);opacity:.8;animation:bgk-cloud 38s ease-in-out infinite alternate-reverse;}',
+      '.bgstyle-storm .stm-flash{background:radial-gradient(circle at 60% 22%,rgba(220,230,255,.9),rgba(180,200,255,.3) 30%,transparent 60%);mix-blend-mode:screen;opacity:0;animation:bgk-light 9s linear infinite;}',
+      '.bgstyle-storm .stm-bolt{inset:0;background-repeat:no-repeat;background-position:60% 8%;background-size:auto 60%;opacity:0;animation:bgk-light 9s linear infinite;}',
+      '.bgstyle-storm .streak{border-radius:2px;background:linear-gradient(180deg,transparent,rgba(180,200,235,.6));animation-name:bgk-rainfall;}'
+    ].join('');
+
+    var galaxy = [
+      '.bgstyle-galaxy .gal-base{background:radial-gradient(120% 100% at 50% 20%,rgba(30,16,60,.5),transparent 60%),linear-gradient(160deg,rgba(10,6,26,.9),rgba(2,1,10,.98));}',
+      '.bgstyle-galaxy .gal-neb{background:radial-gradient(40% 32% at 30% 40%,rgba(140,70,255,.35),transparent 60%),radial-gradient(35% 28% at 72% 62%,rgba(60,120,255,.3),transparent 60%);mix-blend-mode:screen;animation:bgk-nebula 22s ease-in-out infinite;}',
+      '.bgstyle-galaxy .gal-neb2{background:radial-gradient(30% 24% at 60% 25%,rgba(255,90,200,.22),transparent 60%),radial-gradient(34% 26% at 20% 70%,rgba(80,220,220,.2),transparent 60%);mix-blend-mode:screen;animation:bgk-nebula 30s ease-in-out infinite reverse;}',
+      '.bgstyle-galaxy .gal-far{animation:bgk-twinkle 5s ease-in-out infinite,bgk-drifty 60s linear infinite alternate;}',
+      '.bgstyle-galaxy .gal-mid{animation:bgk-twinkle2 3.6s ease-in-out infinite,bgk-driftx 45s linear infinite alternate;}',
+      '.bgstyle-galaxy .gal-near{animation:bgk-twinkle 2.4s ease-in-out infinite,bgk-driftx 32s linear infinite alternate;}'
+    ].join('');
+
+    return base + bgKeyframes() + jungle + water + fire + stone + ice + storm + galaxy;
+  }
+
+  function injectBgCss() { UI.injectStyle('bgstyle-css', bgCss()); }
+
+  function ensureScene() {
+    if (!document.body) return null;
+    var s = document.getElementById('bg-scene');
+    if (!s) { s = el('div', { id: 'bg-scene', class: 'bg-scene', 'aria-hidden': 'true' }); document.body.insertBefore(s, document.body.firstChild); }
+    return s;
+  }
+  function buildScene(id) {
+    var scene = ensureScene();
+    if (!scene) return;
+    while (scene.firstChild) scene.removeChild(scene.firstChild);
+    var fn = SCENES[id] || SCENES.jungle;
+    var kids = fn();
+    for (var i = 0; i < kids.length; i++) if (kids[i]) scene.appendChild(kids[i]);
+  }
+
+  function applyBg(id, persist) {
+    var b = byBgId(id); currentBg = b.id;
+    injectBgCss();
+    if (document.body) {
+      for (var i = 0; i < BG_STYLES.length; i++) document.body.classList.remove('bgstyle-' + BG_STYLES[i].id);
+      document.body.classList.add('bgstyle-' + b.id);
+      buildScene(b.id);
+    }
+    if (persist !== false) { try { App.Storage ? App.Storage.set(KEY_BG, b.id) : localStorage.setItem(KEY_BG, b.id); } catch (e) {} }
+  }
+
   function injectCss() {
     UI.injectStyle('settings-css', [
       '.reduce-motion *{animation-duration:.001s !important;animation-iteration-count:1 !important;transition-duration:.05s !important;}',
@@ -106,7 +405,19 @@
       '.switch{position:relative;width:52px;height:30px;flex:0 0 auto;border-radius:99px;background:rgba(255,255,255,.14);border:1px solid var(--stroke);cursor:pointer;transition:.15s;}',
       '.switch.on{background:linear-gradient(90deg,var(--aqua),var(--neon));border-color:var(--neon);}',
       '.switch .knob{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:.18s;}',
-      '.switch.on .knob{left:27px;}'
+      '.switch.on .knob{left:27px;}',
+      // Stil-/Hintergrund-Vorschaukarten (nutzen dieselben theme-card-Klassen).
+      '.bg-card .theme-preview{height:62px;border:1px solid var(--stroke);}',
+      '.bg-card .theme-name{font-size:15px;}',
+      '.bg-card .bg-desc{font-size:11px;color:var(--muted);margin-top:4px;}',
+      '.bg-prev{background-size:cover;}',
+      '.bgprev-jungle{background:radial-gradient(circle at 25% 25%,rgba(57,255,20,.45),transparent 55%),radial-gradient(circle at 80% 70%,rgba(51,230,208,.35),transparent 55%),linear-gradient(160deg,#04170d,#0a2e1a);}',
+      '.bgprev-water{background:radial-gradient(circle at 50% 0%,rgba(90,205,255,.5),transparent 60%),radial-gradient(circle at 30% 80%,rgba(60,150,230,.35),transparent 60%),linear-gradient(180deg,#083650,#02101f);}',
+      '.bgprev-fire{background:radial-gradient(circle at 50% 105%,rgba(255,150,30,.8),rgba(255,80,20,.3) 45%,transparent 70%),linear-gradient(0deg,#2a0a04,#140406);}',
+      '.bgprev-stone{background:radial-gradient(circle at 40% 20%,rgba(160,150,130,.4),transparent 60%),radial-gradient(circle at 70% 75%,rgba(120,200,230,.25),transparent 55%),linear-gradient(160deg,#232019,#0d0b08);}',
+      '.bgprev-ice{background:radial-gradient(circle at 50% 15%,rgba(190,235,255,.6),transparent 60%),radial-gradient(circle at 20% 80%,rgba(255,255,255,.3),transparent 55%),linear-gradient(160deg,#0c3245,#04141f);}',
+      '.bgprev-storm{background:radial-gradient(circle at 65% 20%,rgba(210,220,245,.35),transparent 55%),radial-gradient(circle at 30% 30%,rgba(50,55,72,.7),transparent 60%),linear-gradient(160deg,#12151d,#05070c);}',
+      '.bgprev-galaxy{background:radial-gradient(circle at 30% 40%,rgba(150,90,255,.5),transparent 55%),radial-gradient(circle at 75% 62%,rgba(60,140,255,.45),transparent 55%),radial-gradient(circle at 55% 25%,rgba(255,90,200,.3),transparent 55%),linear-gradient(160deg,#0a0620,#02010a);}'
     ].join(''));
   }
 
@@ -133,6 +444,18 @@
       return card;
     }));
 
+    var bgGrid = el('div', { class: 'theme-grid' }, BG_STYLES.map(function (b) {
+      return el('button', {
+        class: 'theme-card bg-card' + (b.id === currentBg ? ' active' : ''), type: 'button',
+        onclick: function () { applyBg(b.id); if (App.Audio) App.Audio.sfx('select'); rerender(); }
+      }, [
+        b.id === currentBg ? el('span', { class: 'theme-tag' }, ['✓ aktiv']) : null,
+        el('div', { class: 'theme-preview bg-prev bgprev-' + b.id }),
+        el('div', { class: 'theme-name' }, [b.emoji + ' ' + b.name]),
+        el('div', { class: 'bg-desc' }, [b.desc])
+      ]);
+    }));
+
     var rmSwitch = el('div', { class: 'switch' + (reduceMotion ? ' on' : ''), onclick: function () { setReduceMotion(!reduceMotion); this.classList.toggle('on', reduceMotion); } }, [el('span', { class: 'knob' })]);
     var soundOn = !(App.Audio && App.Audio.isMuted && App.Audio.isMuted());
     var sndSwitch = el('div', { class: 'switch' + (soundOn ? ' on' : ''), onclick: function () { if (App.Audio) { App.Audio.start(); App.Audio.setMuted(!App.Audio.isMuted()); } this.classList.toggle('on', !(App.Audio && App.Audio.isMuted())); } }, [el('span', { class: 'knob' })]);
@@ -144,6 +467,8 @@
       ]),
       el('div', { class: 'set-sec-h' }, ['Farb-Style']),
       grid,
+      el('div', { class: 'set-sec-h' }, ['Stil / Hintergrund']),
+      bgGrid,
       el('div', { class: 'set-sec-h' }, ['Optionen']),
       el('div', { class: 'set-toggle' }, [el('div', {}, [el('div', { class: 'st-l' }, ['🔊 Sound & Musik']), el('div', { class: 'st-d' }, ['Effekte + Menü-Musik'])]), sndSwitch]),
       el('div', { class: 'set-toggle' }, [el('div', {}, [el('div', { class: 'st-l' }, ['🎞️ Bewegung reduzieren']), el('div', { class: 'st-d' }, ['Weniger Animationen (schont schwache Geräte)'])]), rmSwitch])
@@ -164,13 +489,16 @@
 
   App.Settings = {
     apply: apply, current: function () { return current; }, themes: function () { return THEMES.slice(); },
-    theme: function () { return byId(current); }, setReduceMotion: setReduceMotion, onChange: onChange, renderPage: renderPage
+    theme: function () { return byId(current); }, setReduceMotion: setReduceMotion, onChange: onChange, renderPage: renderPage,
+    // Stil-/Hintergrund-API (unabhängig von den Farb-Themes)
+    applyBg: applyBg, currentBg: function () { return currentBg; }, bgStyles: function () { return BG_STYLES.slice(); }
   };
 
-  // Theme so früh wie möglich anwenden (kein Flackern), Nav wenn DOM bereit.
+  // Theme + Hintergrund so früh wie möglich anwenden (kein Flackern), Nav wenn DOM bereit.
   apply(current, false);
+  applyBg(currentBg, false);
   if (reduceMotion) document.documentElement.classList.add('reduce-motion');
-  function boot() { apply(current, false); installNav(); }
+  function boot() { apply(current, false); applyBg(currentBg, false); installNav(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();

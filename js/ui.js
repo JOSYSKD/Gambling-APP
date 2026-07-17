@@ -108,6 +108,9 @@
     var quickBtns = quick.map(function (v) {
       return el('button', { class: 'chip', type: 'button', onclick: function () { setBet(v); } }, [String(v)]);
     });
+    var quarterBtn = el('button', { class: 'chip chip-alt', type: 'button', onclick: function () {
+      setBet(Math.floor(App.Coins.get() / 4 / 10) * 10);
+    } }, ['¼']);
     var halfBtn = el('button', { class: 'chip chip-alt', type: 'button', onclick: function () {
       setBet(Math.floor(App.Coins.get() / 2 / 10) * 10);
     } }, ['½']);
@@ -115,7 +118,7 @@
       setBet(App.Coins.get());
     } }, ['Max']);
 
-    var chips = el('div', { class: 'bet-chips' }, quickBtns.concat([halfBtn, maxBtn]));
+    var chips = el('div', { class: 'bet-chips' }, quickBtns.concat([quarterBtn, halfBtn, maxBtn]));
 
     var label = el('label', { class: 'bet-label' }, ['Einsatz']);
     var inputWrap = el('div', { class: 'bet-input-wrap' }, [
