@@ -100,8 +100,116 @@
     { id: 'platinlegend', name: 'Platin-Diamant-Legende', lv: MAX }
   ];
 
+  /* ---------------- Namensfarben (ganz viele Töne + Verläufe/animiert) ----------------
+   * Vollton = { color }, Verlauf = { grad, anim? }. Über die Level verteilt, die
+   * meisten Töne früh frei, die animierten Regenbogen/Plasma-Varianten weiter oben. */
+  var NC_SOLID = [
+    ['white', 'Weiß', '#ffffff', 1], ['silver', 'Silber', '#d4dce6', 1], ['ash', 'Aschgrau', '#aab7c4', 1],
+    ['neon', 'Neongrün', '#39ff14', 1], ['toxic', 'Giftgrün', '#b6ff00', 1], ['lime', 'Limette', '#7cfc00', 1],
+    ['grass', 'Grasgrün', '#4caf50', 2], ['emerald', 'Smaragd', '#00e676', 3], ['mint', 'Minze', '#3dffa8', 2],
+    ['jade', 'Jade', '#00d9a3', 3], ['pine', 'Tanne', '#2e8b57', 4], ['teal', 'Petrol', '#00e5d0', 3],
+    ['cyan', 'Cyan', '#00fff2', 4], ['aqua', 'Aqua', '#22e6ff', 2], ['sky', 'Himmelblau', '#38bdf8', 2],
+    ['azure', 'Azur', '#2d9bff', 3], ['ocean', 'Ozeanblau', '#1e6fff', 4], ['royalb', 'Königsblau', '#4d6dff', 2],
+    ['cobalt', 'Kobalt', '#2c4bff', 5], ['navy', 'Marine', '#3f51b5', 4], ['indigo', 'Indigo', '#6a5cff', 3],
+    ['violet', 'Violett', '#8b5cf6', 3], ['purple', 'Lila', '#a855f7', 2], ['amethyst', 'Amethyst', '#b06bff', 4],
+    ['grape', 'Traube', '#7c3aed', 5], ['plum', 'Pflaume', '#9d4edd', 4], ['magenta', 'Magenta', '#ff2fb9', 3],
+    ['fuchsia', 'Fuchsia', '#ff3df0', 5], ['pink', 'Pink', '#ff5fa2', 1], ['hotpink', 'Knallpink', '#ff2d78', 4],
+    ['rose', 'Rosé', '#ff8fb0', 2], ['blush', 'Altrosa', '#e58aa0', 3], ['red', 'Rot', '#ff3b3b', 1],
+    ['crimson', 'Karmin', '#ff1744', 3], ['fired', 'Feuerrot', '#ff2d00', 4], ['cherry', 'Kirsche', '#d90429', 5],
+    ['coral', 'Koralle', '#ff6f5e', 2], ['salmon', 'Lachs', '#ff9a8a', 2], ['orange', 'Orange', '#ff8c2b', 1],
+    ['tangerine', 'Mandarine', '#ff6a00', 3], ['amber', 'Bernstein', '#ffb300', 2], ['honey', 'Honig', '#ffc93c', 3],
+    ['gold', 'Gold', '#ffd23f', 4], ['yellow', 'Gelb', '#ffe93f', 1], ['lemon', 'Zitrone', '#fff23f', 2],
+    ['copper', 'Kupfer', '#c9743b', 4], ['bronze', 'Bronze', '#cd7f32', 3], ['sand', 'Sand', '#e0c48f', 2],
+    ['slate', 'Schiefer', '#64748b', 2], ['steel', 'Stahl', '#b0bec5', 2]
+  ].map(function (a) { return { id: a[0], name: a[1], color: a[2], lv: a[3] }; });
+  var NC_FANCY = [
+    { id: 'g-ocean', name: 'Ozean-Verlauf', lv: 4, grad: 'linear-gradient(90deg,#00d4ff,#4d6dff,#7a5cff)' },
+    { id: 'g-fire', name: 'Feuer', lv: 5, grad: 'linear-gradient(90deg,#ff2d00,#ff9d3c,#ffd23f)', anim: true },
+    { id: 'g-sunset', name: 'Sonnenuntergang', lv: 5, grad: 'linear-gradient(90deg,#ff7a3c,#ff3d6d,#a855f7)' },
+    { id: 'g-emerald', name: 'Smaragd-Verlauf', lv: 6, grad: 'linear-gradient(90deg,#00e676,#00d9f5)' },
+    { id: 'g-candy', name: 'Bonbon', lv: 6, grad: 'linear-gradient(90deg,#ff5fa2,#ff9a3c,#ffd23f)' },
+    { id: 'g-rainbow', name: 'Regenbogen', lv: 7, grad: 'linear-gradient(90deg,#ff2d55,#ff9d3c,#ffd23f,#39ff14,#22d3ff,#a855f7)', anim: true },
+    { id: 'g-flamingo', name: 'Flamingo', lv: 8, grad: 'linear-gradient(90deg,#ff2fb9,#ff8fb0,#ffd23f)' },
+    { id: 'g-ice', name: 'Eiskristall', lv: 8, grad: 'linear-gradient(90deg,#a8ecff,#22d3ff,#e0f7ff)' },
+    { id: 'g-gold', name: 'Goldbarren', lv: 9, grad: 'linear-gradient(90deg,#e08a3c,#ffd23f,#fff6b0,#ffd23f)', anim: true },
+    { id: 'g-cyber', name: 'Cyberpunk', lv: 10, grad: 'linear-gradient(90deg,#00fff2,#ff00e6)', anim: true },
+    { id: 'g-galaxy', name: 'Galaxie', lv: 12, grad: 'linear-gradient(90deg,#22d3ff,#a855f7,#ff2fb9)', anim: true },
+    { id: 'g-royal', name: 'Königlich', lv: 13, grad: 'linear-gradient(90deg,#ffd23f,#a855f7,#ffd23f)', anim: true },
+    { id: 'g-aurora', name: 'Aurora', lv: 15, grad: 'linear-gradient(90deg,#00f5a0,#00d9f5,#7a5cff)', anim: true },
+    { id: 'g-lava', name: 'Lava', lv: 18, grad: 'linear-gradient(90deg,#3a0000,#ff2d55,#ff9d3c,#ffd23f)', anim: true },
+    { id: 'g-matrix', name: 'Matrix', lv: 22, grad: 'linear-gradient(90deg,#003b00,#39ff14,#b6ff00,#39ff14)', anim: true },
+    { id: 'g-plasma', name: 'Plasma', lv: 30, grad: 'linear-gradient(90deg,#ff2fb9,#22d3ff,#39ff14,#ffd23f,#ff2fb9)', anim: true }
+  ];
+  var NAME_COLORS = [{ id: 'default', name: 'Standard', lv: 1 }].concat(NC_SOLID, NC_FANCY);
+
+  /* ---------------- Schriftarten: 30 coole Fonts (Google Fonts, siehe index.html) ----------------
+   * family = kompletter font-family-Wert inkl. Fallback. Bei fehlendem Netz (file://
+   * offline) greift automatisch der Fallback — die Auswahl bleibt trotzdem nutzbar. */
+  var NAME_FONTS = [
+    { id: 'default', name: 'Standard', lv: 1, family: '' },
+    { id: 'orbitron', name: 'Orbitron', lv: 1, family: "'Orbitron',sans-serif" },
+    { id: 'audiowide', name: 'Audiowide', lv: 1, family: "'Audiowide',sans-serif" },
+    { id: 'russo', name: 'Russo One', lv: 1, family: "'Russo One',sans-serif" },
+    { id: 'righteous', name: 'Righteous', lv: 1, family: "'Righteous',cursive" },
+    { id: 'kanit', name: 'Kanit', lv: 1, family: "'Kanit',sans-serif" },
+    { id: 'fredoka', name: 'Fredoka', lv: 1, family: "'Fredoka',sans-serif" },
+    { id: 'bungee', name: 'Bungee', lv: 2, family: "'Bungee',cursive" },
+    { id: 'pacifico', name: 'Pacifico', lv: 2, family: "'Pacifico',cursive" },
+    { id: 'lobster', name: 'Lobster', lv: 2, family: "'Lobster',cursive" },
+    { id: 'vt323', name: 'VT323', lv: 2, family: "'VT323',monospace" },
+    { id: 'pixelify', name: 'Pixelify Sans', lv: 2, family: "'Pixelify Sans',sans-serif" },
+    { id: 'bangers', name: 'Bangers', lv: 3, family: "'Bangers',cursive" },
+    { id: 'marker', name: 'Permanent Marker', lv: 3, family: "'Permanent Marker',cursive" },
+    { id: 'sriracha', name: 'Sriracha', lv: 3, family: "'Sriracha',cursive" },
+    { id: 'silkscreen', name: 'Silkscreen', lv: 3, family: "'Silkscreen',cursive" },
+    { id: 'titan', name: 'Titan One', lv: 4, family: "'Titan One',cursive" },
+    { id: 'sigmar', name: 'Sigmar One', lv: 4, family: "'Sigmar One',cursive" },
+    { id: 'monoton', name: 'Monoton', lv: 4, family: "'Monoton',cursive" },
+    { id: 'wallpoet', name: 'Wallpoet', lv: 4, family: "'Wallpoet',sans-serif" },
+    { id: 'pressstart', name: 'Press Start 2P', lv: 5, family: "'Press Start 2P',cursive" },
+    { id: 'blackops', name: 'Black Ops One', lv: 5, family: "'Black Ops One',cursive" },
+    { id: 'rubikmono', name: 'Rubik Mono One', lv: 5, family: "'Rubik Mono One',sans-serif" },
+    { id: 'faster', name: 'Faster One', lv: 6, family: "'Faster One',cursive" },
+    { id: 'bungeeshade', name: 'Bungee Shade', lv: 6, family: "'Bungee Shade',cursive" },
+    { id: 'shrikhand', name: 'Shrikhand', lv: 7, family: "'Shrikhand',cursive" },
+    { id: 'rye', name: 'Rye', lv: 7, family: "'Rye',cursive" },
+    { id: 'metalmania', name: 'Metal Mania', lv: 8, family: "'Metal Mania',cursive" },
+    { id: 'creepster', name: 'Creepster', lv: 9, family: "'Creepster',cursive" },
+    { id: 'nosifer', name: 'Nosifer', lv: 12, family: "'Nosifer',cursive" },
+    { id: 'nabla', name: 'Nabla (bunt)', lv: 15, family: "'Nabla',cursive" }
+  ];
+
+  /* Level-gated Suche: gibt das Item nur zurück, wenn es das Level erreicht. */
+  function ncFor(id, level) { for (var i = 0; i < NAME_COLORS.length; i++) if (NAME_COLORS[i].id === id) return (level >= NAME_COLORS[i].lv) ? NAME_COLORS[i] : null; return null; }
+  function nfFor(id, level) { for (var i = 0; i < NAME_FONTS.length; i++) if (NAME_FONTS[i].id === id) return (level >= NAME_FONTS[i].lv) ? NAME_FONTS[i] : null; return null; }
+
+  /* Zentrale Anwendung von Namensfarbe + Schriftart auf ein Namens-Element.
+   * `cos.nameColor`/`cos.nameFont` = gewählte Ids; `gold` = Höchstlevel-Goldname
+   * (bleibt erhalten, solange keine eigene Farbe gewählt ist). Auch von app.js
+   * (Bestenliste) und chat.js (Chat) aufgerufen, damit FREMDE Namen genauso
+   * farbig/schriftlich erscheinen. */
+  function styleName(node, cos, level, gold) {
+    if (!node) return node;
+    cos = cos || {}; level = Math.max(1, Number(level) || 1);
+    node.classList.remove('pc-nc-grad', 'pc-nc-anim');
+    node.style.color = ''; node.style.backgroundImage = '';
+    node.style.webkitTextFillColor = ''; node.style.textShadow = '';
+    var c = (cos.nameColor && cos.nameColor !== 'default') ? ncFor(cos.nameColor, level) : null;
+    if (c) {
+      if (c.grad) {
+        node.classList.add('pc-nc-grad'); if (c.anim) node.classList.add('pc-nc-anim');
+        node.style.backgroundImage = c.grad;
+      } else {
+        node.style.color = c.color; node.style.webkitTextFillColor = c.color;
+      }
+    }
+    var f = (cos.nameFont && cos.nameFont !== 'default') ? nfFor(cos.nameFont, level) : null;
+    node.style.fontFamily = f ? f.family : '';
+    return node;
+  }
+
   function firstOf(arr) { return arr[0].id; }
-  var DEFAULT = { avatar: 'parrot', frame: 'default', banner: 'jungle', title: 'auto' };
+  var DEFAULT = { avatar: 'parrot', frame: 'default', banner: 'jungle', title: 'auto', nameColor: 'default', nameFont: 'default' };
   var sel = load();
   function load() {
     var s = App.Storage ? App.Storage.get(KEY, null) : null;
@@ -167,7 +275,7 @@
       return {
         me: true,
         name: (App.Leaderboard && App.Leaderboard.getPlayerName && App.Leaderboard.getPlayerName()) || 'Spieler',
-        cos: { avatar: sel.avatar, frame: sel.frame, banner: sel.banner, title: sel.title },
+        cos: { avatar: sel.avatar, frame: sel.frame, banner: sel.banner, title: sel.title, nameColor: sel.nameColor, nameFont: sel.nameFont },
         level: lvl(),
         xpNow: App.Progress ? App.Progress.xpInLevel() : 0,
         xpMax: App.Progress ? App.Progress.xpForLevel() : 100,
@@ -205,7 +313,7 @@
         fr = chosenAt(FRAMES, v.cos.frame, v.level),
         bn = chosenAt(BANNERS, v.cos.banner, v.level);
     var title = v.me ? titleText() : titleTextFor(v.cos, v.level);
-    var nameEl = el('div', { class: 'pc-name' + (v.gold ? ' name-gold' : '') }, [v.name]);
+    var nameEl = styleName(el('div', { class: 'pc-name' + (v.gold ? ' name-gold' : '') }, [v.name]), v.cos, v.level, v.gold);
     var xpBar = (v.xpMax != null && v.xpMax > 0)
       ? [el('div', { class: 'pc-xp' }, [el('div', { class: 'pc-xp-fill', style: 'width:' + Math.max(0, Math.min(100, Math.round(v.xpNow / v.xpMax * 100))) + '%' })]),
          el('div', { class: 'pc-xp-l' }, [v.xpNow + ' / ' + v.xpMax + ' XP'])]
@@ -255,7 +363,7 @@
         el('div', { class: 'pcrow-avatar' }, [av.e]),
         bulbsEl(v.ideaLv, v.ideaTip),
         el('div', { class: 'pcrow-id' }, [
-          el('div', { class: 'pcrow-name' + (v.gold ? ' name-gold' : '') }, [v.name]),
+          styleName(el('div', { class: 'pcrow-name' + (v.gold ? ' name-gold' : '') }, [v.name]), v.cos, v.level, v.gold),
           el('div', { class: 'pcrow-sub' }, ['Lv ' + fmtLv(v.level) + ' · ' + (v.me ? titleText() : titleTextFor(v.cos, v.level))])
         ]),
         el('div', { class: 'pcrow-right' }, right)
@@ -280,7 +388,7 @@
   function snapshot() {
     var s = App.Progress ? App.Progress.stats() : {};
     return {
-      cos: { avatar: sel.avatar, frame: sel.frame, banner: sel.banner, title: sel.title },
+      cos: { avatar: sel.avatar, frame: sel.frame, banner: sel.banner, title: sel.title, nameColor: sel.nameColor, nameFont: sel.nameFont },
       level: lvl(),
       bulbs: (App.Ideas && App.Ideas.wins) ? App.Ideas.wins() : 0,
       games: Object.keys((s && s.games) || {}),
@@ -298,6 +406,8 @@
       { key: 'avatar', label: '🙂 Avatar', arr: AVATARS, render: avatarGrid },
       { key: 'frame', label: '🖼️ Rahmen', arr: FRAMES, render: frameGrid },
       { key: 'banner', label: '🎨 Banner', arr: BANNERS, render: bannerGrid },
+      { key: 'nameColor', label: '🌈 Namensfarbe', arr: NAME_COLORS, render: colorGrid },
+      { key: 'nameFont', label: '🔤 Schriftart', arr: NAME_FONTS, render: fontGrid },
       { key: 'title', label: '🏷️ Titel', arr: TITLES, render: titleGrid }
     ];
     var active = 'avatar';
@@ -337,6 +447,27 @@
         ]);
       }));
     }
+    function colorGrid() {
+      var name = (App.Leaderboard && App.Leaderboard.getPlayerName && App.Leaderboard.getPlayerName()) || 'Name';
+      return el('div', { class: 'pc-colorgrid' }, NAME_COLORS.map(function (c) {
+        var prev = el('div', { class: 'pc-colorname', style: 'font-family:' + fontFamilyOf() }, [name]);
+        styleName(prev, { nameColor: c.id, nameFont: sel.nameFont }, 99999999, false);
+        return el('button', { class: 'pc-coloropt' + (sel.nameColor === c.id ? ' sel' : '') + (unlocked(c) ? '' : ' locked'), type: 'button', onclick: function () { pick('nameColor', c.id, c); } }, [
+          prev, el('div', { class: 'pc-opt-lab' }, [c.name]), lockTag(c)
+        ]);
+      }));
+    }
+    function fontGrid() {
+      var name = (App.Leaderboard && App.Leaderboard.getPlayerName && App.Leaderboard.getPlayerName()) || 'Name';
+      return el('div', { class: 'pc-fontgrid' }, NAME_FONTS.map(function (f) {
+        var prev = el('div', { class: 'pc-fontname', style: 'font-family:' + (f.family || 'inherit') }, [name]);
+        return el('button', { class: 'pc-fontopt' + (sel.nameFont === f.id ? ' sel' : '') + (unlocked(f) ? '' : ' locked'), type: 'button', onclick: function () { pick('nameFont', f.id, f); } }, [
+          prev, el('div', { class: 'pc-opt-lab' }, [f.name]), lockTag(f)
+        ]);
+      }));
+    }
+    function fontFamilyOf() { var f = nfFor(sel.nameFont, 99999999); return (f && f.family) ? f.family : 'inherit'; }
+
     function titleGrid() {
       return el('div', { class: 'pc-titlelist' }, TITLES.map(function (t) {
         return el('button', { class: 'pc-titleopt' + (sel.title === t.id ? ' sel' : '') + (unlocked(t) ? '' : ' locked'), type: 'button', onclick: function () { pick('title', t.id, t); } }, [
@@ -358,6 +489,22 @@
   function injectCss() {
     if (cssDone) return; cssDone = true;
     UI.injectStyle('profilecard-css', [
+      /* ---- Namensfarbe: Verlaufs-/Animations-Namen (styleName) ---- */
+      '.pc-nc-grad{-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent!important;background-size:100% auto;}',
+      '.pc-nc-anim{background-size:220% auto;animation:pc-nc-shift 3s linear infinite;}',
+      '@keyframes pc-nc-shift{0%{background-position:0% 50%;}100%{background-position:220% 50%;}}',
+      /* ---- Editor: Namensfarben-Raster ---- */
+      '.pc-colorgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;}',
+      '.pc-coloropt{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;border-radius:12px;border:2px solid var(--stroke);background:rgba(4,16,10,.5);cursor:pointer;position:relative;}',
+      '.pc-coloropt.sel{border-color:var(--neon);box-shadow:0 0 12px rgba(57,255,20,.5);}',
+      '.pc-coloropt.locked{opacity:.5;}',
+      '.pc-colorname{font-weight:900;font-size:16px;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+      /* ---- Editor: Schriftarten-Raster ---- */
+      '.pc-fontgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}',
+      '.pc-fontopt{display:flex;flex-direction:column;align-items:center;gap:5px;padding:12px 8px;border-radius:12px;border:2px solid var(--stroke);background:rgba(4,16,10,.5);cursor:pointer;position:relative;min-height:70px;justify-content:center;}',
+      '.pc-fontopt.sel{border-color:var(--neon);box-shadow:0 0 12px rgba(57,255,20,.5);}',
+      '.pc-fontopt.locked{opacity:.5;}',
+      '.pc-fontname{font-size:21px;color:var(--leaf);line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
       '.pc-card{position:relative;border-radius:20px;overflow:hidden;border:2px solid var(--stroke);background:rgba(9,32,21,.55);margin-bottom:16px;}',
       '.pc-banner{height:88px;}',
       '.pc-body{padding:0 18px 16px;}',
@@ -525,6 +672,8 @@
     renderRow: renderRow,           // Bestenlisten-Zeile im Profilkarten-Look
     gamesEl: gamesEl,               // Liste der gespielten Spiele
     snapshot: snapshot,             // kompakter Stand für den Präsenz-Heartbeat
-    renderCustomizer: renderCustomizer
+    renderCustomizer: renderCustomizer,
+    styleName: styleName,           // Namensfarbe + Schriftart auf ein Element anwenden (auch app.js/chat.js)
+    myNameCos: function () { return { nameColor: sel.nameColor, nameFont: sel.nameFont }; }
   };
 })();
