@@ -268,8 +268,9 @@
 
     root.appendChild(el('div', { class: 'page-head' }, [
       el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { App.Router.go('/'); } }, ['← Zurück']),
-      el('h2', { class: 'page-title neon' }, ['🏆 ' + (cfg.title || 'Turnier')])
-    ]));
+      el('h2', { class: 'page-title neon' }, ['🏆 ' + (cfg.title || 'Turnier')]),
+      cfg.hostName ? el('span', { class: 'cf-info-l' }, ['Gehostet von ' + cfg.hostName]) : null
+    ].filter(Boolean)));
     root.appendChild(el('div', { class: 'glass', style: 'padding:16px;' }, [
       el('div', { class: 'tq-head' }, [
         el('div', {}, [
@@ -277,9 +278,14 @@
           clock
         ]),
         el('div', {}, [
-          el('div', { class: 'cf-info-l' }, ['Preis für den Sieger']),
-          el('div', { style: 'font-weight:800;color:#ffc740;' }, ['⚡ ' + App.Powerups.describe(cfg.prize)])
-        ]),
+          el('div', { class: 'cf-info-l' }, [cfg.prizeKind === 'money' ? 'Preisgeld' : 'Preis für den Sieger']),
+          el('div', { style: 'font-weight:800;color:#ffc740;' }, [App.TournamentHost.prizeLabel(cfg)]),
+          cfg.prizeKind === 'money'
+            ? el('div', { class: 'cf-info-l' }, [App.TournamentHost.shareLines(cfg.pot).map(function (s) {
+                return ['🥇', '🥈', '🥉'][s.place - 1] + ' ' + UI.formatShort(s.amount);
+              }).join(' · ')])
+            : null
+        ].filter(Boolean)),
         el('div', {}, [
           el('div', { class: 'cf-info-l' }, ['Ablauf']),
           el('div', { style: 'font-weight:700;' }, [roundsSummary(cfg)])
@@ -658,13 +664,22 @@
       return { refresh: function () {} };
     }
 
-    var prizeText = App.Powerups.describe(w.prize);
+    var cfg = T.config() || {};
+    var isMoney = cfg.prizeKind === 'money';
+    var payouts = live.payouts || {};
+    var prizeText = isMoney
+      ? ('💰 ' + UI.formatShort((payouts[w.pid] && payouts[w.pid].amount) || w.money || 0) + ' Coins')
+      : ('⚡ ' + App.Powerups.describe(w.prize));
     // Die Ehrung muss auch dann stehen, wenn beim Einlösen etwas schiefgeht.
+    // Preisgeld wird hier NICHT eingelöst: es liegt schon im Postfach und wird
+    // gutgeschrieben, sobald der Gewinner die Seite offen hat — auch wenn er
+    // beim Werten längst weg war (siehe js/tournament-host.js).
     var claimed = null;
-    if (iWon) {
+    if (iWon && !isMoney) {
       try { claimed = T.claimPrizeIfWinner(); }
       catch (e) { UI.toast('Preis konnte nicht gutgeschrieben werden: ' + e.message, 'lose'); }
     }
+    var myPay = payouts[me] ? payouts[me].amount : 0;
 
     var stage = el('div', { class: 'glass tv-stage' });
 
@@ -698,10 +713,16 @@
     stage.appendChild(el('div', { class: 'tv-sub' }, ['Turniersieger']));
     stage.appendChild(el('div', { class: 'tv-name' }, [(w.avatar || '') + ' ' + w.name]));
     stage.appendChild(el('div', { class: 'tv-sub' }, [w.points + ' Punkte · ' + (T.config() ? T.config().title : 'Turnier')]));
-    stage.appendChild(el('div', { class: 'tv-prize' }, ['⚡ ' + prizeText]));
+    stage.appendChild(el('div', { class: 'tv-prize' }, [prizeText]));
     if (iWon) {
       stage.appendChild(el('div', { class: 'tv-sub', style: 'margin-top:12px;font-weight:800;color:#ffe9a3;' }, [
-        claimed ? '🎉 Power-Up in deiner Sammlung — oben auf ⚡ tippen zum Benutzen!' : '🎉 Glückwunsch!'
+        isMoney ? '🎉 Das Preisgeld ist auf deinem Konto!'
+          : (claimed ? '🎉 Power-Up in deiner Sammlung — oben auf ⚡ tippen zum Benutzen!' : '🎉 Glückwunsch!')
+      ]));
+    } else if (isMoney && myPay > 0) {
+      // Auch Platz 2 und 3 bekommen Geld — das darf die Ehrung nicht verschlucken.
+      stage.appendChild(el('div', { class: 'tv-sub', style: 'margin-top:12px;font-weight:800;color:#ffe9a3;' }, [
+        '💰 Dein Preisgeld: ' + UI.formatShort(myPay) + ' Coins'
       ]));
     }
 
@@ -723,18 +744,22 @@
 
     var list = el('div', { style: 'display:flex;flex-direction:column;gap:8px;margin-top:14px;' });
     T.ranking().forEach(function (p, i) {
+      var pay = payouts[p.pid] ? payouts[p.pid].amount : 0;
       list.appendChild(el('div', { class: 'ts-row' + (p.pid === me ? ' me' : '') }, [
         el('span', { class: 'ts-place' }, [i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '#' + (i + 1)]),
         el('span', { class: 'tq-ava' }, [p.avatar || '🐒']),
         el('span', {}, [p.name]),
+        pay > 0 ? el('span', { class: 'ts-gain' }, ['💰 ' + UI.formatShort(pay)]) : null,
         el('span', { class: 'ts-pts' }, [(p.points || 0) + ' P'])
-      ]));
+      ].filter(Boolean)));
     });
     root.appendChild(el('h3', { style: 'margin-top:14px;' }, ['Endstand']));
     root.appendChild(list);
 
-    if (iWon && App.Audio && App.Audio.jackpot) { try { App.Audio.jackpot(); } catch (e) {} }
-    if (App.Progress && App.Progress.confetti && iWon) { try { App.Progress.confetti(); } catch (e) {} }
+    // Gefeiert wird auch für Platz 2 und 3 — die bekommen ebenfalls Geld.
+    var celebrate = iWon || myPay > 0;
+    if (celebrate && App.Audio && App.Audio.jackpot) { try { App.Audio.jackpot(); } catch (e) {} }
+    if (App.Progress && App.Progress.confetti && celebrate) { try { App.Progress.confetti(); } catch (e) {} }
 
     return { refresh: function () {} };
   }
@@ -764,18 +789,60 @@
       root.innerHTML = '';
 
       if (key === 'none') {
+        /* Kein Turnier im Slot — hier steht der Zeitplan: Angesetztes rückt
+         * automatisch nach, sobald seine Startzeit nah genug ist (siehe
+         * js/tournament-host.js). Und von hier aus hostet man selbst eins. */
+        var H = App.TournamentHost;
+        var sched = App.TournamentHostUI.scheduleList();
+        var upcoming = H.upcoming();
+
         root.appendChild(el('div', { class: 'page-head' }, [
           el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { App.Router.go('/'); } }, ['← Zurück']),
           el('h2', { class: 'page-title neon' }, ['🏆 Turnier'])
         ]));
+
+        var cd = H.cooldownLeft();
+        var hostBtn = el('button', {
+          class: 'btn btn-primary btn-lg', type: 'button',
+          onclick: function () { App.Router.go('/tournament/host'); }
+        }, ['🏆 Eigenes Turnier hosten']);
+
         root.appendChild(el('div', { class: 'glass', style: 'padding:24px;text-align:center;' }, [
           el('div', { style: 'font-size:44px;' }, ['🏆']),
-          el('h3', {}, ['Gerade ist kein Turnier geplant']),
-          el('p', { class: 'lb-hint' }, ['Der Admin setzt Turniere an — schau später wieder rein.']),
+          el('h3', {}, [upcoming.length
+            ? ('Gleich geht es los — ' + upcoming.length + ' Turnier' + (upcoming.length === 1 ? '' : 'e') + ' angesetzt')
+            : 'Gerade läuft kein Turnier']),
+          el('p', { class: 'lb-hint' }, [
+            'Jeder kann selbst eins hosten: Du bestimmst Uhrzeit, Spiele und Rundenzeiten. ' +
+            'Dein Einsatz wird zum Preisgeld — 50 % für Platz 1, 30 % für Platz 2, 20 % für Platz 3. ' +
+            'Mindestens ' + UI.formatShort(H.minFee()) + ' Coins.'
+          ]),
+          hostBtn,
+          cd > 0 ? el('p', { class: 'lb-hint' }, ['⏳ Du kannst in ' + H.fmtLeft(cd) + ' wieder eins hosten.']) : null,
           el('p', { class: 'lb-hint' }, ['Deine Tickets: ' + App.Tickets.label() + ' 🎟️ (gibt es für abgeschlossene Quests)']),
           el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { App.Router.go('/quests'); } }, ['⭐ Zu den Quests'])
+        ].filter(Boolean)));
+
+        root.appendChild(el('div', { class: 'glass', style: 'padding:16px;' }, [
+          el('h3', { style: 'margin-top:0;' }, ['🗓 Zeitplan']),
+          el('p', { class: 'lb-hint' }, [
+            'Der Wartebereich öffnet ' + Math.round(H.PRE_OPEN_MS / 60000) + ' Minuten vor dem Start. ' +
+            'Zwischen zwei Turnieren liegen mindestens ' + Math.round(H.MIN_GAP_MS / 60000) + ' Minuten.'
+          ]),
+          sched.root
         ]));
-        cur = { refresh: function () {} };
+        // Der Zeitplan baut seine Zeilen neu auf — nicht im 500ms-Takt der
+        // Seite, sonst flackert er und der Absagen-Knopf rutscht unter dem
+        // Finger weg.
+        var lastDraw = Date.now();
+        cur = {
+          refresh: function () {
+            var now = Date.now();
+            if (now - lastDraw < 4000) return;
+            lastDraw = now;
+            sched.refresh();
+          }
+        };
         return;
       }
 

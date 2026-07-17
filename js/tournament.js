@@ -309,9 +309,24 @@
   }
 
   function tick() {
+    /* Zeitplan: Steht gerade kein Turnier im Slot, rückt das nächste fällige
+     * nach (siehe js/tournament-host.js). Das muss VOR dem Guard unten stehen —
+     * ohne laufendes Turnier gibt es keinen Taktgeber, der es holen könnte. */
+    if (App.TournamentHost) App.TournamentHost.promoteIfDue(cfg);
+
     if (!cfg || !live || cfg.status !== 'open') return;
     var now = Date.now();
     var phase = live.phase || 'queue';
+
+    /* Zur Startzeit ist niemand angetreten: Das Turnier würde sonst für immer
+     * den einen Slot belegen und alle nachfolgenden blockieren. Nach einer
+     * Karenzzeit verfällt es, der Host bekommt sein Geld zurück. Wie beim
+     * Aufräumen unten darf das JEDER Beobachter — ohne Spieler gibt es keinen
+     * Taktgeber, der es täte. */
+    if (App.TournamentHost && phase === 'queue' && cfg.startAt &&
+        now > cfg.startAt + App.TournamentHost.EXPIRE_MS && !onlinePlayers().length) {
+      return App.TournamentHost.expire(cfg);
+    }
 
     /* Verwaistes Turnier: die Phase ist längst abgelaufen und es ist NIEMAND
      * mehr da, der sie weitertreiben könnte (der letzte Spieler hat den Tab
@@ -458,30 +473,46 @@
     var rank = ranking();
     var top = rank[0];
     if (!top) return setLive({ phase: 'queue', round: 0 });
+
+    var H = App.TournamentHost;
+    var isMoney = cfg.prizeKind === 'money';
+    // Preisgeld-Aufteilung (50/30/20, Rest zurück an den Host) — hier nur
+    // berechnet, ausgezahlt wird über die Postfächer in settleMoney().
+    var plan = (isMoney && H) ? H.payoutPlan(cfg, rank) : [];
+    var payouts = {};
+    plan.forEach(function (p) { if (p.place) payouts[p.pid] = { amount: p.amount, place: p.place }; });
+
     var winner = { pid: top.pid, name: top.name, avatar: top.avatar, points: top.points, prize: cfg.prize || null };
+    if (isMoney) winner.money = (payouts[top.pid] && payouts[top.pid].amount) || 0;
+
     return store().then(function (b) {
       var wid = 'w' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
       return b.set(ROOT + '/winners/' + wid, {
         name: top.name,
         pid: top.pid,
         tournament: cfg.title || 'Turnier',
-        prize: App.Powerups.describe(cfg.prize),
+        prize: H ? H.prizeLabel(cfg) : App.Powerups.describe(cfg.prize),
         points: top.points,
         ts: Date.now(),
         done: false
       }).then(function () {
-        return b.update(ROOT + '/live', { phase: 'done', winner: winner, deadline: 0 });
+        return b.update(ROOT + '/live', { phase: 'done', winner: winner, payouts: payouts, deadline: 0 });
       }).then(function () {
-        // Turnier ist gelaufen — der Admin konfiguriert das nächste.
+        // Turnier ist gelaufen — der Slot ist frei fürs nächste (Zeitplan).
         return b.update(ROOT + '/config', { status: 'done' });
+      }).then(function () {
+        return (isMoney && H) ? H.settleMoney(cfg, rank) : (H ? H.markDone(cfg) : null);
       });
     });
   }
 
-  /** Preis einlösen — jeder Client prüft für sich, ob er gewonnen hat. */
+  /** Preis einlösen — jeder Client prüft für sich, ob er gewonnen hat.
+   *  Nur für Power-Up-Turniere: Preisgeld kommt übers Postfach, weil der Sieger
+   *  beim Werten nicht online sein muss (siehe js/tournament-host.js). */
   var prizeTaken = null;
   function claimPrizeIfWinner() {
     if (!live || live.phase !== 'done' || !live.winner || !cfg) return null;
+    if (cfg.prizeKind === 'money') return null;
     if (live.winner.pid !== myPid()) return null;
     if (prizeTaken === cfg.id) return null;
     // Erst merken, wenn die Vergabe wirklich geklappt hat — sonst würde ein
@@ -601,19 +632,33 @@
 
   /* ---------------- Admin ---------------- */
   var Admin = {
-    /** Turnier anlegen/überschreiben. Setzt die Queue zurück. */
+    /** Turnier anlegen/überschreiben. Setzt die Queue zurück.
+     *  Verdrängt das ein bezahltes Spieler-Turnier aus dem Slot, bekommt dessen
+     *  Host sein Geld zurück — er hat für etwas gezahlt, das nun nicht läuft. */
     save: function (conf) {
       var id = 't' + Date.now().toString(36);
+      var prev = cfg;
       var full = Object.assign({ id: id, status: 'open', createdAt: Date.now() }, conf);
       return store().then(function (b) {
         return b.set(ROOT + '/config', full)
-          .then(function () { return b.set(ROOT + '/live', { phase: 'queue', round: 0, deadline: 0 }); });
+          .then(function () { return b.set(ROOT + '/live', { phase: 'queue', round: 0, deadline: 0 }); })
+          .then(function () {
+            if (prev && prev.status === 'open' && App.TournamentHost) {
+              return App.TournamentHost.refundCfg(prev, 'Turnier „' + (prev.title || '') + '" wurde vom Admin ersetzt');
+            }
+          });
       });
     },
     cancel: function () {
+      var prev = cfg;
       return store().then(function (b) {
         return b.update(ROOT + '/config', { status: 'done' })
-          .then(function () { return b.set(ROOT + '/live', { phase: 'queue', round: 0, deadline: 0 }); });
+          .then(function () { return b.set(ROOT + '/live', { phase: 'queue', round: 0, deadline: 0 }); })
+          .then(function () {
+            if (prev && App.TournamentHost) {
+              return App.TournamentHost.refundCfg(prev, 'Turnier „' + (prev.title || '') + '" wurde abgesagt');
+            }
+          });
       });
     },
     /** Sofort starten, ohne auf die Uhrzeit zu warten. */

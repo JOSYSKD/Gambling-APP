@@ -53,7 +53,7 @@
       id: 'tournament',
       name: 'Turnier',
       icon: '🏆',
-      desc: 'Angesetzte Turniere über mehrere Runden. Eintritt kostet Tickets, der Sieger holt sich ein Power-Up.',
+      desc: 'Turniere über mehrere Runden — jeder kann selbst eins hosten. Der Einsatz des Hosts ist das Preisgeld: 50 / 30 / 20 % für die ersten drei.',
       route: '/tournament',
       // Turniere laufen immer im Casino: eine Gambling-Runde würde sonst mit
       // Gold gespielt und könnte einen Survival-Run beenden.
@@ -520,6 +520,12 @@
       if (App.Mode) App.Mode.set('casino');
       var d = el('div', { class: 'view-page' }); mount(d);
       return App.TournamentUI.renderPage(d);
+    })
+    .add('/tournament/host', function () {
+      // Gehostet wird mit Silber — der Einsatz kommt aus dem Casino-Stand.
+      if (App.Mode) App.Mode.set('casino');
+      var d = el('div', { class: 'view-page' }); mount(d);
+      return App.TournamentHostUI.renderPage(d);
     })
     .add('/admin', function () {
       if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; }

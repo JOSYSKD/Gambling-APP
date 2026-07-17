@@ -93,6 +93,35 @@
     var chatIn = el('input', { type: 'checkbox' });
     chatIn.checked = existing && existing.status === 'open' ? !!existing.chat : true;
 
+    /* Preis: entweder ein Power-Up (wie bisher) oder Preisgeld wie bei den
+     * Spieler-Turnieren (50/30/20). Der Admin hostet gratis — sein Preisgeld
+     * entsteht aus dem Nichts, es ist sein Casino. */
+    var H = App.TournamentHost;
+    var prizeKindSel = el('select', { class: 'text-input' }, [
+      el('option', { value: 'money' }, ['💰 Preisgeld (50 / 30 / 20 % an Platz 1-3)']),
+      el('option', { value: 'powerup' }, ['⚡ Power-Up für den Sieger'])
+    ]);
+    prizeKindSel.value = (existing && existing.status === 'open' && existing.prizeKind === 'powerup') ? 'powerup'
+      : (existing && existing.status === 'open' && existing.prizeKind === 'money') ? 'money' : 'money';
+
+    var potIn = el('input', {
+      class: 'text-input', type: 'text',
+      value: (existing && existing.status === 'open' && existing.pot) ? String(existing.pot) : '1B'
+    });
+    var potHint = el('div', { style: 'font-size:11px;opacity:.7;min-height:14px;' }, ['']);
+    var potField = el('div', { class: 'ta-field' }, [
+      el('label', {}, ['Preisgeld-Topf (z. B. 1B, 750M)']), potIn, potHint
+    ]);
+    function potVal() { return App.TournamentHostUI.parseAmount(potIn.value); }
+    function syncPot() {
+      var v = potVal();
+      if (!isFinite(v)) { potHint.textContent = 'Betrag nicht lesbar — z. B. 1B oder 1500000.'; return; }
+      var lines = H.shareLines(v);
+      potHint.textContent = '= ' + UI.formatCoins(v) + ' · 🥇 ' + UI.formatShort(lines[0].amount) +
+        ' · 🥈 ' + UI.formatShort(lines[1].amount) + ' · 🥉 ' + UI.formatShort(lines[2].amount);
+    }
+    potIn.addEventListener('input', syncPot);
+
     var prizeSel = el('select', { class: 'text-input' }, App.Powerups.TYPES.map(function (t) {
       return el('option', { value: t.id }, [t.icon + ' ' + t.label + ' (' + t.hint + ')']);
     }));
@@ -113,15 +142,21 @@
     var prizeAmtField = el('div', { class: 'ta-field' }, [amtLabel, prizeAmt]);
     // Je nach Power-Up ein anderes Zusatzfeld: Sekunden (Glück/Goldene Hand),
     // Menge (Coins/Tickets/Rettungsanker) oder gar keins (feste Wirkung).
+    var prizeSelField = null;   // wird unten beim Seitenaufbau gesetzt
     function syncPrizeFields() {
+      var money = prizeKindSel.value === 'money';
       var t = App.Powerups.typeById(prizeSel.value);
       var param = t && t.param;
-      prizeMinField.style.display = param === 'seconds' ? '' : 'none';
-      prizeAmtField.style.display = param === 'amount' ? '' : 'none';
+      // Bei Preisgeld sind die Power-Up-Felder komplett aus dem Weg.
+      if (prizeSelField) prizeSelField.style.display = money ? 'none' : '';
+      potField.style.display = money ? '' : 'none';
+      prizeMinField.style.display = (!money && param === 'seconds') ? '' : 'none';
+      prizeAmtField.style.display = (!money && param === 'amount') ? '' : 'none';
       if (param === 'amount' && t) amtLabel.textContent = (t.kind === 'refill') ? 'Auffüllen auf (Coins)' : (t.kind === 'tickets' ? 'Anzahl Tickets' : 'Anzahl Coins');
+      syncPot();
     }
     prizeSel.addEventListener('change', syncPrizeFields);
-    syncPrizeFields();
+    prizeKindSel.addEventListener('change', syncPrizeFields);
 
     function drawPlan() {
       planBox.innerHTML = '';
@@ -182,7 +217,8 @@
       else if (t && t.param === 'seconds') prize.seconds = Math.max(1, Math.round(Number(prizeSec.value) || 60));
       // param === null -> feste Wirkung, kein Zusatzwert
       var def = Math.max(5, Math.round(Number(durIn.value) || 60));
-      return {
+      var money = prizeKindSel.value === 'money';
+      var conf = {
         title: (titleIn.value || 'Turnier').slice(0, 40),
         startAt: timeToTs(timeIn.value),
         rounds: plan.slice(),
@@ -190,8 +226,18 @@
         roundSecs: plan.map(function (gid, i) { return Math.max(5, Math.round(Number(planSecs[i]) || def)); }),
         ticketCost: Math.max(0, Math.round(Number(costIn.value) || 0)),
         chat: !!chatIn.checked,
+        prizeKind: money ? 'money' : 'powerup',
         prize: prize
       };
+      if (money) {
+        // fee = 0: Der Admin zahlt nichts, deshalb geht auch kein Rest an ihn
+        // zurück (siehe payoutPlan in js/tournament-host.js).
+        conf.pot = Math.max(0, potVal() || 0);
+        conf.fee = 0;
+        conf.hostPid = T.myPid();
+        conf.hostName = T.myName();
+      }
+      return conf;
     }
 
     /* ---------------- Live-Bereich ---------------- */
@@ -350,6 +396,69 @@
       el('h2', { class: 'page-title neon' }, ['🏆 Turniere'])
     ]));
 
+    /* ---------------- Einstellungen für Spieler-Turniere ---------------- */
+    /* Kurzform vorbelegen ("750B"), aber nur wenn sie exakt zurückliest — die
+     * Abkürzung rundet, das darf den gespeicherten Betrag nicht verfälschen. */
+    function shortVal(n) {
+      n = Math.round(Number(n) || 0);
+      var s = UI.formatShort(n);
+      return App.TournamentHostUI.parseAmount(s) === n ? s : String(n);
+    }
+    var minFeeIn = el('input', { class: 'text-input', type: 'text', value: shortVal(H.minFee()) });
+    var minFeeHint = el('div', { style: 'font-size:11px;opacity:.7;min-height:14px;' }, ['']);
+    function syncMinFee() {
+      var v = App.TournamentHostUI.parseAmount(minFeeIn.value);
+      minFeeHint.textContent = isFinite(v)
+        ? ('= ' + UI.formatCoins(v) + ' Coins (' + UI.formatShort(v) + ')')
+        : 'Betrag nicht lesbar — z. B. 750B.';
+    }
+    minFeeIn.addEventListener('input', syncMinFee);
+
+    var schedBox = el('div', {});
+    var schedView = null;
+    function drawSched() {
+      // Die Liste einmal bauen und danach nur auffrischen — sonst hinge bei
+      // jedem 5s-Takt ein neuer Knopf-Satz im DOM.
+      if (!schedView) {
+        schedView = App.TournamentHostUI.scheduleList();
+        schedBox.appendChild(schedView.root);
+      } else schedView.refresh();
+    }
+
+    root.appendChild(el('div', { class: 'glass ta-sec' }, [
+      el('h3', { style: 'margin-top:0;' }, ['0 · Spieler-Turniere']),
+      el('p', { class: 'lb-hint' }, [
+        'Jeder Spieler darf selbst Turniere ansetzen und zahlt dafür — sein Einsatz ist das Preisgeld ' +
+        '(50 / 30 / 20 % an Platz 1-3). Pro Spieler geht das nur alle ' +
+        Math.round(H.HOST_COOLDOWN_MS / 60000) + ' Minuten, und zwischen zwei Startzeiten müssen ' +
+        Math.round(H.MIN_GAP_MS / 60000) + ' Minuten liegen. Für dich gilt beides nicht.'
+      ]),
+      el('div', { class: 'ta-grid' }, [
+        el('div', { class: 'ta-field' }, [
+          el('label', {}, ['Mindesteinsatz zum Hosten']), minFeeIn, minFeeHint,
+          el('button', {
+            class: 'btn btn-primary', type: 'button',
+            onclick: function () {
+              var v = App.TournamentHostUI.parseAmount(minFeeIn.value);
+              if (!isFinite(v)) { UI.toast('Betrag nicht lesbar — z. B. 750B.', 'lose'); return; }
+              H.setMinFee(v).then(function () {
+                UI.toast('Mindesteinsatz: ' + UI.formatShort(v) + ' Coins', 'win');
+              }).catch(function (e) { UI.toast(e.message, 'lose'); });
+            }
+          }, ['Speichern'])
+        ])
+      ]),
+      el('h4', { style: 'margin:14px 0 6px;' }, ['🗓 Angesetzte Turniere']),
+      el('p', { class: 'lb-hint' }, ['Absagen erstattet dem Host seinen Einsatz.']),
+      schedBox,
+      el('div', { class: 'admin-row-actions', style: 'margin-top:10px;' }, [
+        el('button', {
+          class: 'btn btn-ghost', type: 'button',
+          onclick: function () { App.Router.go('/tournament/host'); }
+        }, ['🏆 Selbst eins ansetzen (gratis)'])
+      ])
+    ]));
+
     root.appendChild(el('div', { class: 'glass ta-sec' }, [
       el('h3', { style: 'margin-top:0;' }, ['1 · Turnier konfigurieren']),
       el('div', { class: 'ta-grid' }, [
@@ -357,7 +466,9 @@
         el('div', { class: 'ta-field' }, [el('label', {}, ['Startzeit (heute, sonst morgen)']), timeIn]),
         el('div', { class: 'ta-field' }, [el('label', {}, ['Standard-Rundendauer (Sek.)']), durIn]),
         el('div', { class: 'ta-field' }, [el('label', {}, ['Tickets pro Teilnahme']), costIn]),
-        el('div', { class: 'ta-field' }, [el('label', {}, ['Preis für den Sieger']), prizeSel]),
+        el('div', { class: 'ta-field' }, [el('label', {}, ['Art des Preises']), prizeKindSel]),
+        potField,
+        (prizeSelField = el('div', { class: 'ta-field' }, [el('label', {}, ['Power-Up für den Sieger']), prizeSel])),
         prizeMinField,
         prizeAmtField,
         el('div', { class: 'ta-field' }, [
@@ -375,6 +486,7 @@
           onclick: function () {
             var conf = collect();
             if (!conf.rounds.length) { UI.toast('Wähle mindestens ein Spiel für den Rundenplan.', 'lose'); return; }
+            if (conf.prizeKind === 'money' && !isFinite(potVal())) { UI.toast('Das Preisgeld ist nicht lesbar — z. B. 1B.', 'lose'); return; }
             T.Admin.save(conf).then(function () {
               UI.toast('🏆 Turnier steht — Start um ' + tsToTime(conf.startAt), 'win');
               drawLive();
@@ -411,8 +523,11 @@
     drawLive();
     drawBanned();
     drawWinners();
+    drawSched();
+    syncMinFee();
+    syncPrizeFields();   // erst hier: braucht das oben gebaute prizeSelField
 
-    function refreshLive() { drawLive(); drawBanned(); }
+    function refreshLive() { drawLive(); drawBanned(); drawSched(); }
     var offLive = T.on('live', refreshLive);
     var offCfg = T.on('config', refreshLive);
     var timer = setInterval(refreshLive, 5000);
