@@ -40,7 +40,7 @@ Im **selben Gambling-Menü** stehen zusätzlich 7 **Poker & Casino**-Spiele — 
 | 🎲 **Craps** | Pass oder Don't Pass — würfle die 7 nicht zur falschen Zeit |
 | 🐎 **Pferderennen** | Setze auf ein Pferd und fiebere mit beim Rennen |
 
-Kategorie **Online Minigames** mit 82 Spielen — jedes **allein** oder **zusammen über das Internet** (2–8 Spieler über einen Raum-Code, kein Konto/Setup für die Mitspieler nötig):
+Kategorie **Online Minigames** mit 101 Spielen — jedes **allein** oder **zusammen über das Internet** (2–8 Spieler über einen Raum-Code, kein Konto/Setup für die Mitspieler nötig):
 
 | Spiel | Kurz |
 |------|------|
