@@ -289,12 +289,12 @@
   // (10^12) bis zu 1 Trilliarde (10^21). Gemessen am gesamten Einsatz (s.wagered),
   // nahtlose Fortsetzung der normalen 'wager'-Quests (die bei 10^11 enden).
   //
-  // Belohnung 1:1 zum Einsatz: Coins = Ziel. Über questBonus (40 %, siehe oben)
-  // hebt JEDE geknackte Mega-Quest das Neustartguthaben dauerhaft und gewaltig —
-  // genau der gewünschte Effekt "irgendwann richtig viel Neustartguthaben".
+  // Belohnung = halber Einsatz (Coins = Ziel / 2). Vorher 1:1, das war zu viel:
+  // über questBonus (40 %, siehe oben) wuchs das Neustartguthaben — und damit Level
+  // und Geld — viel zu schnell. Halbiert bremst genau das.
   function megaReward(target) {
     return {
-      coins: Math.round(target),
+      coins: Math.round(target / 2),
       xp: Math.max(500, Math.round(80 * Math.log10(target + 10)))
     };
   }
