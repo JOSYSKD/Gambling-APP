@@ -28,6 +28,8 @@
   var KEY = 'gj_stocks';
   var FLAT_CHANCE = 0.14;       // ~14% der Ticks bleiben unverändert
   var MAX_FLAT_RUN = 6;         // …aber höchstens 6 Ticks am Stück
+  var MAX_TICK_MOVE = 1.5;      // höchstens 150 % Kurssprung pro Tick (harte Deckelung)
+  var CLAMP_WARMUP = 90;        // Vorlauf-Ticks für die Sprung-Deckelung (Selbst-Sync)
   var HISTORY = 70;             // Ticks im großen Chart (~12 Minuten)
   var SPARK = 24;               // Ticks in der Mini-Kurve
 
@@ -85,30 +87,48 @@
   }
 
   /** Mehrere Frequenzen übereinander: Trend + Welle + Zappeln.
-   *  Bewusst HOCHVOLATIL abgestimmt — kräftigere schnelle Oktaven + eine
-   *  zusätzliche ganz schnelle (Skala 2,2) lassen die Kurse pro Tick viel
-   *  extremer steigen/fallen (Ø ~2,5 % statt 0,5 %, Einzelsprünge bis ~120 %).
-   *  Bleibt trotzdem durch die Sigmoid (rawPrice) IMMER im Band [lo,hi]. */
+   *  EXTREM volatil abgestimmt — sechs Oktaven mit kräftigen schnellen Anteilen
+   *  lassen die Kurse pro Tick heftig steigen/fallen (Median ~4 %, große Sprünge
+   *  bis zur 150-%-Deckelung, siehe priceAt). Bleibt durch die Sigmoid (rawPrice)
+   *  trotzdem IMMER im Band [lo,hi]. */
   function fbm(seed, t) {
     return (noise(seed, t, 240) - 0.5) * 1.0
-      + (noise(seed + 1, t, 50) - 0.5) * 0.9
-      + (noise(seed + 2, t, 13) - 0.5) * 0.6
-      + (noise(seed + 3, t, 4.5) - 0.5) * 0.38
-      + (noise(seed + 4, t, 2.2) - 0.5) * 0.2;
+      + (noise(seed + 1, t, 50) - 0.5) * 0.95
+      + (noise(seed + 2, t, 13) - 0.5) * 0.85
+      + (noise(seed + 3, t, 4.5) - 0.5) * 1.0
+      + (noise(seed + 4, t, 2.2) - 0.5) * 1.0
+      + (noise(seed + 5, t, 1.3) - 0.5) * 0.85;
   }
 
   function rawPrice(st, t) {
-    // Steilere Sigmoid (5,0 statt 3,2) drückt den Kurs härter an die Bandränder,
-    // damit die Ausschläge extrem, aber nie außerhalb [lo,hi] sind.
-    var u = 1 / (1 + Math.exp(-5.0 * fbm(st.seed, t)));   // 0..1, ohne harte Grenzen
+    // Sehr steile Sigmoid (9,0) drückt den Kurs hart an die Bandränder, damit die
+    // Ausschläge extrem, aber nie außerhalb [lo,hi] sind.
+    var u = 1 / (1 + Math.exp(-9.0 * fbm(st.seed, t)));   // 0..1, ohne harte Grenzen
     return st.lo + (st.hi - st.lo) * u;
   }
 
-  /** Kurs der Aktie beim Tick t. Manche Ticks bleiben bewusst unverändert. */
-  function priceAt(st, t) {
+  /** Reiner (ungedeckelter) Kurs beim Tick t. Manche Ticks bleiben bewusst
+   *  unverändert (Flat-Run). Ungerundet — Basis für die Sprung-Deckelung. */
+  function purePrice(st, t) {
     var runs = 0;
     while (runs < MAX_FLAT_RUN && hash(st.seed + 991, t) < FLAT_CHANCE) { t -= 1; runs++; }
-    return Math.round(rawPrice(st, t) * 100) / 100;
+    return rawPrice(st, t);
+  }
+
+  /** Kurs der Aktie beim Tick t — mit harter 150-%-Sprung-Deckelung pro Tick.
+   *  Ab CLAMP_WARMUP Ticks zuvor wird der reine Kurs Tick für Tick nachgezogen;
+   *  ein Sprung über MAX_TICK_MOVE wird gekappt. Weil ein NICHT gedeckelter Tick
+   *  den Wert exakt auf den reinen Kurs zurücksetzt, synchronisiert sich die
+   *  Folge ständig selbst -> Ergebnis ist deterministisch und unabhängig vom
+   *  gewählten Vorlauf (per Simulation bestätigt). */
+  function priceAt(st, t) {
+    var v = purePrice(st, t - CLAMP_WARMUP);
+    for (var k = t - CLAMP_WARMUP + 1; k <= t; k++) {
+      var target = purePrice(st, k);
+      var up = v * (1 + MAX_TICK_MOVE), dn = v / (1 + MAX_TICK_MOVE);
+      v = target > up ? up : (target < dn ? dn : target);
+    }
+    return Math.round(v * 100) / 100;
   }
 
   function priceOf(id, t) {
@@ -354,8 +374,8 @@
       });
       body.appendChild(grid);
       body.appendChild(el('p', { class: 'stk-hint' }, [
-        'Alle 10 Sekunden ein neuer Kurs — er steigt, fällt oder bleibt gleich. ' +
-        'Die Kurse laufen für alle Spieler gleich und auch dann weiter, wenn du nicht da bist. ' +
+        'Alle 10 Sekunden ein neuer Kurs — er steigt, fällt oder bleibt gleich, jetzt EXTREM: ' +
+        'einzelne Sprünge bis zu 150 %. Die Kurse laufen für alle Spieler gleich und auch dann weiter, wenn du nicht da bist. ' +
         'Bezahlt wird mit ' + App.Mode.coinName() + '.'
       ]));
     }

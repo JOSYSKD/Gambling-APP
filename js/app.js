@@ -31,7 +31,7 @@
       id: 'stocks',
       name: 'Aktien',
       icon: '📈',
-      desc: '20 Aktien von 100 bis 1.000 Coins. Alle 10 Sekunden ein neuer Kurs — kaufen, halten, im richtigen Moment verkaufen.',
+      desc: '20 Aktien von 100 bis 1.000 Coins. Alle 10 Sekunden ein neuer Kurs — jetzt EXTREM, Sprünge bis 150 %. Kaufen, halten, im richtigen Moment verkaufen.',
       route: '/stocks',
       mode: 'casino'
     },
@@ -39,7 +39,7 @@
       id: 'cours',
       name: 'COURS',
       icon: '🎢',
-      desc: 'Ein einziger, wilder Kurs — 3 Ticks pro Sekunde, jeder Tick 1–10 % rauf oder runter. Läuft nie aus, für alle gleich. Steig ein und im richtigen Moment wieder aus.',
+      desc: 'Ein einziger, wilder Kurs — 3 Ticks pro Sekunde, jeder Tick 3–22 % rauf oder runter. Läuft nie aus, für alle gleich. Steig ein und im richtigen Moment wieder aus.',
       route: '/cours',
       mode: 'casino'
     },
