@@ -57,7 +57,7 @@
 
   App.Minigames.dodge = {
     id: 'dodge', title: 'Kugelhagel', icon: '🌀', order: 140,
-    subtitle: 'Weiche dem Kugelhagel aus – überlebe am längsten',
+    subtitle: 'Weiche aus und überlebe am längsten!',
     single: true, multi: true, minPlayers: 2, maxPlayers: 8,
 
     render: function (root, ctx) {
