@@ -17,6 +17,7 @@
   window.App = window.App || {};
   var UI = App.UI, el = UI.el;
   var KEY = 'gj_theme', KEY_RM = 'gj_reduce_motion', KEY_BG = 'gj_bgstyle';
+  var KEY_BG_IMG = 'gj_bg_image';   // selbst hochgeladenes Hintergrundbild (Data-URL, nur lokal)
   // Schnelles-Weiterspielen-Optionen (siehe app.js Game-Over + ui.js createBetPanel):
   var KEY_AUTORESTART = 'gj_auto_restart';   // kein Game-Over-Overlay, sofort Einstiegsgeld
   var KEY_AUTOMAX = 'gj_auto_maxbet';        // Einsatz automatisch auf Max vorwählen
@@ -64,6 +65,8 @@
   try { reduceMotion = App.Storage ? App.Storage.get(KEY_RM, false) : (localStorage.getItem(KEY_RM) === '1'); } catch (e) {}
   var currentBg = 'jungle';
   try { currentBg = (App.Storage ? App.Storage.get(KEY_BG, null) : localStorage.getItem(KEY_BG)) || 'jungle'; } catch (e) {}
+  var customImg = null;   // Data-URL des eigenen Hintergrundbilds (falls hochgeladen)
+  try { customImg = (App.Storage ? App.Storage.get(KEY_BG_IMG, null) : localStorage.getItem(KEY_BG_IMG)) || null; } catch (e) {}
   var autoRestart = false;
   try { autoRestart = App.Storage ? App.Storage.get(KEY_AUTORESTART, false) : (localStorage.getItem(KEY_AUTORESTART) === '1'); } catch (e) {}
   var autoMax = false;
@@ -390,15 +393,93 @@
     for (var i = 0; i < kids.length; i++) if (kids[i]) scene.appendChild(kids[i]);
   }
 
+  // ---------- Eigenes Hintergrundbild ----------
+  // Das Bild lebt als Data-URL nur im localStorage (nicht in der Cloud). Es wird
+  // per CSS-Regel auf `body.bgstyle-custom` gelegt; die höhere Spezifität (Klasse)
+  // schlägt die Theme-Regel `body{background…}`, egal in welcher Reihenfolge.
+  function injectBgImgCss(dataUrl) {
+    var st = document.getElementById('gj-bgimg-style');
+    if (!dataUrl) { if (st) st.textContent = ''; return; }
+    if (!st) { st = document.createElement('style'); st.id = 'gj-bgimg-style'; document.head.appendChild(st); }
+    st.textContent =
+      'body.bgstyle-custom{background:#04140d url("' + dataUrl + '") center center / cover fixed !important;}' +
+      // dezenter Abdunkler, damit Neon-Text lesbar bleibt:
+      'body.bgstyle-custom #bg-scene{background:linear-gradient(180deg,rgba(0,0,0,.28),rgba(0,0,0,.5)) !important;}';
+  }
+
+  // Bild verkleinern (max. Kantenlänge), damit es sicher in den localStorage passt.
+  function downscaleImage(dataUrl, maxSide, cb) {
+    var img = new Image();
+    img.onload = function () {
+      var scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      var w = Math.max(1, Math.round(img.width * scale));
+      var h = Math.max(1, Math.round(img.height * scale));
+      try {
+        var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        cb(cv.toDataURL('image/jpeg', 0.82));
+      } catch (e) { cb(dataUrl); }
+    };
+    img.onerror = function () { cb(dataUrl); };
+    img.src = dataUrl;
+  }
+
+  // Datei einlesen -> verkleinern -> speichern -> als Hintergrund aktivieren.
+  function loadCustomFile(file, done) {
+    if (!file || !/^image\//.test(file.type)) { if (done) done(false); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      downscaleImage(reader.result, 1600, function (small) {
+        customImg = small;
+        var ok = true;
+        try { App.Storage ? App.Storage.set(KEY_BG_IMG, small) : localStorage.setItem(KEY_BG_IMG, small); }
+        catch (e) { ok = false; } // z. B. Quota voll
+        injectBgImgCss(customImg);
+        applyBg('custom');
+        if (done) done(ok);
+      });
+    };
+    reader.onerror = function () { if (done) done(false); };
+    reader.readAsDataURL(file);
+  }
+
+  function clearCustomImage() {
+    customImg = null;
+    try {
+      if (App.Storage && App.Storage.remove) App.Storage.remove(KEY_BG_IMG);
+      else if (App.Storage) App.Storage.set(KEY_BG_IMG, null);
+      else localStorage.removeItem(KEY_BG_IMG);
+    } catch (e) {}
+    injectBgImgCss(null);
+    if (currentBg === 'custom') applyBg('jungle');
+  }
+
+  function removeAllBgClasses() {
+    for (var i = 0; i < BG_STYLES.length; i++) document.body.classList.remove('bgstyle-' + BG_STYLES[i].id);
+    document.body.classList.remove('bgstyle-custom');
+  }
+
   function applyBg(id, persist) {
-    var b = byBgId(id); currentBg = b.id;
+    if (id === 'custom' && !customImg) id = 'jungle'; // nichts hochgeladen -> Standard
     injectBgCss();
-    if (document.body) {
-      for (var i = 0; i < BG_STYLES.length; i++) document.body.classList.remove('bgstyle-' + BG_STYLES[i].id);
-      document.body.classList.add('bgstyle-' + b.id);
-      buildScene(b.id);
+    injectBgImgCss(customImg); // Regel bereithalten (greift nur bei .bgstyle-custom)
+    if (id === 'custom') {
+      currentBg = 'custom';
+      if (document.body) {
+        removeAllBgClasses();
+        document.body.classList.add('bgstyle-custom');
+        var scene = ensureScene(); // eigene Szene leeren (nur Abdunkler-Overlay)
+        while (scene && scene.firstChild) scene.removeChild(scene.firstChild);
+      }
+    } else {
+      var b = byBgId(id); currentBg = b.id;
+      if (document.body) {
+        removeAllBgClasses();
+        document.body.classList.add('bgstyle-' + b.id);
+        buildScene(b.id);
+      }
     }
-    if (persist !== false) { try { App.Storage ? App.Storage.set(KEY_BG, b.id) : localStorage.setItem(KEY_BG, b.id); } catch (e) {} }
+    if (persist !== false) { try { App.Storage ? App.Storage.set(KEY_BG, currentBg) : localStorage.setItem(KEY_BG, currentBg); } catch (e) {} }
   }
 
   function injectCss() {
@@ -427,6 +508,12 @@
       '.bg-card .theme-name{font-size:15px;}',
       '.bg-card .bg-desc{font-size:11px;color:var(--muted);margin-top:4px;}',
       '.bg-prev{background-size:cover;}',
+      // Karte "Eigenes Bild"
+      '.bg-custom-prev{background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;background-color:rgba(255,255,255,.05);}',
+      '.bg-custom-plus{font-size:30px;font-weight:900;color:var(--muted);}',
+      '.bg-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}',
+      '.bg-mini{font:inherit;font-size:12px;font-weight:800;padding:6px 10px;border-radius:10px;border:1px solid var(--stroke);background:rgba(9,32,21,.7);color:var(--text);cursor:pointer;}',
+      '.bg-mini:hover{border-color:var(--neon);}',
       '.bgprev-jungle{background:radial-gradient(circle at 25% 25%,rgba(57,255,20,.45),transparent 55%),radial-gradient(circle at 80% 70%,rgba(51,230,208,.35),transparent 55%),linear-gradient(160deg,#04170d,#0a2e1a);}',
       '.bgprev-water{background:radial-gradient(circle at 50% 0%,rgba(90,205,255,.5),transparent 60%),radial-gradient(circle at 30% 80%,rgba(60,150,230,.35),transparent 60%),linear-gradient(180deg,#083650,#02101f);}',
       '.bgprev-fire{background:radial-gradient(circle at 50% 105%,rgba(255,150,30,.8),rgba(255,80,20,.3) 45%,transparent 70%),linear-gradient(0deg,#2a0a04,#140406);}',
@@ -472,6 +559,43 @@
       ]);
     }));
 
+    // Karte "Eigenes Bild" ans Ende des Hintergrund-Rasters hängen.
+    var bgFileInput = el('input', {
+      type: 'file', accept: 'image/*', style: 'display:none',
+      onchange: function () {
+        var f = this.files && this.files[0], self = this;
+        loadCustomFile(f, function (ok) {
+          if (!ok && App.UI && App.UI.toast) App.UI.toast('Bild zu groß — konnte nicht gespeichert werden.', 'lose');
+          self.value = '';
+          if (App.Audio) App.Audio.sfx('select');
+          rerender();
+        });
+      }
+    });
+    var customActive = currentBg === 'custom';
+    var customCard = el('div', {
+      class: 'theme-card bg-card bg-custom' + (customActive ? ' active' : ''),
+      onclick: function () {
+        if (customImg) { applyBg('custom'); if (App.Audio) App.Audio.sfx('select'); rerender(); }
+        else bgFileInput.click();
+      }
+    }, [
+      customActive ? el('span', { class: 'theme-tag' }, ['✓ aktiv']) : null,
+      el('div', {
+        class: 'theme-preview bg-prev bg-custom-prev',
+        style: customImg ? ('background-image:url("' + customImg + '")') : null
+      }, [customImg ? null : el('span', { class: 'bg-custom-plus' }, ['＋'])]),
+      el('div', { class: 'theme-name' }, ['🖼️ Eigenes Bild']),
+      el('div', { class: 'bg-actions' }, [
+        el('button', { class: 'bg-mini', type: 'button', onclick: function (e) { e.stopPropagation(); bgFileInput.click(); } },
+          [customImg ? '🔄 Ändern' : '📁 Bild wählen']),
+        customImg ? el('button', { class: 'bg-mini', type: 'button', onclick: function (e) { e.stopPropagation(); clearCustomImage(); if (App.Audio) App.Audio.sfx('select'); rerender(); } },
+          ['✕ Entfernen']) : null
+      ]),
+      bgFileInput
+    ]);
+    bgGrid.appendChild(customCard);
+
     var rmSwitch = el('div', { class: 'switch' + (reduceMotion ? ' on' : ''), onclick: function () { setReduceMotion(!reduceMotion); this.classList.toggle('on', reduceMotion); } }, [el('span', { class: 'knob' })]);
     var soundOn = !(App.Audio && App.Audio.isMuted && App.Audio.isMuted());
     var sndSwitch = el('div', { class: 'switch' + (soundOn ? ' on' : ''), onclick: function () { if (App.Audio) { App.Audio.start(); App.Audio.setMuted(!App.Audio.isMuted()); } this.classList.toggle('on', !(App.Audio && App.Audio.isMuted())); } }, [el('span', { class: 'knob' })]);
@@ -515,7 +639,10 @@
     autoRestart: function () { return autoRestart; }, setAutoRestart: setAutoRestart,
     autoMaxBet: function () { return autoMax; }, setAutoMaxBet: setAutoMax,
     // Stil-/Hintergrund-API (unabhängig von den Farb-Themes)
-    applyBg: applyBg, currentBg: function () { return currentBg; }, bgStyles: function () { return BG_STYLES.slice(); }
+    applyBg: applyBg, currentBg: function () { return currentBg; }, bgStyles: function () { return BG_STYLES.slice(); },
+    // Eigenes Hintergrundbild
+    customImage: function () { return customImg; }, clearCustomImage: clearCustomImage,
+    setCustomFile: loadCustomFile
   };
 
   // Theme + Hintergrund so früh wie möglich anwenden (kein Flackern), Nav wenn DOM bereit.
