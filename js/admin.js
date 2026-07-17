@@ -306,7 +306,9 @@
     /** Von Claude beim Testen angelegte Platzhalter-Spieler wegräumen (erkannt an
      *  bekannten Test-Namen). Echte Spieler bleiben unangetastet. */
     removeTestPlayers: function () {
-      var RX = /^(test|tester|testspieler|goldtester|admintester|admin2test|livecheck|livefinal|syncprobe|vorbereiter|aufräumer|aufraeumer|weglaeufer|wegläufer|jungleguest|spieler1|probe|dummy)$/i;
+      // NUR eindeutige Test-Namen von Claude. Bewusst NICHT „JungleGuest" (das ist
+      // der Standardname echter Gäste, siehe app.js) und keine Allerweltsnamen.
+      var RX = /^(test|tester|testspieler|goldtester|admintester|admin2test|livecheck|livefinal|syncprobe)$/i;
       return Admin.listPlayers().then(function (rows) {
         var hits = rows.filter(function (r) {
           return RX.test(String(r.displayName || '').replace(/ \(Gast\)$/, '').trim());
