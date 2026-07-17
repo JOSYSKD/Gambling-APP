@@ -248,6 +248,10 @@
       if (typeof sv.runActive === 'boolean') App.Storage.set('gj_sv_run', sv.runActive);
       if (typeof sv.peakEver === 'number') App.Storage.set('gj_sv_peak_ever', sv.peakEver);
     }
+    // Ideen-Glühbirnen des KONTOS übernehmen (nicht mit dem lokalen Stand mischen —
+    // sonst erbte ein Spieler die Glühbirnen des Vorgängers auf demselben Gerät).
+    if (typeof acct.ideaWins === 'number') App.Storage.set('gj_idea_wins', acct.ideaWins);
+
     M.refresh();     // Coins/Chips/Progress/Depot des AKTIVEN Modus neu laden
     if (acct.playerName) App.Leaderboard.setPlayerName(acct.playerName);
   }
@@ -276,6 +280,9 @@
     // Turnier-Tickets gelten für beide Modi gemeinsam (siehe js/tickets.js) und
     // liegen daher außerhalb von acct.sv.
     acct.tickets = App.Tickets ? App.Tickets.get() : 0;
+    // Erfolgreiche Spielideen (goldene Glühbirnen, siehe js/ideas.js): einmal verdient,
+    // für immer behalten — also ans Konto binden statt nur ans Gerät.
+    acct.ideaWins = App.Storage.get('gj_idea_wins', 0) || 0;
     return acct;
   }
 

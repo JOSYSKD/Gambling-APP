@@ -142,31 +142,53 @@
     showRewardModal(idea, amount, lv);
   }
 
+  /** Ist die Belohnung dieser Idee bei mir schon angekommen? `claimedAt`/`paid`
+   *  stehen im geteilten Datensatz — daher zahlt auch ein ZWEITES Gerät desselben
+   *  Kontos nicht noch einmal aus (dessen lokale rid-Liste ist ja leer). */
+  function isCollected(idea, seen) {
+    if (!idea.reward || !idea.reward.rid) return false;
+    return !!idea.claimedAt || !!idea.paid || seen.indexOf(idea.reward.rid) >= 0;
+  }
+
   /** Alle eigenen Ideen prüfen: belohnte auszahlen, Ideen-Level nachziehen. */
   function checkRewards() {
     return list().then(function (all) {
       var mine = all.filter(isMine);
-      var wins = 0, seen = paidIds();
-      var pending = [];
-      mine.forEach(function (idea) {
-        if (!idea.reward || !idea.reward.rid) return;
-        wins++;
-        if (seen.indexOf(idea.reward.rid) < 0) pending.push(idea);
+      var seen = paidIds();
+      var pending = mine.filter(function (idea) {
+        return idea.reward && idea.reward.rid && !isCollected(idea, seen);
       });
-      // Zähler aus der Liste ist die Wahrheit (überlebt auch einen Storage-Verlust).
-      App.Storage.set(KEY_WINS, wins);
+
+      var payouts = [];
       pending.forEach(function (idea) {
         markPaid(idea.reward.rid);                     // zuerst sperren -> keine Doppelzahlung
         var amount = Math.max(0, Math.round(startBal() * idea.reward.mult));
         if (!amount) return;
         payout(amount);
-        // Für den Admin sichtbar machen, dass die Belohnung angekommen ist.
+        // Für den Admin (und andere Geräte) sichtbar machen, dass sie angekommen ist.
         store().then(function (b) {
           return b.update(PATH + '/' + idea.id, { claimedAt: Date.now(), paid: amount });
         }).catch(function () {});
-        celebrate(idea, amount);
+        payouts.push({ idea: idea, amount: amount });
       });
-      return { wins: wins, paid: pending.length };
+
+      /* Zähler der erfolgreichen Ideen — er WÄCHST NUR: eine einmal verdiente
+       * Glühbirne bleibt für immer, auch wenn der Host die Idee später löscht oder
+       * die Belohnung zurücknimmt.
+       *   (a) jede FRISCHE Auszahlung zählt +1 — unabhängig davon, was noch auf dem
+       *       Server liegt (sonst könnte eine neue Idee den Zähler nicht mehr heben,
+       *       nachdem der Host ältere belohnte Ideen gelöscht hat);
+       *   (b) zusätzlich auf die Zahl der belegten Datensätze anheben — so heilt sich
+       *       ein Storage-Verlust aus `claimedAt`/`paid`, solange die Ideen noch da sind.
+       * Beides über Math.max, damit ein zweiter Lauf mit denselben Daten nicht doppelt zählt. */
+      var got = paidIds();
+      var earned = 0;
+      mine.forEach(function (idea) { if (isCollected(idea, got)) earned++; });
+      App.Storage.set(KEY_WINS, Math.max(winCount() + payouts.length, earned));
+
+      // Erst NACH dem Zähler feiern — das Feier-Fenster zeigt das neue Ideen-Level.
+      payouts.forEach(function (p) { celebrate(p.idea, p.amount); });
+      return { wins: winCount(), paid: payouts.length };
     }).catch(function () { return { wins: winCount(), paid: 0 }; });
   }
 
