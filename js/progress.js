@@ -98,12 +98,11 @@
   function xpForLevel() { return level() >= MAX_LEVEL ? 0 : reqFor(level()); }
   function isMaxLevel() { return level() >= MAX_LEVEL; }
 
-  // Wie stark Level und Quests das Wieder-Auffüll-Guthaben heben. Bewusst dick:
-  // pro Level 3000 (statt 750), und jede fertige Quest schenkt 40 % ihrer Coin-
-  // Belohnung dauerhaft ins Startguthaben (statt 10 %). So wird das Neustartguthaben
-  // mit Fortschritt richtig fett — vor allem, wenn die Risiko-Mega-Quests fallen.
-  var LEVEL_START_STEP = 3000;   // Guthaben-Zuwachs pro Level
-  var QUEST_START_SHARE = 0.4;   // Anteil der Quest-Belohnung, der ins Startguthaben wandert
+  // Wie stark Level und Quests das Wieder-Auffüll-Guthaben heben. Auf Josls Wunsch
+  // stark gesenkt (früher 3000/Level + 40 % je Quest): Das Einstiegsguthaben soll
+  // wieder klein sein, damit man sich sein Vermögen erspielen muss statt fett zu starten.
+  var LEVEL_START_STEP = 100;    // Guthaben-Zuwachs pro Level (früher 3000)
+  var QUEST_START_SHARE = 0.02;  // Anteil der Quest-Belohnung im Startguthaben (früher 0.4)
 
   // Bonus aus bereits erledigten Quests: jede fertige Quest hebt den Wieder-Auffüll-
   // Betrag dauerhaft um einen Teil ihrer Belohnung an — summiert sich mit jeder weiteren
@@ -127,6 +126,32 @@
     return Math.round(amt / 50) * 50;
   }
   function startBalance() { return startBalanceOf(state); }
+
+  /* Level des Spielers auf ein Ziel setzen bzw. um N senken (Admin-Werkzeug,
+   * siehe js/admin.js). XP werden auf den Beginn des Ziellevels gesetzt — das
+   * Level sinkt, XP/Quests darüber hinaus gehen dabei bewusst verloren. Nie
+   * unter Level 1. */
+  function setLevelTo(target) {
+    target = Math.max(1, Math.min(MAX_LEVEL, Math.round(Number(target) || 1)));
+    state.xp = cumFor(target);
+    save(); updateChip(); emit();
+    return level();
+  }
+  function subtractLevels(n) { return setLevelTo(level() - Math.max(0, Math.round(Number(n) || 0))); }
+
+  /* Admin-Level-Abzug einlösen (genau einmal, Muster wie applyGoldGrant in
+   * survival.js): Der Admin setzt admin.levelAdjust = {id, delta}; der Client
+   * senkt sein eigenes Level einmalig und merkt sich die id. */
+  var KEY_LVL_SEEN = 'gj_level_adjust_seen';
+  function applyLevelAdjust(grant) {
+    if (!grant || !grant.id) return false;
+    if (App.Storage.get(KEY_LVL_SEEN, null) === grant.id) return false;
+    App.Storage.set(KEY_LVL_SEEN, grant.id);
+    if (typeof grant.setTo === 'number') setLevelTo(grant.setTo);
+    else subtractLevels(grant.delta || 0);
+    if (App.UI) App.UI.toast('⬇️ Ein Admin hat dein Level angepasst — jetzt Level ' + level() + '.', 'lose');
+    return true;
+  }
 
   /* Einstiegsguthaben eines BESTIMMTEN Modus — auch wenn gerade der andere aktiv
    * ist. Nötig für die Ideen-Belohnung (js/ideas.js), die immer in Casino-Silber
@@ -372,12 +397,7 @@
         target: 1, prog: function (s) { return (s.games && s.games[g.id]) ? 1 : 0; }, reward: questReward(1)
       };
     }))
-    .concat((App.Chips ? App.Chips.DENOMS : []).slice().reverse().map(function (d) {
-      return {
-        id: 'chip_' + d.v, icon: '🎟️', title: d.label + '-Chip', desc: 'Besitze Pokerchips im Wert von ' + fmt(d.v),
-        target: d.v, prog: function () { return App.Chips ? App.Chips.get() : 0; }, reward: questReward(d.v)
-      };
-    }))
+    // (Chip-Quests entfernt — Pokerchips wurden durch die Bank ersetzt.)
     .concat(megaRiskQuests());   // 150 Risiko-Mega-Quests (10^12 … 10^21)
 
   var QUESTS = BASE_QUESTS.concat(EXTRA_QUESTS);
@@ -503,12 +523,7 @@
       App.UI.flash = function (amount) { try { if (!riskFreeRound()) onOutcome(Number(amount) || 0); } catch (e) {} return _flash.apply(this, arguments); };
       App.UI.__progHooked = true;
     }
-    // Pokerchip-Einsätze/-Gewinne zählen umgerechnet (× Kurs) genauso für XP & Quests.
-    if (App.Chips && !App.Chips.__progHooked) {
-      App.Chips.onWager(function (amt) { onWager(amt * App.Chips.RATE); });
-      App.Chips.onOutcome(function (amt) { onOutcome(amt * App.Chips.RATE); });
-      App.Chips.__progHooked = true;
-    }
+    // (Pokerchips abgeschafft — Video Poker läuft jetzt über App.Coins/UI.flash.)
     window.addEventListener('hashchange', function () { noteGame(hashGame()); });
     noteGame(hashGame());
   }
@@ -684,6 +699,10 @@
       return el('span', { class: 'gj-name' + (isGold ? ' name-gold' : '') }, [String(name == null ? '' : name)]);
     },
     stats: function () { return statsView(); },
+    setLevelTo: setLevelTo, subtractLevels: subtractLevels, applyLevelAdjust: applyLevelAdjust,
+    /** Level bzw. Start-Guthaben aus einem fremden Fortschritts-Objekt (Admin-Panel). */
+    levelForXp: function (xp) { return levelFromXp(Math.max(0, Math.round(Number(xp) || 0))); },
+    startBalanceForProgress: function (prog) { return startBalanceOf(prog || { xp: 0 }); },
     /** Längste Sieg-Serie (aktiver Modus) bzw. für einen bestimmten Modus. */
     maxStreak: maxStreak, maxStreakIn: maxStreakIn, curStreak: curStreak,
     quests: function () { return QUESTS.slice(); },

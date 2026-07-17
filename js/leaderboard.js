@@ -235,6 +235,13 @@
         driver.save(list);
       }
       emit();
+    },
+
+    /** Admin: die gespeicherte Geld-Bestenliste (Run-Historie) komplett leeren.
+     *  Die Live-Peaks (aus der Präsenz) setzt das Admin-Panel separat zurück. */
+    resetBoard: function () {
+      try { if (driver.save) driver.save([]); } catch (e) {}
+      emit();
     }
   };
 

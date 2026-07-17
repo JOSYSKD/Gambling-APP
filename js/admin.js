@@ -191,6 +191,9 @@
             key: key, kind: 'account',
             displayName: acct.displayName || key,
             balance: acct.balance || 0,
+            bank: acct.bank || 0,
+            progress: acct.progress || null,
+            level: (App.Progress && acct.progress) ? App.Progress.levelForXp(acct.progress.xp) : 1,
             tickets: acct.tickets || 0,
             lastSeen: (acct.session && acct.session.lastSeen) || 0,
             admin: acct.admin || {},
@@ -205,6 +208,8 @@
             key: id, kind: 'guest',
             displayName: (p.name || 'Gast') + ' (Gast)',
             balance: p.balance || 0,
+            bank: p.bank || 0,
+            level: p.level || 1,
             tickets: p.tickets || 0,
             lastSeen: p.lastSeen || 0,
             admin: p.admin || {},
@@ -280,6 +285,68 @@
           var patch = row.kind === 'guest' ? App.Account.adminPatchPresence : App.Account.adminPatch;
           return patch(row.key, function (rec) { rec.admin = rec.admin || {}; rec.admin.msg = msg; }).catch(function () {});
         })).then(function () { return rows.length; });
+      });
+    },
+
+    /** Level eines Spielers um `delta` senken (siehe progress.js applyLevelAdjust).
+     *  Der Client wendet es beim nächsten Heartbeat/Restore genau einmal an. */
+    adjustLevel: function (kind, key, delta) {
+      var patch = kind === 'guest' ? App.Account.adminPatchPresence : App.Account.adminPatch;
+      return patch(key, function (rec) {
+        rec.admin = rec.admin || {};
+        rec.admin.levelAdjust = { id: genId(), delta: Math.max(0, Math.round(Number(delta) || 0)) };
+      });
+    },
+
+    /** Einen Spieler-Eintrag aus der Datenbank nehmen (Konto oder Gast). */
+    removePlayer: function (kind, key) {
+      return kind === 'guest' ? App.Account.adminRemovePresence(key) : App.Account.adminRemoveAccount(key);
+    },
+
+    /** Von Claude beim Testen angelegte Platzhalter-Spieler wegräumen (erkannt an
+     *  bekannten Test-Namen). Echte Spieler bleiben unangetastet. */
+    removeTestPlayers: function () {
+      var RX = /^(test|tester|testspieler|goldtester|admintester|admin2test|livecheck|livefinal|syncprobe|vorbereiter|aufräumer|aufraeumer|weglaeufer|wegläufer|jungleguest|spieler1|probe|dummy)$/i;
+      return Admin.listPlayers().then(function (rows) {
+        var hits = rows.filter(function (r) {
+          return RX.test(String(r.displayName || '').replace(/ \(Gast\)$/, '').trim());
+        });
+        return Promise.all(hits.map(function (r) { return Admin.removePlayer(r.kind, r.key).catch(function () {}); }))
+          .then(function () { return hits.map(function (h) { return h.displayName; }); });
+      });
+    },
+
+    /** Geld-Bestenliste leeren UND jeden Spieler auf sein (jetzt stark gesenktes)
+     *  Einstiegsguthaben setzen. Level/XP bleiben ausdrücklich unangetastet. */
+    resetMoneyLeaderboard: function () {
+      if (App.Leaderboard && App.Leaderboard.resetBoard) App.Leaderboard.resetBoard();
+      return Admin.listPlayers().then(function (rows) {
+        return Promise.all(rows.map(function (r) {
+          var start = (App.Progress && App.Progress.startBalanceForProgress)
+            ? App.Progress.startBalanceForProgress(r.progress) : 1000;
+          if (r.kind === 'guest') {
+            return App.Account.adminPatchPresence(r.key, function (rec) { rec.balance = start; rec.casinoPeak = start; }).catch(function () {});
+          }
+          return App.Account.adminPatch(r.key, function (acct) { acct.balance = start; acct.runPeak = start; }).catch(function () {});
+        })).then(function () { return rows.length; });
+      });
+    },
+
+    /** Survival-Rangliste: Einträge über `threshold` (Standard 2,5 Mio.) rausnehmen. */
+    resetSurvivalOver: function (threshold) {
+      threshold = Number(threshold) || 2500000;
+      var PATHS = ['survival', 'scores/__survival_board'];
+      return App.Net.store().then(function (b) {
+        return Promise.all(PATHS.map(function (path) {
+          return b.get(path).then(function (node) {
+            node = node || {};
+            var keys = Object.keys(node).filter(function (k) {
+              var e = node[k] || {};
+              return (Number(e.peak) || Number(e.gold) || 0) > threshold;
+            });
+            return Promise.all(keys.map(function (k) { return b.remove(path + '/' + k); })).then(function () { return keys.length; });
+          }).catch(function () { return 0; });
+        })).then(function (c) { return c.reduce(function (a, x) { return a + x; }, 0); });
       });
     },
 
@@ -429,11 +496,43 @@
           ideasListEl
         ]);
 
+        // --- Wartung: einmalige, unumkehrbare Aktionen (mit Rückfrage) ---
+        function danger(msg, fn, okLabel) {
+          if (typeof window !== 'undefined' && window.confirm && !window.confirm(msg)) return;
+          fn();
+        }
+        var mTest = el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
+          danger('Alle Test-Spieler (TestSpieler, Tester, …) aus der Datenbank entfernen?', function () {
+            Admin.removeTestPlayers().then(function (names) {
+              UI.toast('🧹 ' + names.length + ' Test-Spieler entfernt.', 'win'); refresh();
+            }).catch(function (e) { UI.toast(e.message, 'lose'); });
+          });
+        } }, ['🧹 Test-Spieler entfernen']);
+        var mMoney = el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
+          danger('Geld-Bestenliste zurücksetzen und ALLE Spieler auf ihr Einstiegsguthaben setzen? Level bleiben. Nicht umkehrbar!', function () {
+            UI.toast('Setze Geld-Bestenliste zurück …', 'info');
+            Admin.resetMoneyLeaderboard().then(function (n) {
+              UI.toast('💥 Geld-Bestenliste zurückgesetzt (' + n + ' Spieler).', 'win'); refresh();
+            }).catch(function (e) { UI.toast(e.message, 'lose'); });
+          });
+        } }, ['💥 Geld-Bestenliste zurücksetzen']);
+        var mSurv = el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
+          danger('Alle Survival-Rekorde über 2,5 Mio. löschen?', function () {
+            Admin.resetSurvivalOver(2500000).then(function (n) {
+              UI.toast('🥇 ' + n + ' Survival-Rekorde über 2,5 Mio. entfernt.', 'win');
+            }).catch(function (e) { UI.toast(e.message, 'lose'); });
+          });
+        } }, ['🥇 Survival >2,5 Mio. löschen']);
+        var maintenanceBox = el('div', { class: 'glass admin-broadcast' }, [
+          el('span', { class: 'admin-section-l' }, ['🛠️ Wartung (unumkehrbar)']),
+          el('div', { class: 'admin-controls' }, [mTest, mMoney, mSurv])
+        ]);
+
         gridEl = el('div', { class: 'admin-grid' });
         emptyEl = el('p', { class: 'lb-empty' }, ['Lade Spieler …']);
 
         root.appendChild(el('div', { class: 'admin-wrap' }, [
-          header, stats, ideasCard, toolbar, broadcastBox, infoEl, warnEl, errEl, gridEl, emptyEl
+          header, stats, ideasCard, toolbar, broadcastBox, maintenanceBox, infoEl, warnEl, errEl, gridEl, emptyEl
         ]));
       }
 
@@ -451,10 +550,12 @@
         var dot = el('span', { class: 'admin-dot' }, ['⚪']);
         var nameEl = el('span', { class: 'admin-name' }, [row.displayName]);
         var balEl = el('span', { class: 'admin-badge' }, ['0 🪙']);
+        var bankEl = el('span', { class: 'admin-badge' }, ['0 🏦']);
+        var lvlEl = el('span', { class: 'admin-badge' }, ['Lvl 1']);
         var tixEl = el('span', { class: 'admin-badge admin-tix' }, ['0 🎟️']);
         var rigBadge = el('span', { class: 'admin-badge admin-rig-badge' }, ['']);
         var head = el('div', { class: 'admin-card-head' }, [
-          chevron, dot, nameEl, el('span', { class: 'admin-badges' }, [balEl, tixEl, rigBadge])
+          chevron, dot, nameEl, el('span', { class: 'admin-badges' }, [balEl, bankEl, lvlEl, tixEl, rigBadge])
         ]);
 
         // --- Chancen (Rigging) ---
@@ -570,6 +671,32 @@
           el('div', { class: 'admin-controls' }, [skipStatusEl, skipBtn])
         ]);
 
+        // --- Level senken ---
+        var lvlNowEl = el('span', { class: 'admin-status' }, ['']);
+        var lvlInput = el('input', { class: 'text-input admin-num', type: 'number', min: 1, value: 1 });
+        var lvlBtn = el('button', { class: 'btn btn-ghost admin-rig-btn', type: 'button', onclick: function () {
+          var n = Math.max(1, Math.round(Number(lvlInput.value) || 1));
+          Admin.adjustLevel(kind, key, n).then(function () {
+            UI.toast('Level von ' + current.displayName + ' wird um ' + n + ' gesenkt (beim nächsten Heartbeat).', 'lose');
+          }).catch(function (e) { UI.toast(e.message, 'lose'); });
+        } }, ['⬇️ Level senken']);
+        var lvlSection = el('div', { class: 'admin-section' }, [
+          el('span', { class: 'admin-section-l' }, ['🎚️ Level anpassen']),
+          el('div', { class: 'admin-controls' }, [lvlNowEl, lvlInput, el('span', { class: 'admin-unit' }, ['Level']), lvlBtn])
+        ]);
+
+        // --- Spieler entfernen ---
+        var rmBtn = el('button', { class: 'btn btn-ghost admin-rig-btn', type: 'button', onclick: function () {
+          Admin.removePlayer(kind, key).then(function () {
+            UI.toast(current.displayName + ' entfernt.', 'lose');
+            refresh();
+          }).catch(function (e) { UI.toast(e.message, 'lose'); });
+        } }, ['🗑️ Spieler entfernen']);
+        var rmSection = el('div', { class: 'admin-section' }, [
+          el('span', { class: 'admin-section-l' }, ['🗑️ Aus der Datenbank entfernen']),
+          el('div', { class: 'admin-controls' }, [rmBtn])
+        ]);
+
         // Der Karten-KÖRPER (alle Steuerelemente) ist standardmäßig eingeklappt
         // und wird nur beim Aufklappen gezeigt. Wichtig: er ist ein persistenter
         // DOM-Knoten — der Auf/Zu-Zustand überlebt den 4s-Refresh von allein, weil
@@ -582,7 +709,10 @@
           el('hr', { class: 'admin-divider' }),
           tixSection,
           goldSection,
-          skipSection
+          skipSection,
+          el('hr', { class: 'admin-divider' }),
+          lvlSection,
+          rmSection
         ]);
         body.hidden = true; // eingeklappt starten
 
@@ -611,7 +741,10 @@
             dot.classList.toggle('online', online);
             card.classList.toggle('admin-online', online);
             nameEl.textContent = r.displayName;
-            balEl.textContent = UI.formatCoins(r.balance || 0) + ' 🪙';
+            balEl.textContent = UI.formatShort(r.balance || 0) + ' 🪙';
+            bankEl.textContent = UI.formatShort(r.bank || 0) + ' 🏦';
+            lvlEl.textContent = 'Lvl ' + (r.level || 1);
+            lvlNowEl.textContent = 'Aktuell: Level ' + (r.level || 1);
             tixEl.textContent = (r.tickets || 0) + ' 🎟️';
 
             var rig = admin.rig || 0;

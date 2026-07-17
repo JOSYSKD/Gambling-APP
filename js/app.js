@@ -160,7 +160,7 @@
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/quests'); } }, ['⭐ Level & Quests']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chat'); } }, ['💬 Gruppenchat']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/send'); } }, ['💸 Coins verschenken']),
-        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chips'); } }, ['🎟️ Pokerchips-Kasse']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/bank'); } }, ['🏦 Bank']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/leaderboard'); } }, ['🏆 Bestenliste']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/profile'); } }, ['👤 Profil']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/changelog'); } }, ['🆕 Update-News']),
@@ -626,7 +626,7 @@
     .add('/cours', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.Cours.renderPage(d); })
     .add('/chat', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chat.renderPage(d); })
     .add('/quests', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Progress.renderPage(d); })
-    .add('/chips', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chips.renderPage(d); })
+    .add('/bank', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Bank.renderPage(d); })
     .add('/settings', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Settings.renderPage(d); })
     .add('/profile', renderProfile)
     .add('/changelog', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Changelog.renderPage(d); })

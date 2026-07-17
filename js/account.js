@@ -94,6 +94,8 @@
       getPresence: function (key) { return Promise.resolve(readAllPresence()[key] || null); },
       setPresence: function (key, data) { var all = readAllPresence(); all[key] = data; writeAllPresence(all); return Promise.resolve(); },
       listPresence: function () { return Promise.resolve(readAllPresence()); },
+      removeAccount: function (key) { var all = readAll(); delete all[key]; writeAll(all); return Promise.resolve(); },
+      removePresence: function (key) { var all = readAllPresence(); delete all[key]; writeAllPresence(all); return Promise.resolve(); },
       leaderboardDriver: function () {
         return {
           load: function () { return App.Storage.get(KEY_LOCAL_LB, []); },
@@ -120,6 +122,8 @@
       getPresence: function (key) { return db.ref('presence/' + key).get().then(function (s) { return s.val(); }); },
       setPresence: function (key, data) { return db.ref('presence/' + key).set(data); },
       listPresence: function () { return db.ref('presence').get().then(function (s) { return s.val() || {}; }); },
+      removeAccount: function (key) { return db.ref('accounts/' + key).remove(); },
+      removePresence: function (key) { return db.ref('presence/' + key).remove(); },
       leaderboardDriver: function () {
         var cache = [], pCache = [];
         var ref = db.ref('leaderboard');
@@ -236,7 +240,14 @@
     var M = App.Mode;
     if (typeof acct.balance === 'number') M.writeIn('casino', 'gj_balance', acct.balance);
     if (typeof acct.runPeak === 'number') M.writeIn('casino', 'gj_run_peak', Math.max(acct.runPeak, acct.balance || 0));
-    if (typeof acct.chips === 'number') M.writeIn('casino', 'gj_chips', acct.chips);
+    // Alt-Pokerchips ins Guthaben falten (Chips wurden abgeschafft, siehe js/chips.js):
+    // ein Chip = 100.000 Coins. Der neue Bank-Stand liegt in acct.bank.
+    if (typeof acct.chips === 'number' && acct.chips > 0) {
+      var base = (typeof acct.balance === 'number') ? acct.balance : 0;
+      M.writeIn('casino', 'gj_balance', base + acct.chips * 100000);
+      M.writeIn('casino', 'gj_chips', 0);
+    }
+    if (typeof acct.bank === 'number') M.writeIn('casino', 'gj_bank', acct.bank);
     // Casino-Fortschritt (Level, XP, Quests/Erfolge) ans Konto binden -> der
     // level-abhängige Wieder-Auffüll-Betrag (startBalance) wandert geräte-
     // übergreifend mit. Survival-Fortschritt liegt separat in acct.sv.progress.
@@ -268,7 +279,8 @@
     var M = App.Mode;
     acct.balance = M.readIn('casino', 'gj_balance', App.Coins.START);
     acct.runPeak = M.readIn('casino', 'gj_run_peak', acct.balance);
-    acct.chips = M.readIn('casino', 'gj_chips', 0);
+    acct.chips = 0;   // Chips abgeschafft -> beim Restore ins Guthaben gefaltet
+    acct.bank = M.readIn('casino', 'gj_bank', 0);   // Bank-Einlage (Casino-Silber)
     acct.progress = M.readIn('casino', 'gj_progress', null);   // Level/XP/Quests/Erfolge (Casino)
     acct.sv = {
       balance: M.readIn('survival', 'gj_balance', 0),
@@ -386,6 +398,10 @@
         if (App.Survival && acct.admin && acct.admin.goldGrant) {
           App.Survival.applyGoldGrant(acct.admin.goldGrant);
           acct.admin.goldGrant = null;
+        }
+        // Vom Admin gesetzter Level-Abzug (genau einmal, siehe progress.js).
+        if (App.Progress && App.Progress.applyLevelAdjust && acct.admin && acct.admin.levelAdjust) {
+          App.Progress.applyLevelAdjust(acct.admin.levelAdjust);
         }
         acct.session.lastSeen = Date.now();
         snapshotToAccount(acct);
@@ -576,6 +592,14 @@
         mutator(rec);
         return state.backend.setPresence(key, rec);
       });
+    },
+    adminRemoveAccount: function (key) {
+      if (!state.backend || !state.backend.removeAccount) return Promise.reject(new Error('Kein Backend verfügbar.'));
+      return state.backend.removeAccount(key);
+    },
+    adminRemovePresence: function (key) {
+      if (!state.backend || !state.backend.removePresence) return Promise.reject(new Error('Kein Backend verfügbar.'));
+      return state.backend.removePresence(key);
     }
   };
 
@@ -595,7 +619,7 @@
     }, 1500);
   }
   App.Coins.onChange(scheduleSync);
-  App.Chips.onChange(scheduleSync);
+  if (App.Bank) App.Bank.onChange(scheduleSync);
   App.Leaderboard.onChange(scheduleSync);
 
   App.Account = Account;
