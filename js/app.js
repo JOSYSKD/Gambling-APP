@@ -151,6 +151,7 @@
       el('div', { class: 'menu-links' }, [
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/quests'); } }, ['⭐ Level & Quests']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chat'); } }, ['💬 Gruppenchat']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/send'); } }, ['💸 Coins verschenken']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chips'); } }, ['🎟️ Pokerchips-Kasse']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/leaderboard'); } }, ['🏆 Bestenliste']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/profile'); } }, ['👤 Profil']),
@@ -630,6 +631,10 @@
       if (App.Mode) App.Mode.set('casino');
       var d = el('div', { class: 'view-page' }); mount(d);
       return App.TournamentHostUI.renderPage(d);
+    })
+    .add('/send', function () {
+      var d = el('div', { class: 'view-page' }); mount(d);
+      return App.Wallet.renderPage(d);
     })
     .add('/admin', function () {
       if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; }
