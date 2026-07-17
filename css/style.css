@@ -422,3 +422,19 @@ body {
   .mg-play .jmp-canvas { max-height: 52vh; width: auto; }
   .mg-play .jmp-board-wrap { display: none; }
 }
+
+/* ---------- Update-News / Changelog (#/changelog) ---------- */
+.cl-list { display: flex; flex-direction: column; gap: 14px; }
+.cl-card { padding: 16px 18px; }
+.cl-head { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+.cl-date { font-weight: 900; color: var(--gold); font-size: 15px; letter-spacing: .5px; }
+.cl-badge {
+  font-size: 11px; font-weight: 900; letter-spacing: 1px;
+  color: #04100a; background: var(--neon);
+  padding: 2px 8px; border-radius: 999px;
+  box-shadow: 0 0 10px rgba(57, 255, 20, .5);
+}
+.cl-title { font-weight: 800; color: var(--leaf); font-size: 16px; margin-bottom: 8px; }
+.cl-items { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.cl-items li { color: var(--text); font-size: 14px; line-height: 1.45; }
+.cl-items li::marker { color: var(--neon); }
