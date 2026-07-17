@@ -594,6 +594,9 @@
   }
 
   /* ---------------- Quest-/Level-Seite ---------------- */
+  // Such-/Sortier-Zustand der Quest-Liste — modulweit, damit die Auswahl beim
+  // Verlassen und Zurückkehren auf die Seite erhalten bleibt.
+  var questQuery = '', questSort = 'default';
   function renderPage(root) {
     injectCss();
     var L = level();
@@ -617,9 +620,14 @@
       statCard('💥', 'Größter Gewinn', UI.formatCoins(s.biggestWin))
     ]);
 
-    var list = el('div', { class: 'quest-list' }, QUESTS.map(function (q) {
+    // Fortschritt 0..1 einer Quest (für Sortierung "Fast fertig").
+    function questPct(q) { return Math.min(1, q.prog(s) / q.target); }
+    function isDone(q) { return (state.quests[q.id] && state.quests[q.id].done) || q.prog(s) >= q.target; }
+
+    // Eine einzelne Quest-Zeile bauen.
+    function questRow(q) {
       var cur = Math.min(q.target, q.prog(s));
-      var done = (state.quests[q.id] && state.quests[q.id].done) || cur >= q.target;
+      var done = isDone(q);
       var p = Math.round(cur / q.target * 100);
       return el('div', { class: 'quest-row glass' + (done ? ' done' : '') }, [
         el('div', { class: 'quest-ic' }, [done ? '✅' : q.icon]),
@@ -635,7 +643,63 @@
           App.Tickets ? el('div', { class: 'quest-rw-x', style: 'color:#ffc740;' }, ['+' + App.Tickets.ticketsFor(q.reward) + ' 🎟️']) : null
         ].filter(Boolean))
       ]);
-    }));
+    }
+
+    // Sortier-Varianten. `null` = Original-Reihenfolge (wie definiert). Bei
+    // Gleichstand fällt jeder Vergleicher auf die Definition-Reihenfolge zurück.
+    var idx = function (q) { return QUESTS.indexOf(q); };
+    // Für A–Z: führende Emojis/Symbole abschneiden, damit z. B. "👑 Höchstlevel"
+    // unter H statt ganz oben einsortiert wird.
+    var azKey = function (q) { return q.title.replace(/^[^\p{L}\p{N}]+/u, '').trim() || q.title; };
+    var SORTERS = {
+      default:  null,
+      progress: function (a, b) { return (questPct(b) - questPct(a)) || (idx(a) - idx(b)); },
+      reward:   function (a, b) { return (b.reward.coins - a.reward.coins) || (idx(a) - idx(b)); },
+      open:     function (a, b) { return (isDone(a) - isDone(b)) || (idx(a) - idx(b)); },
+      done:     function (a, b) { return (isDone(b) - isDone(a)) || (idx(a) - idx(b)); },
+      az:       function (a, b) { return azKey(a).localeCompare(azKey(b), 'de'); }
+    };
+
+    var list = el('div', { class: 'quest-list' });
+    var count = el('span', { class: 'quest-count' });
+
+    // Liste nach aktuellem Suchtext + Sortierung neu aufbauen.
+    function rebuild() {
+      var qy = questQuery.trim().toLowerCase();
+      var rows = QUESTS.filter(function (q) {
+        return !qy || (q.title + ' ' + q.desc).toLowerCase().indexOf(qy) >= 0;
+      });
+      var sorter = SORTERS[questSort];
+      if (sorter) rows = rows.slice().sort(sorter);
+      list.innerHTML = '';
+      if (!rows.length) {
+        list.appendChild(el('div', { class: 'quest-empty glass' }, ['Keine Quest gefunden 🔍']));
+      } else {
+        rows.forEach(function (q) { list.appendChild(questRow(q)); });
+      }
+      count.textContent = rows.length === QUESTS.length
+        ? (QUESTS.length + ' Quests')
+        : (rows.length + ' / ' + QUESTS.length);
+    }
+
+    var searchInput = el('input', {
+      class: 'text-input quest-search', type: 'search', placeholder: '🔍 Quest suchen …', value: questQuery,
+      oninput: function () { questQuery = this.value; rebuild(); }
+    });
+    var sortSelect = el('select', {
+      class: 'text-input quest-sort',
+      onchange: function () { questSort = this.value; rebuild(); }
+    }, [
+      el('option', { value: 'default'  }, ['Standard']),
+      el('option', { value: 'progress' }, ['Fast fertig']),
+      el('option', { value: 'reward'   }, ['Höchste Belohnung']),
+      el('option', { value: 'open'     }, ['Offen zuerst']),
+      el('option', { value: 'done'     }, ['Erledigt zuerst']),
+      el('option', { value: 'az'       }, ['A – Z'])
+    ]);
+    sortSelect.value = questSort;
+
+    rebuild();
 
     root.appendChild(el('div', { class: 'quests-page' }, [
       el('div', { class: 'page-head' }, [
@@ -643,7 +707,11 @@
         el('h2', { class: 'page-title neon' }, ['⭐ Level & Quests'])
       ]),
       head, stats,
-      el('h3', { class: 'quest-h' }, ['Quests']),
+      el('div', { class: 'quest-h-row' }, [
+        el('h3', { class: 'quest-h' }, ['Quests']),
+        count
+      ]),
+      el('div', { class: 'quest-tools' }, [searchInput, sortSelect]),
       list
     ]));
   }
@@ -701,7 +769,14 @@
       '.lvl-stat-ic{font-size:22px;}',
       '.lvl-stat-v{font-size:19px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums;}',
       '.lvl-stat-l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:800;}',
-      '.quest-h{margin:4px 0 -4px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-size:13px;}',
+      '.quest-h{margin:0;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-size:13px;}',
+      '.quest-h-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:4px 0 -4px;}',
+      '.quest-count{color:var(--gold);font-weight:800;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;}',
+      '.quest-tools{display:flex;gap:10px;}',
+      '.quest-search{flex:1;min-width:0;}',
+      '.quest-sort{flex:0 0 auto;width:auto;cursor:pointer;}',
+      '@media(max-width:480px){.quest-tools{flex-direction:column;}.quest-sort{width:100%;}}',
+      '.quest-empty{padding:22px;text-align:center;color:var(--muted);font-weight:700;}',
       '.quest-list{display:flex;flex-direction:column;gap:10px;}',
       '.quest-row{display:flex;gap:12px;align-items:center;padding:12px 14px;}',
       '.quest-row.done{border-color:var(--stroke-2,var(--stroke));box-shadow:0 0 0 1px rgba(57,255,20,.25);}',
