@@ -171,6 +171,39 @@
     }));
   }
 
+  /* ---------------- Zeitplan + „selbst hosten" ----------------
+   * Muss in JEDER Ansicht erreichbar sein, in der man nicht gerade spielt.
+   * Sonst hängt der Weg zum Hosten davon ab, in welchem Zustand das letzte
+   * Turnier zufällig stehen geblieben ist: Die Siegerehrung bleibt stehen, bis
+   * das nächste Turnier nachrückt — und ein Wartebereich verdeckte ihn ebenso.
+   */
+  function hostPanel() {
+    var H = App.TournamentHost;
+    var sched = App.TournamentHostUI.scheduleList();
+    var last = Date.now();
+    return {
+      root: el('div', { class: 'glass', style: 'padding:16px;margin-top:14px;' }, [
+        el('h3', { style: 'margin-top:0;' }, ['🗓 Weitere Turniere']),
+        sched.root,
+        el('div', { class: 'admin-row-actions', style: 'margin-top:10px;' }, [
+          el('button', {
+            class: 'btn btn-primary', type: 'button',
+            onclick: function () { App.Router.go('/tournament/host'); }
+          }, ['🏆 Eigenes Turnier hosten']),
+          el('span', { class: 'cf-info-l' }, ['Dein Einsatz wird zum Preisgeld — ab ' + UI.formatShort(H.minFee()) + ' Coins.'])
+        ])
+      ]),
+      // Nur alle 4s neu bauen, nicht im 500ms-Takt der Seite: sonst flackert die
+      // Liste und der Absagen-Knopf rutscht unter dem Finger weg.
+      refresh: function () {
+        var now = Date.now();
+        if (now - last < 4000) return;
+        last = now;
+        sched.refresh();
+      }
+    };
+  }
+
   /* ---------------- Chat ---------------- */
   function buildChat() {
     var log = el('div', { class: 'tc-log' });
@@ -250,24 +283,8 @@
       ]));
     }
 
-    /* Zum Hosten muss man auch dann kommen, wenn gerade ein Turnier im
-     * Wartebereich steht — sonst wäre der Weg ausgerechnet immer dann versperrt,
-     * wenn überhaupt eins angesetzt ist. */
-    var H = App.TournamentHost;
-    var sched = App.TournamentHostUI.scheduleList();
-    var hostPanel = el('div', { class: 'glass', style: 'padding:16px;margin-top:14px;' }, [
-      el('h3', { style: 'margin-top:0;' }, ['🗓 Weitere Turniere']),
-      sched.root,
-      el('div', { class: 'admin-row-actions', style: 'margin-top:10px;' }, [
-        el('button', {
-          class: 'btn btn-primary', type: 'button',
-          onclick: function () { App.Router.go('/tournament/host'); }
-        }, ['🏆 Eigenes Turnier hosten']),
-        el('span', { class: 'cf-info-l' }, ['Dein Einsatz wird zum Preisgeld — ab ' + UI.formatShort(H.minFee()) + ' Coins.'])
-      ])
-    ]);
+    var host = hostPanel();
 
-    var schedDraw = Date.now();
     function refresh() {
       var ms = T.untilStart();
       clock.textContent = ms > 0 ? fmtClock(ms) : 'Startet …';
@@ -278,8 +295,7 @@
         ? 'Noch niemand angemeldet — sei der Erste.'
         : (n + ' Spieler' + (n === 1 ? '' : '') + ' in der Queue. Die Tickets werden erst abgebucht, wenn es losgeht.');
       if (chat) chat.refresh();
-      // Der Zeitplan baut seine Zeilen neu — nicht im 500ms-Takt (Flackern).
-      if (Date.now() - schedDraw > 4000) { schedDraw = Date.now(); sched.refresh(); }
+      host.refresh();
     }
 
     var plan = el('div', { class: 'tq-plan' }, (cfg.rounds || []).map(function (gid, i) {
@@ -316,7 +332,7 @@
       hint
     ]));
     root.appendChild(grid);
-    root.appendChild(hostPanel);
+    root.appendChild(host.root);
     if (chat) root.appendChild(chat.root);
 
     drawActions();
@@ -777,12 +793,17 @@
     root.appendChild(el('h3', { style: 'margin-top:14px;' }, ['Endstand']));
     root.appendChild(list);
 
+    // Die Ehrung bleibt stehen, bis das nächste Turnier nachrückt — ohne das
+    // Panel hier wäre stundenlang kein Weg zum Selbst-Hosten auf der Seite.
+    var host = hostPanel();
+    root.appendChild(host.root);
+
     // Gefeiert wird auch für Platz 2 und 3 — die bekommen ebenfalls Geld.
     var celebrate = iWon || myPay > 0;
     if (celebrate && App.Audio && App.Audio.jackpot) { try { App.Audio.jackpot(); } catch (e) {} }
     if (App.Progress && App.Progress.confetti && celebrate) { try { App.Progress.confetti(); } catch (e) {} }
 
-    return { refresh: function () {} };
+    return { refresh: host.refresh };
   }
 
   /* ---------------- Seite ---------------- */
@@ -814,7 +835,7 @@
          * automatisch nach, sobald seine Startzeit nah genug ist (siehe
          * js/tournament-host.js). Und von hier aus hostet man selbst eins. */
         var H = App.TournamentHost;
-        var sched = App.TournamentHostUI.scheduleList();
+        var host = hostPanel();
         var upcoming = H.upcoming();
 
         root.appendChild(el('div', { class: 'page-head' }, [
@@ -844,26 +865,12 @@
           el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { App.Router.go('/quests'); } }, ['⭐ Zu den Quests'])
         ].filter(Boolean)));
 
-        root.appendChild(el('div', { class: 'glass', style: 'padding:16px;' }, [
-          el('h3', { style: 'margin-top:0;' }, ['🗓 Zeitplan']),
-          el('p', { class: 'lb-hint' }, [
-            'Der Wartebereich öffnet ' + Math.round(H.PRE_OPEN_MS / 60000) + ' Minuten vor dem Start. ' +
-            'Zwischen zwei Turnieren liegen mindestens ' + Math.round(H.MIN_GAP_MS / 60000) + ' Minuten.'
-          ]),
-          sched.root
+        root.appendChild(el('p', { class: 'lb-hint' }, [
+          'Der Wartebereich öffnet ' + Math.round(H.PRE_OPEN_MS / 60000) + ' Minuten vor dem Start. ' +
+          'Zwischen zwei Turnieren liegen mindestens ' + Math.round(H.MIN_GAP_MS / 60000) + ' Minuten.'
         ]));
-        // Der Zeitplan baut seine Zeilen neu auf — nicht im 500ms-Takt der
-        // Seite, sonst flackert er und der Absagen-Knopf rutscht unter dem
-        // Finger weg.
-        var lastDraw = Date.now();
-        cur = {
-          refresh: function () {
-            var now = Date.now();
-            if (now - lastDraw < 4000) return;
-            lastDraw = now;
-            sched.refresh();
-          }
-        };
+        root.appendChild(host.root);
+        cur = { refresh: host.refresh };
         return;
       }
 
