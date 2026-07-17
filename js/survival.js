@@ -589,6 +589,13 @@
       App.Storage.remove('gj_sv_board_local');
       App.Storage.set(KEY_RESET, SV_RESET_GEN);
     }
+    // Bedingter Reset (Josls Wunsch): NUR wer einen Survival-Rekord über 2,5 Mio.
+    // hat, wird zurückgesetzt — kleinere Rekorde bleiben. Läuft pro Client genau
+    // einmal, damit online-Spieler ihren großen Rekord nicht gleich neu publizieren.
+    if ((Number(App.Storage.get('gj_sv_big_reset_gen', 0)) || 0) < 1) {
+      App.Storage.set('gj_sv_big_reset_gen', 1);
+      if (peakEver() > 2500000) { App.Storage.set(KEY_PEAK, assets()); }
+    }
     installBadge();
     syncBadge();
     App.Mode.onChange(syncBadge);

@@ -65,6 +65,26 @@
     }
   }
 
+  /* Globaler Geld-Reset (Josls Wunsch): Bei einem Sprung dieser Generation setzt
+   * JEDER Client sein CASINO-Guthaben + Peak einmalig auf das (jetzt kleine)
+   * Einstiegsguthaben zurück — zuverlässig für online wie offline, weil jeder
+   * Client es an sich selbst anwendet (ein Konto-Patch würde bei Online-Spielern
+   * sofort wieder hochsynchronisiert). LEVEL/XP/Quests bleiben unangetastet.
+   * Nur Casino-Silber, nie das Survival-Gold. */
+  var BAL_RESET_GEN = 1;
+  (function balanceResetOnce() {
+    if (!App.Mode || !App.Mode.readIn) return;
+    var seen = Number(App.Storage.get('gj_bal_reset_gen', 0)) || 0;
+    if (seen >= BAL_RESET_GEN) return;
+    App.Storage.set('gj_bal_reset_gen', BAL_RESET_GEN);
+    var start = (App.Progress && App.Progress.startBalanceIn) ? App.Progress.startBalanceIn('casino')
+      : (App.Progress && App.Progress.startBalance ? App.Progress.startBalance() : START);
+    start = Math.max(0, Math.round(Number(start) || START));
+    App.Mode.writeIn('casino', 'gj_balance', start);
+    App.Mode.writeIn('casino', 'gj_run_peak', start);
+    App.Mode.writeIn('casino', 'gj_bank', 0);   // Bank-Einlage beim Geld-Reset ebenfalls auf 0
+  })();
+
   function loadBalance() {
     var b = App.Storage.get(KEY_BAL, null);
     if (b === null || typeof b !== 'number' || b < 0) { b = START; App.Storage.set(KEY_BAL, b); }
@@ -119,6 +139,7 @@
   var Coins = {
     START: START,
     MIN_BET: MIN_BET,
+    BAL_RESET_GEN: BAL_RESET_GEN,   // Geld-Reset-Generation (siehe balanceResetOnce + account.js)
 
     get: function () { return balance; },
     getPeak: function () { return runPeak; },

@@ -238,6 +238,20 @@
    * Casino-Guthaben im Gold-Stand. */
   function applyAccountToLocalState(acct) {
     var M = App.Mode;
+    // Globaler Geld-Reset (siehe coins.js balanceResetOnce): Bringt das Konto
+    // noch einen alten Generationsstempel mit, wird das Casino-Guthaben auf das
+    // (kleine) Einstiegsguthaben gesetzt, statt den alten hohen Kontostand zu
+    // übernehmen. So greift der Reset auch für eingeloggte Spieler zuverlässig
+    // (der neue Stand wandert beim nächsten Snapshot ins Konto). Level bleiben.
+    var GEN = (App.Coins && App.Coins.BAL_RESET_GEN) || 0;
+    if ((Number(acct.balResetGen) || 0) < GEN) {
+      var start = (App.Progress && App.Progress.startBalanceForProgress)
+        ? App.Progress.startBalanceForProgress(acct.progress) : (App.Coins ? App.Coins.START : 1000);
+      start = Math.max(0, Math.round(Number(start) || 0));
+      acct.balance = start; acct.runPeak = start; acct.bank = 0;
+      acct.balResetGen = GEN;
+      App.Storage.set('gj_bal_reset_gen', GEN);
+    }
     if (typeof acct.balance === 'number') M.writeIn('casino', 'gj_balance', acct.balance);
     if (typeof acct.runPeak === 'number') M.writeIn('casino', 'gj_run_peak', Math.max(acct.runPeak, acct.balance || 0));
     // Alt-Pokerchips ins Guthaben falten (Chips wurden abgeschafft, siehe js/chips.js):
@@ -281,6 +295,7 @@
     acct.runPeak = M.readIn('casino', 'gj_run_peak', acct.balance);
     acct.chips = 0;   // Chips abgeschafft -> beim Restore ins Guthaben gefaltet
     acct.bank = M.readIn('casino', 'gj_bank', 0);   // Bank-Einlage (Casino-Silber)
+    acct.balResetGen = Number(App.Storage.get('gj_bal_reset_gen', 0)) || 0;   // Geld-Reset-Generation
     acct.progress = M.readIn('casino', 'gj_progress', null);   // Level/XP/Quests/Erfolge (Casino)
     acct.sv = {
       balance: M.readIn('survival', 'gj_balance', 0),
