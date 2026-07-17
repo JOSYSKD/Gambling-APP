@@ -752,9 +752,12 @@
     stage.appendChild(el('div', { class: 'tv-sub' }, [w.points + ' Punkte · ' + (T.config() ? T.config().title : 'Turnier')]));
     stage.appendChild(el('div', { class: 'tv-prize' }, [prizeText]));
     if (iWon) {
+      // Power-Up-Sieger: der Preis liegt in der Sammlung — egal ob eben erst
+      // vergeben (claimed) oder schon von einem früheren Aufruf (Reload). Der
+      // Guard in claimPrizeIfWinner sorgt dafür, dass es genau einer ist.
       stage.appendChild(el('div', { class: 'tv-sub', style: 'margin-top:12px;font-weight:800;color:#ffe9a3;' }, [
         isMoney ? '🎉 Das Preisgeld ist auf deinem Konto!'
-          : (claimed ? '🎉 Power-Up in deiner Sammlung — oben auf ⚡ tippen zum Benutzen!' : '🎉 Glückwunsch!')
+          : '🎉 Power-Up in deiner Sammlung — oben auf ⚡ tippen zum Benutzen!'
       ]));
     } else if (isMoney && myPay > 0) {
       // Auch Platz 2 und 3 bekommen Geld — das darf die Ehrung nicht verschlucken.
