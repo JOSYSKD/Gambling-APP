@@ -589,7 +589,7 @@
       '.stk-name{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
       '.stk-spark{width:100%;height:46px;display:block;}',
       '.stk-card-bot{display:flex;align-items:baseline;justify-content:space-between;gap:6px;}',
-      '.stk-price{font-size:17px;font-weight:900;font-variant-numeric:tabular-nums;}',
+      '.stk-price{font-size:17px;font-weight:900;font-variant-numeric:tabular-nums;color:#fff;}',
       '.stk-chg{font-size:11px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap;}',
       '.stk-chg.big{font-size:14px;}',
       '.stk-chg.up,.stk-d-stat-v.up{color:var(--neon,#39ff14);text-shadow:0 0 8px rgba(57,255,20,.6);}',
