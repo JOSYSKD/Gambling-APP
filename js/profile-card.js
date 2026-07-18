@@ -356,7 +356,7 @@
         bn = chosenAt(BANNERS, v.cos.banner, v.level);
     var right = [];
     if (extra.rankEl) right.push(el('div', { class: 'pcrow-rank' }, [extra.rankEl]));
-    right.push(el('div', { class: 'pcrow-peak' }, [UI.formatCoins(v.stats.peak) + ' 🪙']));
+    right.push(el('div', { class: 'pcrow-peak' }, [UI.formatCoins(extra.peak != null ? extra.peak : v.stats.peak) + ' 🪙']));
     if (extra.tag) right.push(extra.tag);
     return el('div', { class: 'pcrow pc-frame-' + fr.id + (v.me ? ' pcrow-me' : ''), style: '--pcrow-bn:' + bn.css.replace(/;/g, '') },
       [

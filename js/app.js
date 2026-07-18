@@ -307,6 +307,7 @@
         if (entry.me && App.ProfileCard && App.ProfileCard.renderRow) {
           var meRow = App.ProfileCard.renderRow(null, {
             rankEl: rankTxt,
+            peak: entry.peak,   // All-Time-Peak (inkl. Historie) statt nur aktueller Run-Peak
             tag: entry.active ? el('span', { class: 'lb-tag' }, ['aktiver Run'])
               : (entry.online ? el('span', { class: 'lb-tag lb-tag-on' }, ['🟢 online']) : null)
           });
