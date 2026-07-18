@@ -86,11 +86,8 @@
     return a + (b - a) * u;
   }
 
-  /** Mehrere Frequenzen übereinander: Trend + Welle + Zappeln.
-   *  EXTREM volatil abgestimmt — sechs Oktaven mit kräftigen schnellen Anteilen
-   *  lassen die Kurse pro Tick heftig steigen/fallen (Median ~4 %, große Sprünge
-   *  bis zur 150-%-Deckelung, siehe priceAt). Bleibt durch die Sigmoid (rawPrice)
-   *  trotzdem IMMER im Band [lo,hi]. */
+  /** Kurzfristiges Zappeln (Trend + Welle + Zappeln, mehrere Frequenzen). Fließt in
+   *  rawPrice als kleiner Term ein; die WEITE Bewegung macht drift(). */
   function fbm(seed, t) {
     // Die drei SCHNELLEN Oktaven (das kurzfristige Zappeln) auf die Hälfte gedämpft,
     // damit die Kurse nur noch halb so heftig springen wie zuvor. Die langsamen
@@ -103,11 +100,26 @@
       + (noise(seed + 5, t, 1.3) - 0.5) * 0.42;
   }
 
+  // Startwert (früher Bandmitte) und wie „wild" eine Aktie ist (aus der früheren
+  // Bandbreite abgeleitet, damit ruhige/volatile Aktien ihren Charakter behalten).
+  function baseOf(st) { return (st.lo + st.hi) / 2; }
+  function volOf(st) { return (st.hi - st.lo) / (st.hi + st.lo); }   // ~0,2 … 0,8
+
+  // Langsame, weit driftende Komponente über mehrere große Zeitskalen. KEIN festes
+  // Band mehr: exp(drift) kann den Kurs über Stunden/Tage auf ein Vielfaches treiben
+  // oder tief fallen lassen — so hoch, wie es der Zufall gerade will.
+  function drift(seed, t) {
+    return (noise(seed + 7, t, 90000) - 0.5) * 2 * 2.4
+      + (noise(seed + 8, t, 22000) - 0.5) * 2 * 1.7
+      + (noise(seed + 9, t, 6000) - 0.5) * 2 * 1.1
+      + (noise(seed + 10, t, 1500) - 0.5) * 2 * 0.6;
+  }
+
   function rawPrice(st, t) {
-    // Sehr steile Sigmoid (9,0) drückt den Kurs hart an die Bandränder, damit die
-    // Ausschläge extrem, aber nie außerhalb [lo,hi] sind.
-    var u = 1 / (1 + Math.exp(-9.0 * fbm(st.seed, t)));   // 0..1, ohne harte Grenzen
-    return st.lo + (st.hi - st.lo) * u;
+    // Frei laufender Kurs (kein Band): Startwert × e^(langsame Drift + kurzes Zappeln).
+    // Nach unten sanft bei 1 gehalten, damit eine Aktie nie exakt 0 oder negativ wird.
+    var lg = Math.log(baseOf(st)) + drift(st.seed, t) + volOf(st) * fbm(st.seed, t);
+    return Math.max(1, Math.exp(lg));
   }
 
   /** Reiner (ungedeckelter) Kurs beim Tick t. Manche Ticks bleiben bewusst
@@ -512,7 +524,7 @@
         infoTxt,
         tradeRow('buy'),
         tradeRow('sell'),
-        el('div', { class: 'stk-band' }, ['Kursband dieser Aktie: ' + st.lo + ' – ' + st.hi + ' ' + UI.coinIcon()])
+        el('div', { class: 'stk-band' }, ['Startwert ~' + Math.round((st.lo + st.hi) / 2) + ' ' + UI.coinIcon() + ' · kein Limit: der Kurs kann steigen und fallen, so weit der Zufall will'])
       ]));
       setTimeout(function () { drawChart(canvas, history(st.id, HISTORY), { grid: true, pad: 6 }); }, 0);
     }
