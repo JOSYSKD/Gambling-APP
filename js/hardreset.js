@@ -20,7 +20,7 @@
   'use strict';
   window.App = window.App || {};
 
-  var GEN = 5;                 // hochzählen für den nächsten globalen Reset
+  var GEN = 6;                 // hochzählen für den nächsten globalen Reset (6 = COURS-Depot wird jetzt mitgenullt)
   var KEY_GEN = 'gj_hard_gen';
   var CASINO_START = (App.Coins && App.Coins.START) || 1000;
 
@@ -37,11 +37,13 @@
     M.writeIn('casino', 'gj_bank', 0);
     M.writeIn('casino', 'gj_chips', 0);
     M.writeIn('casino', 'gj_stocks', null);
+    M.writeIn('casino', 'gj_cours', null);        // COURS-Depot (js/cours.js) — zählte sonst als Reserve weiter
     M.writeIn('survival', 'gj_balance', 0);
     M.writeIn('survival', 'gj_run_peak', 0);
     M.writeIn('survival', 'gj_chips', 0);
     M.writeIn('survival', 'gj_bank', 0);
     M.writeIn('survival', 'gj_stocks', null);
+    M.writeIn('survival', 'gj_cours', null);
     if (App.Storage) {
       App.Storage.set('gj_sv_peak_ever', 0);
       App.Storage.set('gj_sv_next_try', 0);
@@ -50,7 +52,10 @@
     // Level/XP/Quests + Stats-Erhalt macht progress.js (RESET_GEN). Danach die
     // In-Memory-Stände dem gekappten Storage nachziehen.
     if (M.refresh) M.refresh();
+    if (App.Coins && App.Coins.reloadFromStorage) App.Coins.reloadFromStorage();
+    if (App.Chips && App.Chips.reloadFromStorage) App.Chips.reloadFromStorage();
     if (App.Stocks && App.Stocks.reload) App.Stocks.reload();
+    if (App.Cours && App.Cours.reload) App.Cours.reload();
     if (App.Bank && App.Bank.reloadFromStorage) App.Bank.reloadFromStorage();
   }
 
@@ -59,6 +64,49 @@
     wipeLocal();
     if (App.Storage) App.Storage.set(KEY_GEN, GEN);
   }
+
+  /* ---------------- Cloud-gesteuerter Geld-Reset ----------------------------
+   * Der lokale GEN oben ist im Code fest verdrahtet — der Admin kann damit zur
+   * Laufzeit KEINEN Reset auslösen. Genau das war der Bug: der „Geld-Bestenliste
+   * zurücksetzen"-Knopf patchte nur die Cloud-Werte, die jeder Client beim nächsten
+   * Heartbeat wieder überschrieb → praktisch wurde nur der Admin selbst zurückgesetzt.
+   *
+   * Lösung wie der lokale GEN, aber über einen ZÄHLER in der Cloud: erhöht der Admin
+   * ihn (bumpCloudReset), kappt JEDER Client beim nächsten Laden UND regelmäßig genau
+   * EINMAL sein Geld/Bank/Chips/Depot/COURS (Level/XP/Quests/Stats bleiben). Pfad liegt
+   * unter dem bereits offenen `scores`-Knoten -> kein Firebase-Regel-Deploy nötig. */
+  var CLOUD_PATH = 'scores/__money_reset';   // { gen:Number, at:Number }
+  var CLOUD_SEEN = 'gj_money_reset_seen';     // lokal zuletzt angewandte Cloud-Generation
+
+  function applyCloudResetOnce() {
+    if (!App.Net || !App.Net.store) return Promise.resolve();
+    return App.Net.store().then(function (b) { return b.get(CLOUD_PATH); }).then(function (node) {
+      var cloudGen = (node && Number(node.gen)) || 0;
+      var seen = App.Storage ? (Number(App.Storage.get(CLOUD_SEEN, 0)) || 0) : 0;
+      if (cloudGen <= seen) return;
+      // seen ZUERST setzen -> auch wenn wipeLocal etwas neu rendert, kein Doppel-Reset.
+      if (App.Storage) App.Storage.set(CLOUD_SEEN, cloudGen);
+      wipeLocal();                       // nur Geld/Depot/COURS — Level/Quests/Stats bleiben
+      try { if (App.UI && App.UI.toast) App.UI.toast('💥 Guthaben wurde zurückgesetzt.', 'info'); } catch (e) {}
+    }).catch(function () {});
+  }
+
+  /** Admin: globalen Geld-Reset für ALLE auslösen (Cloud-Zähler +1). */
+  function bumpCloudReset() {
+    if (!App.Net || !App.Net.store) return Promise.resolve();
+    return App.Net.store().then(function (b) {
+      return b.get(CLOUD_PATH).then(function (node) {
+        var gen = ((node && Number(node.gen)) || 0) + 1;
+        // eigenen seen mitziehen, damit der Admin sich nicht selbst doppelt kappt
+        if (App.Storage) App.Storage.set(CLOUD_SEEN, gen);
+        return b.set(CLOUD_PATH, { gen: gen, at: Date.now() });
+      });
+    });
+  }
+
+  // Beim Laden prüfen + danach regelmäßig (fängt auch Spieler, die die Seite offen lassen).
+  applyCloudResetOnce();
+  if (typeof setInterval === 'function') setInterval(applyCloudResetOnce, 30000);
 
   /** Braucht dieses Konto noch den Reset? (Aufruf aus account.js.) */
   function accountNeedsReset(acct) {
@@ -84,6 +132,8 @@
   App.HardReset = {
     GEN: GEN,
     accountNeedsReset: accountNeedsReset,
-    cleanAccount: cleanAccount
+    cleanAccount: cleanAccount,
+    bumpCloudReset: bumpCloudReset,          // Admin: Geld-Reset für ALLE auslösen
+    applyCloudResetOnce: applyCloudResetOnce
   };
 })();

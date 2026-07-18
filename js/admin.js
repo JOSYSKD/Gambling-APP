@@ -338,6 +338,11 @@
      *  Einstiegsguthaben setzen. Level/XP bleiben ausdrücklich unangetastet. */
     resetMoneyLeaderboard: function () {
       if (App.Leaderboard && App.Leaderboard.resetBoard) App.Leaderboard.resetBoard();
+      // WICHTIG: die direkten Cloud-Patches unten überschreibt jeder Client beim nächsten
+      // Heartbeat wieder -> allein damit würde effektiv nur der Admin zurückgesetzt. Der
+      // Cloud-Zähler (hardreset.js) sorgt dafür, dass JEDER Client sein Guthaben beim
+      // nächsten Laden/Poll selbst kappt. Beides zusammen = sofort sichtbar UND dauerhaft.
+      if (App.HardReset && App.HardReset.bumpCloudReset) { try { App.HardReset.bumpCloudReset(); } catch (e) {} }
       return Admin.listPlayers().then(function (rows) {
         return Promise.all(rows.map(function (r) {
           var start = (App.Progress && App.Progress.startBalanceForProgress)
