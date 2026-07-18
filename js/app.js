@@ -66,6 +66,14 @@
       // Turniere laufen immer im Casino: eine Gambling-Runde würde sonst mit
       // Gold gespielt und könnte einen Survival-Run beenden.
       mode: 'casino'
+    },
+    {
+      id: 'wager',
+      name: 'Wagern',
+      icon: '⚔️',
+      desc: 'Fordere einen Online-Spieler direkt heraus: beide setzen Coins, der Gewinner bekommt den ganzen Pot. Spiel, Runden und Zeit sucht ihr euch aus (der Admin gibt die Spiele frei).',
+      route: '/wager',
+      mode: 'casino'
     }
   ];
 
@@ -625,6 +633,8 @@
     .add('/stocks', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Stocks.renderPage(d); })
     .add('/cours', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.Cours.renderPage(d); })
     .add('/chat', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chat.renderPage(d); })
+    .add('/wager', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.WagerUI.renderPage(d); })
+    .add('/wager/match/:id', function (p) { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.WagerUI.renderMatch(d, p.id); })
     .add('/quests', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Progress.renderPage(d); })
     .add('/bank', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Bank.renderPage(d); })
     .add('/settings', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Settings.renderPage(d); })
