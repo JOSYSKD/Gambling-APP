@@ -114,9 +114,9 @@
   function isMaxLevel() { return level() >= MAX_LEVEL; }
 
   // Wie stark Level und Quests das Wieder-Auffüll-Guthaben heben. Auf Josls Wunsch
-  // stark gesenkt (früher 3000/Level + 40 % je Quest): Das Einstiegsguthaben soll
-  // wieder klein sein, damit man sich sein Vermögen erspielen muss statt fett zu starten.
-  var LEVEL_START_STEP = 100;    // Guthaben-Zuwachs pro Level (früher 3000)
+  // gibt das LEVEL jetzt viel mehr fürs Wiedereinstiegsguthaben (100 -> 1000 je Level):
+  // wer hoch levelt, startet nach einer Pleite mit spürbar mehr Coins.
+  var LEVEL_START_STEP = 1000;   // Guthaben-Zuwachs pro Level
   var QUEST_START_SHARE = 0.02;  // Anteil der Quest-Belohnung im Startguthaben (früher 0.4)
 
   // Bonus aus SELBST erledigten Quests: jede hebt den Wieder-Auffüll-Betrag um einen

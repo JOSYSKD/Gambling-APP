@@ -28,7 +28,7 @@
   var KEY = 'gj_stocks';
   var FLAT_CHANCE = 0.14;       // ~14% der Ticks bleiben unverändert
   var MAX_FLAT_RUN = 6;         // …aber höchstens 6 Ticks am Stück
-  var MAX_TICK_MOVE = 2.0;      // höchstens 200 % Kurssprung pro Tick (extrem extrem, gedeckelt)
+  var MAX_TICK_MOVE = 1.0;      // höchstens 100 % Kurssprung pro Tick (halb so extrem wie zuvor 200 %)
   var CLAMP_WARMUP = 90;        // Vorlauf-Ticks für die Sprung-Deckelung (Selbst-Sync)
   var HISTORY = 70;             // Ticks im großen Chart (~12 Minuten)
   var SPARK = 24;               // Ticks in der Mini-Kurve
@@ -92,12 +92,15 @@
    *  bis zur 150-%-Deckelung, siehe priceAt). Bleibt durch die Sigmoid (rawPrice)
    *  trotzdem IMMER im Band [lo,hi]. */
   function fbm(seed, t) {
+    // Die drei SCHNELLEN Oktaven (das kurzfristige Zappeln) auf die Hälfte gedämpft,
+    // damit die Kurse nur noch halb so heftig springen wie zuvor. Die langsamen
+    // Trend-Oktaven bleiben, damit der Verlauf trotzdem lebendig ist.
     return (noise(seed, t, 240) - 0.5) * 1.0
       + (noise(seed + 1, t, 50) - 0.5) * 0.95
       + (noise(seed + 2, t, 13) - 0.5) * 0.85
-      + (noise(seed + 3, t, 4.5) - 0.5) * 1.0
-      + (noise(seed + 4, t, 2.2) - 0.5) * 1.0
-      + (noise(seed + 5, t, 1.3) - 0.5) * 0.85;
+      + (noise(seed + 3, t, 4.5) - 0.5) * 0.5
+      + (noise(seed + 4, t, 2.2) - 0.5) * 0.5
+      + (noise(seed + 5, t, 1.3) - 0.5) * 0.42;
   }
 
   function rawPrice(st, t) {
