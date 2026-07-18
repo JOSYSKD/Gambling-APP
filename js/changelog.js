@@ -18,6 +18,15 @@
   var ENTRIES = [
     {
       date: '2026-07-18',
+      title: 'Schneller leveln & Feinschliff',
+      items: [
+        'Leveln geht jetzt 5× so schnell — dieselbe Kurve, nur ein Fünftel der XP nötig.',
+        'Aktienkurse ticken ruhiger: ein neuer Kurs alle 3 Sekunden (statt jede Sekunde).',
+        'Wett-Spiele werden jetzt bequem im Admin-Panel freigegeben (Knopf „⚔️ Wett-Spiele").',
+      ]
+    },
+    {
+      date: '2026-07-18',
       title: 'Neu: Wagern — 1v1 um Coins',
       items: [
         'Neue Menü-Kachel ⚔️ Wagern: fordere einen Online-Spieler direkt heraus.',
