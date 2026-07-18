@@ -24,7 +24,7 @@
   // Survival getrennt (mode.js präfixt gj_progress). Über den Konto-Heartbeat
   // (account.js snapshotToAccount) landet der Reset danach auch in den Cloud-Konten,
   // sodass ein späterer Login den alten Stand NICHT zurückholt.
-  var RESET_GEN = 8;
+  var RESET_GEN = 9;
 
   function freshStats() {
     return {
