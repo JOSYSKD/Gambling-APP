@@ -24,7 +24,7 @@
   // Survival getrennt (mode.js präfixt gj_progress). Über den Konto-Heartbeat
   // (account.js snapshotToAccount) landet der Reset danach auch in den Cloud-Konten,
   // sodass ein späterer Login den alten Stand NICHT zurückholt.
-  var RESET_GEN = 7;
+  var RESET_GEN = 8;
 
   function freshStats() {
     return {
@@ -514,7 +514,7 @@
     if (amount <= 0) return;
     state.stats.wagered += amount;
     state.stats.rounds += 1;
-    addXp(Math.max(1, Math.round(amount / 130)));  // XP fürs Spielen — bewusst wenig (Leveln ist zäh)
+    addXp(Math.max(1, Math.round(amount / 70)));  // XP fürs Spielen — bewusst wenig (Leveln ist zäh)
     checkQuests();
   }
   function onOutcome(delta) {
@@ -528,7 +528,7 @@
       // Siege je Spiel (für Meister-Quests) — curGame kommt aus dem Hash.
       if (curGame) state.stats.gameWins[curGame] = (state.stats.gameWins[curGame] || 0) + 1;
       if (delta > state.stats.biggestWin) state.stats.biggestWin = delta;
-      addXp(Math.max(1, Math.round(delta / 90)));  // Bonus-XP fürs Gewinnen — ebenfalls reduziert
+      addXp(Math.max(1, Math.round(delta / 50)));  // Bonus-XP fürs Gewinnen — ebenfalls reduziert
       if (delta >= 2000) confetti(Math.min(70, 20 + Math.round(delta / 600)));  // Konfetti nur bei größeren Gewinnen
 
     } else if (delta < 0) {

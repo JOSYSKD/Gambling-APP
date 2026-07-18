@@ -343,16 +343,30 @@
       // Cloud-Zähler (hardreset.js) sorgt dafür, dass JEDER Client sein Guthaben beim
       // nächsten Laden/Poll selbst kappt. Beides zusammen = sofort sichtbar UND dauerhaft.
       if (App.HardReset && App.HardReset.bumpCloudReset) { try { App.HardReset.bumpCloudReset(); } catch (e) {} }
-      return Admin.listPlayers().then(function (rows) {
-        return Promise.all(rows.map(function (r) {
+      // (1) JEDEN presence-Eintrag kappen — die Bestenliste liest presence.casinoPeak.
+      //     Ein Konten-Spieler hat NEBEN dem Konto einen eigenen presence-Eintrag
+      //     (Geräte-ID, mit accountKey); listPlayers führt ihn als 'account' und
+      //     ÜBERSPRINGT diesen presence-Eintrag. Sein casinoPeak blieb deshalb oben
+      //     stehen — selbst wenn er lange offline war. Darum hier direkt über ALLE
+      //     presence-Keys, unabhängig von Konto/Gast.
+      var pPresence = Promise.resolve(App.Account.adminListPresence()).then(function (presence) {
+        presence = presence || {};
+        return Promise.all(Object.keys(presence).map(function (id) {
+          return App.Account.adminPatchPresence(id, function (rec) {
+            rec.casinoPeak = 0; rec.balance = 0; rec.run_peak = 0; rec.streak = 0;
+          }).catch(function () {});
+        }));
+      }).catch(function () {});
+      // (2) jedes KONTO auf sein Einstiegsguthaben — sonst bringt der Login den alten
+      //     Stand zurück (presence wird oben schon für alle gekappt).
+      var pAccounts = Admin.listPlayers().then(function (rows) {
+        return Promise.all(rows.filter(function (r) { return r.kind === 'account'; }).map(function (r) {
           var start = (App.Progress && App.Progress.startBalanceForProgress)
             ? App.Progress.startBalanceForProgress(r.progress) : 1000;
-          if (r.kind === 'guest') {
-            return App.Account.adminPatchPresence(r.key, function (rec) { rec.balance = start; rec.casinoPeak = start; }).catch(function () {});
-          }
           return App.Account.adminPatch(r.key, function (acct) { acct.balance = start; acct.runPeak = start; }).catch(function () {});
         })).then(function () { return rows.length; });
       });
+      return Promise.all([pPresence, pAccounts]).then(function (r) { return r[1]; });
     },
 
     /** Survival-Rangliste: Einträge über `threshold` (Standard 2,5 Mio.) rausnehmen. */

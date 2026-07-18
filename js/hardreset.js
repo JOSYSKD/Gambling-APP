@@ -20,7 +20,7 @@
   'use strict';
   window.App = window.App || {};
 
-  var GEN = 6;                 // hochzählen für den nächsten globalen Reset (6 = COURS-Depot wird jetzt mitgenullt)
+  var GEN = 7;                 // hochzählen für den nächsten globalen Reset (7 = erneuter Geld/Konten-Reset auf Wunsch)
   var KEY_GEN = 'gj_hard_gen';
   var CASINO_START = (App.Coins && App.Coins.START) || 1000;
 

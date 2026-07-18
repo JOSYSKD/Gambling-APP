@@ -9,8 +9,9 @@
  * Survival-Gold nicht über die Bank ins Casino schleusen lässt. Die Bank-Seite
  * erzwingt ohnehin den Casino-Modus.
  *
- * Die Einlage zählt als Reserve (App.Coins.addReserveSource): Wer sein ganzes
- * Bargeld einzahlt, ist NICHT pleite — sonst gäbe es ein falsches Game Over.
+ * Die Einlage zählt BEWUSST NICHT als Reserve: Game Over/Auffüllung hängen nur am
+ * Bargeld. Wer verliert, startet immer mit dem Wiedereinstiegsguthaben neu — egal
+ * wie viel auf der Bank liegt (die Bank bleibt dabei erhalten).
  *
  * Der Admin sieht jeden Bank-Stand im Admin-Panel (der Stand wandert über
  * account.js/presence.js mit ins Konto bzw. den Präsenz-Eintrag).
@@ -57,9 +58,9 @@
     return true;
   }
 
-  // Bank-Einlage als Reserve anmelden (kein Game Over, wenn Bargeld < Mindesteinsatz,
-  // aber Geld auf der Bank liegt).
-  if (App.Coins && App.Coins.addReserveSource) App.Coins.addReserveSource(function () { return balance; });
+  // Bank zaehlt BEWUSST NICHT als Reserve: wer sein Bargeld verliert, soll IMMER
+  // mit dem Wiedereinstiegsguthaben neu starten koennen, egal wie viel auf der Bank
+  // liegt (Game Over haengt jetzt nur am Bargeld, nicht am Bank-Vermoegen).
 
   var Bank = {
     KEY: KEY,
