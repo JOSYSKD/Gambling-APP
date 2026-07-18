@@ -457,6 +457,9 @@
           el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
             App.Router.go('/admin/tournament');
           } }, ['🏆 Turniere & Sieger']),
+          el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
+            App.Router.go('/admin/wager');
+          } }, ['⚔️ Wett-Spiele']),
           el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
             Admin.logout();
             UI.toast('Admin-Modus beendet', 'info');

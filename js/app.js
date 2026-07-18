@@ -635,6 +635,7 @@
     .add('/chat', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chat.renderPage(d); })
     .add('/wager', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.WagerUI.renderPage(d); })
     .add('/wager/match/:id', function (p) { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.WagerUI.renderMatch(d, p.id); })
+    .add('/admin/wager', function () { if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; } var d = el('div', { class: 'view-page' }); mount(d); return App.WagerUI.renderAdmin(d); })
     .add('/quests', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Progress.renderPage(d); })
     .add('/bank', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Bank.renderPage(d); })
     .add('/settings', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Settings.renderPage(d); })

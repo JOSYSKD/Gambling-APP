@@ -75,9 +75,10 @@
   // XP von Level L nach L+1 — BRUTAL STEIL und mit dem Level immer steiler: ein
   // quadratischer PLUS ein kubischer Term, damit jedes weitere Level spürbar
   // länger dauert als das vorige. AB HARD_AT (3000) legt ein zusätzlicher, eigener
-  // kubischer Term obendrauf -> ab dort wird es extrem. Zusammen mit den stark
-  // reduzierten XP-Gewinnen (siehe onWager/onOutcome) ist Aufleveln richtig zäh.
-  var LC_BASE = 500, LC_Q = 200, LC_K = 3, LC_XTRA = 50, HARD_AT = 3000;
+  // kubischer Term obendrauf -> ab dort wird es extrem. Auf Josls Wunsch um Faktor 5
+  // gesenkt (alle Koeffizienten /5): man levelt jetzt 5× so schnell wie zuvor, die
+  // Form der Kurve (mit dem Level immer steiler) bleibt gleich.
+  var LC_BASE = 100, LC_Q = 40, LC_K = 0.6, LC_XTRA = 10, HARD_AT = 3000;
   function reqFor(level) {
     var d = level - 1;
     var r = LC_BASE + LC_Q * d * d + LC_K * d * d * d;

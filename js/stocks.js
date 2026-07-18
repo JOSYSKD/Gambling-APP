@@ -24,7 +24,7 @@
   window.App = window.App || {};
   var UI = App.UI, el = UI.el;
 
-  var TICK_MS = 1000;           // LIVE: 1 neuer Kurs pro Sekunde
+  var TICK_MS = 3000;           // 1 neuer Kurs alle 3 Sekunden
   var KEY = 'gj_stocks';
   var FLAT_CHANCE = 0.14;       // ~14% der Ticks bleiben unverändert
   var MAX_FLAT_RUN = 6;         // …aber höchstens 6 Ticks am Stück

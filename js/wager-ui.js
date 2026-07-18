@@ -55,16 +55,7 @@
       'Fordere einen Online-Spieler heraus: Ihr setzt beide Coins, spielt das gewählte Spiel, der Gewinner bekommt den ganzen Pot. Runden und Zeit bestimmst du beim Herausfordern.'
     ]));
 
-    // Admin: welche Spiele für Wetten erlaubt sind
-    if (App.Admin && App.Admin.isAdmin && App.Admin.isAdmin()) {
-      var adminBox = el('div', {});
-      root.appendChild(el('div', { class: 'glass wg-sec' }, [
-        el('h3', { style: 'margin-top:0;' }, ['⚙️ Wett-Spiele freigeben (Admin)']),
-        el('p', { class: 'lb-hint' }, ['Nur die hier angehakten Spiele können in einer Wette gespielt werden. Am besten Spiele mit klarer Punktzahl (Reaktion, Rechnen, Geschick).']),
-        adminBox
-      ]));
-      drawAdmin(adminBox);
-    }
+    // (Die Freigabe der Wett-Spiele liegt jetzt im Admin-Panel: Route /admin/wager.)
 
     var incBox = el('div', {});
     var listBox = el('div', {});
@@ -122,6 +113,20 @@
     drawIncoming(); drawPlayers();
     var timer = setInterval(function () { drawIncoming(); drawPlayers(); }, 6000);
     return { cleanup: function () { clearInterval(timer); } };
+  }
+
+  /* Admin-Seite (Route /admin/wager): Freigabe der Wett-Spiele. */
+  function renderAdmin(root) {
+    injectCss();
+    root.appendChild(el('div', { class: 'page-head' }, [
+      el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { App.Router.go('/admin'); } }, ['← Admin Panel']),
+      el('h2', { class: 'page-title neon' }, ['⚔️ Wett-Spiele'])
+    ]));
+    root.appendChild(el('p', { class: 'lb-hint' }, ['Nur die hier angehakten Spiele können in einer Wette gespielt werden. Am besten Spiele mit klarer Punktzahl (Reaktion, Rechnen, Geschick).']));
+    var box = el('div', { class: 'glass wg-sec' });
+    root.appendChild(box);
+    drawAdmin(box);
+    return { cleanup: function () {} };
   }
 
   /* Admin: Spiel-Auswahl (Checkboxen). Auswahl liegt in scores/__wager_games. */
@@ -369,5 +374,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  App.WagerUI = { renderPage: renderPage, renderMatch: renderMatch };
+  App.WagerUI = { renderPage: renderPage, renderMatch: renderMatch, renderAdmin: renderAdmin };
 })();
