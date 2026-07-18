@@ -17,6 +17,17 @@
 
   var ENTRIES = [
     {
+      date: '2026-07-18',
+      title: 'Neu: Wagern — 1v1 um Coins',
+      items: [
+        'Neue Menü-Kachel ⚔️ Wagern: fordere einen Online-Spieler direkt heraus.',
+        'Ihr setzt beide denselben Betrag — der Gewinner bekommt den ganzen Pot.',
+        'Spiel, Anzahl Runden und Zeit pro Runde sucht ihr euch beim Herausfordern selbst aus (Best-of-N).',
+        'Eine Herausforderung meldet sich mit Popup, egal wo du gerade bist — annehmen und los.',
+        'Welche Spiele in einer Wette erlaubt sind, gibt der Admin frei.',
+      ]
+    },
+    {
       date: '2026-07-17',
       title: 'Aktien jetzt LIVE & extrem',
       items: [
