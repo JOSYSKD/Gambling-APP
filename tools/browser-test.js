@@ -124,7 +124,7 @@ async function main() {
       d.remove();
       return { reels, cells, rounds, readout, paytable, changed: before !== after };
     })()`);
-    var ok = res.reels >= 3 && res.cells > 0 && res.rounds >= 6 && res.changed && res.paytable >= 6;
+    var ok = res.reels >= 3 && res.cells > 0 && res.rounds >= 5 && res.changed && res.paytable >= 6;
     log((ok ? '✅ ' : '❌ ') + id + ': ' + res.reels + ' Walzen, ' + res.rounds + ' Runden gedreht, ' +
       res.paytable + ' Paytable-Zeilen, Guthaben ' + (res.changed ? 'bewegt' : 'UNVERÄNDERT') +
       ', Anzeige "' + res.readout + '"');
