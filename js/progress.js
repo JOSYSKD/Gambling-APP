@@ -246,17 +246,21 @@
     // Bei einem sehr großen Sprung (z. B. riesige Quest-XP) nicht pro Level eine
     // eigene Feier zeigen — das wären sonst Tausende Popups. Dann Bonus als Summe
     // gutschreiben und nur EINE Feier zeigen.
-    if (to - from > 25) {
-      var lump = 0;
-      for (var k = from + 1; k <= to; k++) lump += 500 + k * 250;
-      if (App.Coins) App.Coins.add(lump);
-      celebrate('⭐ Level ' + from + ' → ' + to + '!', title() + ' · +' + UI.formatCoins(lump) + ' 🪙');
-    } else {
+    // Bonus IMMER per geschlossener Formel statt Schleife: Σ(k=from+1..to)(500+250·k).
+    // Eine Schleife von from..to würde bei großem Level-Sprung ODER bei Level > 2^53
+    // (dann kommt L++ wegen Number-Präzision nicht mehr voran) den Browser komplett
+    // einfrieren ("Standbild beim Spielen").
+    var count = to - from;
+    var lump = 500 * count + 250 * (from + 1 + to) * count / 2;
+    if (!isFinite(lump) || lump > 1e300) lump = 1e300;
+    if (App.Coins) App.Coins.add(lump);
+    if (count <= 25 && to < 9e15) {
+      // kleiner, präziser Sprung -> je Level eine Feier
       for (var L = from + 1; L <= to; L++) {
-        var bonus = 500 + L * 250;           // Level-Up-Bonus aufs Guthaben
-        if (App.Coins) App.Coins.add(bonus);
-        celebrate('⭐ Level ' + L + '!', title() + ' · +' + UI.formatCoins(bonus) + ' 🪙 · Auffüllung jetzt ' + UI.formatCoins(startBalanceAtLevel(L)));
+        celebrate('⭐ Level ' + L + '!', title() + ' · +' + UI.formatCoins(500 + L * 250) + ' 🪙 · Auffüllung jetzt ' + UI.formatCoins(startBalanceAtLevel(L)));
       }
+    } else {
+      celebrate('⭐ Level ' + UI.formatShort(from) + ' → ' + UI.formatShort(to) + '!', title() + ' · +' + UI.formatCoins(lump) + ' 🪙');
     }
     // Prestige-Schwelle erreicht -> große Feier + goldener Name freigeschaltet
     // (es geht danach unbegrenzt weiter, nur der Name glänzt ab jetzt golden).
