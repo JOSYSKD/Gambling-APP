@@ -66,8 +66,12 @@
   function emit() { for (var i = 0; i < listeners.length; i++) { try { listeners[i](); } catch (e) {} } }
 
   /* ---------------- Level-Kurve ---------------- */
-  // Höchstlevel. Wer es erreicht, bekommt einen goldenen Namen (siehe isMaxLevel()).
-  var MAX_LEVEL = 99999;
+  // Ab hier gibt es KEIN Höchstlevel mehr — man kann unbegrenzt weiterleveln.
+  // LEVEL_CAP ist nur die (rein technische) Obergrenze der Binärsuche, weit
+  // jenseits von allem real Erreichbaren. MAX_LEVEL ist jetzt nur noch die
+  // Schwelle für den goldenen "Legenden"-Namen, nicht mehr das Ende.
+  var LEVEL_CAP = 1e9;          // praktisch unendlich (Binärsuche-Grenze)
+  var MAX_LEVEL = 99999;        // Prestige-Schwelle: goldener Name (kein Ende mehr)
 
   // XP von Level L nach L+1 — BEWUSST STEIL (quadratisch statt linear), damit
   // Aufleveln sich erarbeitet anfühlt und nicht in Minuten passiert. Zusammen mit
@@ -84,9 +88,9 @@
     if (n <= 0) return 0;
     return 500 * n + 130 * ((n - 1) * n * (2 * n - 1) / 6);
   }
-  // Level aus XP per Binärsuche über [1, MAX_LEVEL] (O(log) statt O(L)).
+  // Level aus XP per Binärsuche über [1, LEVEL_CAP] (O(log) statt O(L)).
   function levelFromXp(xp) {
-    var lo = 1, hi = MAX_LEVEL;
+    var lo = 1, hi = LEVEL_CAP;
     while (lo < hi) {
       var mid = Math.floor((lo + hi + 1) / 2);
       if (cumFor(mid) <= xp) lo = mid; else hi = mid - 1;
@@ -95,7 +99,9 @@
   }
   function level() { return levelFromXp(state.xp); }
   function xpInLevel() { return state.xp - cumFor(level()); }
-  function xpForLevel() { return level() >= MAX_LEVEL ? 0 : reqFor(level()); }
+  // Kein Ende mehr: es geht IMMER ein nächstes Level weiter.
+  function xpForLevel() { return reqFor(level()); }
+  // "Max" ist jetzt nur noch die Prestige-Schwelle für den goldenen Namen.
   function isMaxLevel() { return level() >= MAX_LEVEL; }
 
   // Bonus aus bereits erledigten Quests: jede fertige Quest hebt den Wieder-Auffüll-
@@ -111,12 +117,22 @@
   }
   function questBonus() { return questBonusOf(state); }
 
-  // Wieder-Auffüll-/Start-Betrag steigt mit dem Level (L1=1000 … ~L20=15000, dann weiter)
-  // UND mit der Anzahl/Schwere bereits erledigter Quests — kein Deckel mehr bei 200k,
-  // der Betrag wächst mit dem Fortschritt unbegrenzt weiter.
+  // Wieder-Auffüll-/Start-Betrag steigt mit dem Level. Bis ~Level 100 linear
+  // (L1=1000 … ~L20=15000), danach zusätzlich EXPONENTIELL — grob eine Verdopplung
+  // alle ~1200 Level. So landet man bei ~Level 100.000 bei ~10^33 Coins und der
+  // Betrag wächst praktisch unbegrenzt weiter (bis ans JS-Limit). Bei kleinen
+  // Levels ist der Exponential-Faktor ~1, das frühe Spiel bleibt unverändert.
+  function startBalanceAtLevel(L) {
+    var base = 1000 + (L - 1) * 750;
+    var growth = Math.pow(10, 0.00025 * (L - 1));
+    var amt = base * growth;
+    if (!isFinite(amt) || amt > 1e300) amt = 1e300;   // nie Infinity
+    return amt;
+  }
   function startBalanceOf(st) {
     var L = levelFromXp(Math.max(0, Math.round(Number(st && st.xp) || 0)));
-    var amt = 1000 + (L - 1) * 750 + questBonusOf(st);
+    var amt = startBalanceAtLevel(L) + questBonusOf(st);
+    if (!isFinite(amt) || amt > 1e300) amt = 1e300;
     return Math.round(amt / 50) * 50;
   }
   function startBalance() { return startBalanceOf(state); }
@@ -163,13 +179,14 @@
       for (var L = from + 1; L <= to; L++) {
         var bonus = 500 + L * 250;           // Level-Up-Bonus aufs Guthaben
         if (App.Coins) App.Coins.add(bonus);
-        celebrate('⭐ Level ' + L + '!', title() + ' · +' + UI.formatCoins(bonus) + ' 🪙 · Auffüllung jetzt ' + UI.formatCoins(1000 + (L - 1) * 750));
+        celebrate('⭐ Level ' + L + '!', title() + ' · +' + UI.formatCoins(bonus) + ' 🪙 · Auffüllung jetzt ' + UI.formatCoins(startBalanceAtLevel(L)));
       }
     }
-    // Höchstlevel erreicht -> große Feier + goldener Name freigeschaltet.
+    // Prestige-Schwelle erreicht -> große Feier + goldener Name freigeschaltet
+    // (es geht danach unbegrenzt weiter, nur der Name glänzt ab jetzt golden).
     if (to >= MAX_LEVEL && from < MAX_LEVEL) {
       confetti(90);
-      celebrate('👑 LEVEL 99.999 — MAXIMUM!', 'Dein Name glänzt ab jetzt überall golden.');
+      celebrate('👑 LEVEL 99.999 — LEGENDE!', 'Dein Name glänzt ab jetzt überall golden — und es geht weiter!');
     }
     if (App.Audio) App.Audio.sfx('levelup');
   }
@@ -239,7 +256,7 @@
   // 16 Solo-Gambling-Spiele + 4 Poker-Tische (Multiplayer per Raum-Code) — je einmal antreten.
   var PLAY_GAMES = [
     { id: 'blackjack', icon: '🃏', name: 'Blackjack' }, { id: 'crash', icon: '🚀', name: 'Crash' },
-    { id: 'cuberoll', icon: '🎲', name: 'Cube-Roll' }, { id: 'slots', icon: '🎰', name: 'Slots' },
+    { id: 'cuberoll', icon: '🎲', name: 'Cube-Roll' }, { id: 'slots', icon: '🎰', name: 'Dschungel-Slots' },
     { id: 'roulette', icon: '🎡', name: 'Roulette' }, { id: 'mines', icon: '💣', name: 'Mines' },
     { id: 'coinflip', icon: '🪙', name: 'Coinflip' }, { id: 'wheel', icon: '🌀', name: 'Glücksrad' },
     { id: 'baccarat', icon: '🎴', name: 'Baccarat' }, { id: 'videopoker', icon: '🃏', name: 'Video Poker' },
@@ -247,7 +264,12 @@
     { id: 'andarbahar', icon: '🪔', name: 'Andar Bahar' }, { id: 'sicbo', icon: '🎲', name: 'Sic Bo' },
     { id: 'keno', icon: '🔢', name: 'Keno' }, { id: 'plinko', icon: '🎯', name: 'Plinko' },
     { id: 'holdem', icon: '♠️', name: 'Texas Hold’em' }, { id: 'omaha', icon: '🃏', name: 'Omaha' },
-    { id: 'stud', icon: '🂭', name: 'Seven-Card Stud' }, { id: 'fivedraw', icon: '🎴', name: 'Five-Card Draw' }
+    { id: 'stud', icon: '🂭', name: 'Seven-Card Stud' }, { id: 'fivedraw', icon: '🎴', name: 'Five-Card Draw' },
+    { id: 'naehe', icon: '🎯', name: 'Nähe' },
+    // Themen-Slotmaschinen (js/games/slot-themes.js)
+    { id: 'slotfruit', icon: '🍒', name: 'Fruit Fever' }, { id: 'slotegypt', icon: '🏺', name: 'Pharaos Buch' },
+    { id: 'slotspace', icon: '🚀', name: 'Neon Nebula' }, { id: 'slotpirate', icon: '🏴‍☠️', name: 'Piratenbucht' },
+    { id: 'slotcandy', icon: '🍬', name: 'Candy Cascade' }, { id: 'slothorror', icon: '🧛', name: 'Blutmond' }
   ];
 
   // NEUE Quest-Art: Sieg-Serien (Siege in Folge, ohne Verlust dazwischen).
@@ -259,7 +281,7 @@
   // NEUE Quest-Art: Spiel-Meisterschaft — an EINEM bestimmten Spiel oft gewinnen.
   var MASTERY_GAMES = [
     { id: 'blackjack', icon: '🃏', name: 'Blackjack' }, { id: 'crash', icon: '🚀', name: 'Crash' },
-    { id: 'slots', icon: '🎰', name: 'Slots' }, { id: 'roulette', icon: '🎡', name: 'Roulette' },
+    { id: 'slots', icon: '🎰', name: 'Dschungel-Slots' }, { id: 'roulette', icon: '🎡', name: 'Roulette' },
     { id: 'mines', icon: '💣', name: 'Mines' }, { id: 'plinko', icon: '🎯', name: 'Plinko' },
     { id: 'coinflip', icon: '🪙', name: 'Coinflip' }, { id: 'cuberoll', icon: '🎲', name: 'Cube-Roll' },
     { id: 'wheel', icon: '🌀', name: 'Glücksrad' }, { id: 'baccarat', icon: '🎴', name: 'Baccarat' }

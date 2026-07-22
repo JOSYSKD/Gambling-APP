@@ -47,7 +47,7 @@
   }
 
   App.Games.slots = {
-    id: 'slots', title: 'Slots', icon: '🎰', subtitle: '3 Walzen, Dschungel-Symbole, Jackpot',
+    id: 'slots', title: 'Dschungel-Slots', icon: '🎰', subtitle: '3 Walzen, Dschungel-Symbole, Jackpot',
 
     render: function (root) {
       injectCss();
@@ -191,6 +191,12 @@
 
         // Ergebnis vorab unabhaengig ziehen
         var targets = [drawSymbol(), drawSymbol(), drawSymbol()];
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced === 'win') {
+          targets = [byId.leaf, byId.leaf, byId.leaf];        // drei gleiche -> sicherer Gewinn (×2)
+        } else if (forced === 'lose') {
+          targets = [byId.leaf, byId.banana, byId.coconut];   // verschieden, keine 2 Schlangen -> kein Gewinn
+        }
 
         // Streifen bauen (mit nahtlosem Seed)
         for (var i = 0; i < 3; i++) fillReel(i, targets[i]);

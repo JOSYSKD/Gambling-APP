@@ -12,12 +12,20 @@
       id: 'gambling',
       name: 'Gambling',
       icon: '🎰',
-      desc: '16 Solo-Klassiker + Poker & Casino mit Freunden. Setze deine Coins und jage den Highscore.',
-      games: ['blackjack', 'crash', 'cuberoll', 'slots', 'roulette', 'mines', 'coinflip', 'wheel',
+      desc: '19 Solo-Klassiker + Poker & Casino mit Freunden. Setze deine Coins und jage den Highscore.',
+      games: ['busfahrer', 'blackjack', 'crash', 'cuberoll', 'naehe', 'roulette', 'mines', 'coinflip', 'wheel',
         'baccarat', 'videopoker', 'casinowar', 'dragontiger', 'andarbahar', 'sicbo', 'keno', 'plinko',
         'jenga', 'doubleornothing'],
       // Aus dem Menü heraus wird immer im Casino (Silber) gezockt. In den
       // Survival-Modus kommt man ausschließlich über dessen eigene Kachel.
+      mode: 'casino'
+    },
+    {
+      id: 'slotmachines',
+      name: 'Slot-Maschinen',
+      icon: '🎰',
+      desc: '7 Automaten mit eigenem Thema und eigenem Sonderfeature: Freispiele, Kettenreaktionen, Sticky-Wilds, Truhen-Bonus.',
+      games: ['slots', 'slotfruit', 'slotegypt', 'slotspace', 'slotpirate', 'slotcandy', 'slothorror'],
       mode: 'casino'
     },
     {
@@ -33,6 +41,14 @@
       icon: '📈',
       desc: '20 Aktien von 100 bis 1.000 Coins. Alle 10 Sekunden ein neuer Kurs — kaufen, halten, im richtigen Moment verkaufen.',
       route: '/stocks',
+      mode: 'casino'
+    },
+    {
+      id: 'cours',
+      name: 'COURS',
+      icon: '🎢',
+      desc: 'Ein einziger, wilder Kurs — 3 Ticks pro Sekunde, jeder Tick 1–10 % rauf oder runter. Läuft nie aus, für alle gleich. Steig ein und im richtigen Moment wieder aus.',
+      route: '/cours',
       mode: 'casino'
     },
     {
@@ -63,6 +79,15 @@
 
   function categoryById(id) {
     for (var i = 0; i < CATEGORIES.length; i++) if (CATEGORIES[i].id === id) return CATEGORIES[i];
+    return null;
+  }
+
+  /** In welcher Kategorie steckt dieses Spiel? (für den Zurück-Knopf) */
+  function categoryOfGame(gameId) {
+    for (var i = 0; i < CATEGORIES.length; i++) {
+      var g = CATEGORIES[i].games;
+      if (g && g.indexOf(gameId) >= 0) return CATEGORIES[i].id;
+    }
     return null;
   }
 
@@ -153,7 +178,13 @@
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chat'); } }, ['💬 Gruppenchat']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chips'); } }, ['🎟️ Pokerchips-Kasse']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/leaderboard'); } }, ['🏆 Bestenliste']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/boards'); } }, ['📊 Ranglisten']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/gift'); } }, ['🎁 Verschenken']),
+        (App.Mods && App.Mods.isMod && App.Mods.isMod())
+          ? el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/modpanel'); } }, ['🛡 Mod-Panel'])
+          : null,
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/profile'); } }, ['👤 Profil']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/changelog'); } }, ['🆕 Update-News']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/settings'); } }, ['⚙️ Einstellungen'])
       ])
     ]));
@@ -242,10 +273,13 @@
     var id = params.id, g = App.Games[id];
     if (!g) { UI.toast('Spiel nicht gefunden', 'lose'); go('/'); return; }
 
+    // Zurück in die Kategorie, aus der das Spiel stammt (Gambling oder Slots).
+    var home = '/category/' + (categoryOfGame(id) || 'gambling');
+
     var content = el('div', { class: 'game-content' });
     var frame = el('div', { class: 'game-frame' }, [
       el('div', { class: 'game-topline' }, [
-        el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/category/gambling'); } }, ['← Spielauswahl']),
+        el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go(home); } }, ['← Spielauswahl']),
         el('div', { class: 'game-frame-title' }, [(g.icon || '') + ' ' + g.title])
       ]),
       content
@@ -280,8 +314,22 @@
       var rows = board.map(function (entry, i) {
         var rank = i + 1;
         var dateTxt = entry.active ? 'läuft gerade' : (entry.online ? 'online' : (entry.date || '—'));
-        return el('div', { class: 'lb-row glass ' + medalClass(rank) + (entry.active ? ' active' : '') }, [
-          el('div', { class: 'lb-rank' }, [wreath(rank) || ('#' + rank)]),
+        var rankTxt = wreath(rank) || ('#' + rank);
+
+        // Eigene Zeile im Profilkarten-Look (Avatar/Rahmen/Banner/Level/Glühbirnen).
+        if (entry.me && App.ProfileCard && App.ProfileCard.renderRow) {
+          var meRow = App.ProfileCard.renderRow(null, {
+            rankEl: rankTxt,
+            tag: entry.active ? el('span', { class: 'lb-tag' }, ['aktiver Run'])
+              : (entry.online ? el('span', { class: 'lb-tag lb-tag-on' }, ['🟢 online']) : null)
+          });
+          meRow.classList.add('pcp-open');
+          meRow.onclick = function () { openPlayerModal(entry); };
+          return meRow;
+        }
+
+        var row = el('div', { class: 'lb-row glass pcp-open ' + medalClass(rank) + (entry.active ? ' active' : '') }, [
+          el('div', { class: 'lb-rank' }, [rankTxt]),
           el('div', { class: 'lb-name' }, [
             el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym']),
             entry.active ? el('span', { class: 'lb-tag' }, ['aktiver Run'])
@@ -290,6 +338,8 @@
           el('div', { class: 'lb-coins' }, [UI.formatCoins(entry.peak) + ' 🪙']),
           el('div', { class: 'lb-date' }, [dateTxt])
         ]);
+        row.onclick = function () { openPlayerModal(entry); };
+        return row;
       });
       if (!rows.length) rows = [el('div', { class: 'lb-empty' }, ['Noch keine Einträge – spiel eine Runde!'])];
 
@@ -310,6 +360,29 @@
     var off1 = App.Coins.onChange(draw);
     var off2 = App.Leaderboard.onChange(draw);
     return function () { off1(); off2(); };
+  }
+
+  /** Profil eines Spielers aus der Bestenliste: Profilkarte + gespielte Spiele.
+   *  Für sich selbst (entry.me) aus dem lokalen Zustand, für andere aus den
+   *  Präsenz-Daten (siehe js/profile-card.js / js/presence.js). */
+  function openPlayerModal(entry) {
+    if (!App.ProfileCard || !App.ProfileCard.renderCardFor) return;
+    var isMe = !!entry.me;
+    var card = isMe ? App.ProfileCard.renderCard() : App.ProfileCard.renderCardFor(entry);
+    var games = isMe
+      ? App.ProfileCard.gamesEl(Object.keys((App.Progress && App.Progress.stats && App.Progress.stats().games) || {}))
+      : App.ProfileCard.gamesEl(entry.games || []);
+    var overlay = el('div', { class: 'modal-overlay' }, [
+      el('div', { class: 'modal glass', style: 'max-width:520px;width:94%;text-align:left;' }, [
+        card,
+        el('h3', { class: 'neon', style: 'margin:14px 0 8px;font-size:16px;' }, ['🎮 Gespielte Spiele']),
+        games,
+        el('button', { class: 'btn btn-ghost', type: 'button', style: 'margin-top:14px;', onclick: close }, ['Schließen'])
+      ])
+    ]);
+    function close() { if (overlay.parentNode) document.body.removeChild(overlay); }
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    document.body.appendChild(overlay);
   }
 
   /* ---------- PROFIL ---------- */
@@ -515,13 +588,21 @@
     .add('/live', function () { return App.MinigameHub.list({ group: 'live', title: '🃏 Poker & Casino', intro: 'Mit Freunden per Raum-Code – Poker-Varianten und Casino-Klassiker. Solo geht gegen Bots.' }); })
     .add('/mini/:id', function (p) { return App.MinigameHub.open(p.id); })
     .add('/leaderboard', renderLeaderboard)
+    .add('/boards', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Boards.renderPage(d); })
+    .add('/gift', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.Gift.renderPage(d); })
+    .add('/modpanel', function () {
+      if (!App.Mods || !App.Mods.isMod()) { go('/'); return; }
+      var d = el('div', { class: 'view-page' }); mount(d); return App.Mods.renderPanel(d);
+    })
     .add('/survival', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Survival.renderPage(d); })
     .add('/stocks', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Stocks.renderPage(d); })
+    .add('/cours', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.Cours.renderPage(d); })
     .add('/chat', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chat.renderPage(d); })
     .add('/quests', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Progress.renderPage(d); })
     .add('/chips', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chips.renderPage(d); })
     .add('/settings', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Settings.renderPage(d); })
     .add('/profile', renderProfile)
+    .add('/changelog', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Changelog.renderPage(d); })
     .add('/tournament', function () {
       // Auch beim direkten Aufruf über die Adresszeile: im Turnier wird mit
       // Silber gespielt, nie mit dem Survival-Gold.
@@ -544,6 +625,11 @@
       if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; }
       var d = el('div', { class: 'view-page' }); mount(d);
       return App.TournamentAdmin.renderPage(d);
+    })
+    .add('/admin/mods', function () {
+      if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; }
+      var d = el('div', { class: 'view-page' }); mount(d);
+      return App.Mods.renderAdminMenu(d);
     })
     .setNotFound(renderMenu);
 
