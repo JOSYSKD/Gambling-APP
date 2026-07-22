@@ -165,6 +165,17 @@
         var crash = (r < 0.01) ? 1.00 : Math.floor((0.99 / (1 - r)) * 100) / 100;
         if (crash < 1) crash = 1.00;
 
+        // Rigging: fester Crash-Punkt oder erzwungenes Ergebnis.
+        var rigCrash = (App.Rig && App.Rig.crashAt) ? App.Rig.crashAt() : null;
+        if (typeof rigCrash === 'number' && rigCrash >= 1) {
+          crash = Math.floor(rigCrash * 100) / 100;
+          if (crash < 1) crash = 1.00;
+        } else {
+          var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+          if (forced === 'lose') crash = 1 + Math.floor(Math.random() * 3) / 100;      // 1.00–1.02: vor MIN_CASHOUT weg
+          else if (forced === 'win') crash = Math.floor((5 + Math.random() * 5) * 100) / 100; // ≥5×: viel Luft zum Cashout
+        }
+
         state.phase = 'running';
         state.bet = bet;
         state.crashPoint = crash;

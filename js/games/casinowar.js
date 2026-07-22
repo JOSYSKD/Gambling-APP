@@ -261,6 +261,18 @@
         shoe = buildShoe();
         var pc = draw(), dc = draw();
 
+        // Rigging: Karten so ziehen, dass Spieler höher (win) bzw. niedriger (lose) ist — kein Gleichstand/Krieg.
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced === 'win' || forced === 'lose') {
+          var wantHigher = (forced === 'win');
+          for (var g = 0; g < 500; g++) {
+            var cmp = rankVal(pc.rank) - rankVal(dc.rank);
+            if (wantHigher ? cmp > 0 : cmp < 0) break;
+            shoe = buildShoe();
+            pc = draw(); dc = draw();
+          }
+        }
+
         // UI zurücksetzen
         banner.className = 'cw-banner';
         banner.textContent = 'Die Karten werden gegeben…';

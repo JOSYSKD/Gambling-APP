@@ -175,6 +175,19 @@
         }
         var slot = cols[ROWS];
 
+        // Rigging: Bahn neu ziehen, bis der Slot zum erzwungenen Ergebnis passt (Verteilung bleibt binomial).
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced === 'win' || forced === 'lose') {
+          for (var g = 0; g < 400; g++) {
+            var good = (forced === 'win') ? (MULTS[slot] > 1) : (MULTS[slot] < 1);
+            if (good) break;
+            cols = new Array(ROWS + 1);
+            cols[0] = 0;
+            for (var rr = 0; rr < ROWS; rr++) cols[rr + 1] = cols[rr] + (Math.random() < 0.5 ? 0 : 1);
+            slot = cols[ROWS];
+          }
+        }
+
         path = { cols: cols, slot: slot };
         path.bet = bet;
         dropping = true;

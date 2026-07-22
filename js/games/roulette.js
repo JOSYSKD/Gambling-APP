@@ -247,6 +247,13 @@
 
         // Gewinnzahl gleichverteilt 0–36 (die 0 sorgt für den House-Edge).
         var winNum = Math.floor(Math.random() * N);
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced) {
+          var wins = [], loses = [], k;
+          for (k = 0; k < N; k++) { (selected.match(k) ? wins : loses).push(k); }
+          var pool = (forced === 'win') ? wins : loses;
+          if (pool.length) winNum = pool[Math.floor(Math.random() * pool.length)];
+        }
         var idx = ORDER_INDEX[winNum];
 
         // Rad so drehen, dass die Gewinnzahl oben unter dem Zeiger landet.

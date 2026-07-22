@@ -33,6 +33,8 @@
   var banned = false;
   var lastRig = 0;
   var lastSkipTimer = false;
+  var lastOdds = null;     // Wahrscheinlichkeits-Rigging für Gäste (siehe js/rig.js)
+  var lastMod = false;     // vom Admin vergebene Mod-Rolle (siehe js/mods.js)
 
   /* Höchster Casino-Stand (Silber) dieses Geräts — IMMER aus dem Casino-Spielstand,
    * auch wenn gerade Survival läuft: Gold gehört nicht in die Casino-Bestenliste
@@ -114,6 +116,8 @@
         showMessage(admin.msg);
       }
       lastRig = admin.rig || 0;
+      lastOdds = admin.odds || null;         // Wahrscheinlichkeits-Rigging (siehe js/rig.js)
+      lastMod = !!admin.mod;                 // Mod-Rolle (siehe js/mods.js)
       lastSkipTimer = !!admin.svSkipTimer;   // Admin hat diesem Gast das Survival-Wartelimit abgenommen
       // Turnier-Tickets, die der Admin verschenkt hat, genau einmal einlösen
       // (gleiche Mechanik wie die Admin-Nachricht oben).
@@ -124,6 +128,10 @@
         App.Survival.applyGoldGrant(admin.goldGrant);
         admin.goldGrant = null;
       }
+      // Profil-Snapshot (Kosmetik, Level, Glühbirnen, gespielte Spiele) mitschicken,
+      // damit andere Spieler die Profilkarte + Spiele in der Bestenliste sehen können
+      // (siehe js/profile-card.js snapshot + js/app.js renderLeaderboard).
+      var snap = (App.ProfileCard && App.ProfileCard.snapshot) ? App.ProfileCard.snapshot() : null;
       var next = {
         name: (App.Leaderboard && App.Leaderboard.getPlayerName()) || 'Gast',
         balance: App.Coins ? App.Coins.get() : 0,
@@ -135,6 +143,18 @@
         accountKey: loggedIn ? App.Account.currentKey() : null,
         admin: admin
       };
+      if (snap) {
+        next.cos = snap.cos;
+        next.level = snap.level;
+        next.bulbs = snap.bulbs;
+        next.games = snap.games;
+        next.pstats = snap.stats;
+      }
+      // Für Stats + Bestenlisten (js/boards.js): Spielzeit, verschenkte Summe und
+      // Level immer mitschicken — auch ohne Profil-Snapshot.
+      next.playtimeMs = (App.Playtime && App.Playtime.getMs) ? App.Playtime.getMs() : 0;
+      next.giftedTotal = (App.Gift && App.Gift.total) ? App.Gift.total() : 0;
+      if (App.Progress && App.Progress.level) next.level = App.Progress.level();
       return App.Account.presenceSet(id, next);
     }).catch(function () {});
   }
@@ -143,8 +163,14 @@
     isBanned: function () { return banned; },
     /** Gewinn-Faktor-Level für Gäste ohne Konto (siehe coins.js), 0 = kein Eingriff. */
     rig: function () { return lastRig; },
+    /** Wahrscheinlichkeits-Rigging für Gäste (siehe js/rig.js), null = kein Eingriff. */
+    odds: function () { return lastOdds; },
+    /** Hat der Admin diesem Gast die Mod-Rolle gegeben? (siehe js/mods.js) */
+    isMod: function () { return lastMod; },
     /** Hat der Admin diesem Gast das Survival-Wartelimit abgenommen? (siehe js/survival.js) */
-    skipsTimer: function () { return lastSkipTimer; }
+    skipsTimer: function () { return lastSkipTimer; },
+    /** Anonyme, feste Geräte-ID dieses Browsers (Schlüssel im Präsenz-Register). */
+    deviceId: function () { return deviceId(); }
   };
 
   function boot() {

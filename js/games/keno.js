@@ -264,6 +264,30 @@
         }
         var draw = pool.slice(0, DRAWN);
 
+        // Rigging: Ziehung an das erzwungene Ergebnis anpassen.
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced === 'win' || forced === 'lose') {
+          var sel = Object.keys(selected).map(Number);
+          var others = [];
+          for (var m = 1; m <= COUNT; m++) if (!selected[m]) others.push(m);
+          for (var a = others.length - 1; a > 0; a--) {
+            var bb = Math.floor(Math.random() * (a + 1)); var tt = others[a]; others[a] = others[bb]; others[bb] = tt;
+          }
+          var forcedDraw;
+          if (forced === 'win') {
+            // Alle gewählten Zahlen treffen -> maximaler Faktor.
+            forcedDraw = sel.slice(0, DRAWN).concat(others.slice(0, Math.max(0, DRAWN - sel.length)));
+          } else {
+            // Keine gewählte Zahl -> 0 Treffer -> Niete.
+            forcedDraw = others.slice(0, DRAWN);
+          }
+          forcedDraw = forcedDraw.slice(0, DRAWN);
+          for (var a2 = forcedDraw.length - 1; a2 > 0; a2--) {
+            var b2 = Math.floor(Math.random() * (a2 + 1)); var t2 = forcedDraw[a2]; forcedDraw[a2] = forcedDraw[b2]; forcedDraw[b2] = t2;
+          }
+          draw = forcedDraw;
+        }
+
         var liveHits = 0;
         bigEl.className = 'big-readout kn-big';
         bigEl.textContent = '0';

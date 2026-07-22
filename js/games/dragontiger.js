@@ -293,6 +293,23 @@
         var dragon = deck.pop();
         var tiger = deck.pop();
 
+        // Rigging: Karten neu ziehen, bis das erzwungene Ergebnis eintritt (Auszahlung unverändert).
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced) {
+          var matches = function (dr, tg) {
+            var dvx = rankValue(dr.rank), tvx = rankValue(tg.rank);
+            var w = dvx > tvx ? 'dragon' : (tvx > dvx ? 'tiger' : 'tie');
+            if (forced === 'win') return (def.key === 'tie') ? (w === 'tie') : (w === def.key);
+            // 'lose' = echter Verlust (kein halber Einsatz zurück): Tie-Wette -> jede Nicht-Tie, sonst Gegenseite
+            return (def.key === 'tie') ? (w !== 'tie') : (w !== 'tie' && w !== def.key);
+          };
+          for (var tries = 0; tries < 300 && !matches(dragon, tiger); tries++) {
+            deck = buildDeck();
+            dragon = deck.pop();
+            tiger = deck.pop();
+          }
+        }
+
         // Reset-Optik
         dragonSide.className = 'dt-side dragon';
         tigerSide.className = 'dt-side tiger';

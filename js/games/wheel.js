@@ -175,6 +175,19 @@
         App.Coins.add(-bet);
 
         var picked = pickResult();
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced === 'lose') {
+          for (var li = 0; li < SEGMENTS.length; li++) {
+            if (SEGMENTS[li].mult === 0) { picked = { seg: SEGMENTS[li], index: li }; break; }
+          }
+        } else if (forced === 'win') {
+          // Gewinn-Segment gewichtet nach echter Wahrscheinlichkeit ziehen.
+          var pool = [], tot = 0, w;
+          for (w = 0; w < SEGMENTS.length; w++) { if (SEGMENTS[w].mult > 0) { pool.push(w); tot += SEGMENTS[w].prob; } }
+          var rr = Math.random() * tot, acc = 0, chosen = pool[0];
+          for (w = 0; w < pool.length; w++) { acc += SEGMENTS[pool[w]].prob; if (rr < acc) { chosen = pool[w]; break; } }
+          picked = { seg: SEGMENTS[chosen], index: chosen };
+        }
         var seg = picked.seg;
         var range = boundaries()[picked.index];
         // Zufälliger Punkt innerhalb des Segments (mit Sicherheitsabstand zum Rand).

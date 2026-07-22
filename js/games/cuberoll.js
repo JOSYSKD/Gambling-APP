@@ -284,6 +284,13 @@
 
         // Gleichverteilter Wurf 1..6.
         var result = 1 + Math.floor(Math.random() * 6);
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced) {
+          var wins = [], loses = [], f;
+          for (f = 1; f <= 6; f++) { (isWin(f, snap) ? wins : loses).push(f); }
+          var pool = (forced === 'win') ? wins : loses;
+          if (pool.length) result = pool[Math.floor(Math.random() * pool.length)];
+        }
 
         // Rollen: mehrere volle Umdrehungen + Ziel-Ausrichtung.
         var dur = 800 + Math.floor(Math.random() * 401); // 800..1200 ms

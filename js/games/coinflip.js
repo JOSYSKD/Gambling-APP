@@ -161,6 +161,9 @@
 
         var snap = { side: state.side };
         var result = Math.random() < 0.5 ? 'heads' : 'tails';
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced === 'lose') result = (snap.side === 'heads') ? 'tails' : 'heads';
+        else if (forced === 'win') result = snap.side;
 
         var dur = 800 + Math.floor(Math.random() * 401); // 800..1200 ms
         revY += 4 + Math.floor(Math.random() * 3); // 4..6 volle Umdrehungen

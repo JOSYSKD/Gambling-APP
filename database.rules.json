@@ -6,6 +6,10 @@
     "presence": { ".read": true, ".write": true },
     "survival": { ".read": true, ".write": true },
     "scores": { ".read": true, ".write": true },
-    "tournament": { ".read": true, ".write": true }
+    "tournament": { ".read": true, ".write": true },
+    "cours": { ".read": true, ".write": true },
+    "gifts": { ".read": true, ".write": true },
+    "spectate": { ".read": true, ".write": true },
+    "modlog": { ".read": true, ".write": true }
   }
 }

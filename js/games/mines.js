@@ -85,6 +85,7 @@
       var revealed = null;          // bool[]
       var currentBet = 0;
       var over = false;             // Abrechnungs-Guard (genau 1× je Runde)
+      var forcedOutcome = null;     // Rigging-Verdikt der Runde ('win'|'lose'|null)
       var timers = [];
 
       function later(fn, ms) {
@@ -192,6 +193,7 @@
         revealed = new Array(N);
         revealedCount = 0;
         over = false;
+        forcedOutcome = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
 
         // Feld zurücksetzen
         cells.forEach(function (c) { c.className = 'mines-cell'; c.textContent = ''; });
@@ -201,8 +203,26 @@
         updateReadout();
       }
 
+      // Rigging: Minen umverteilen, damit das erzwungene Rundenergebnis eintritt.
+      function makeMineAt(i) {              // Feld i garantiert zur Mine machen
+        if (mines[i]) return;
+        for (var k = 0; k < N; k++) {
+          if (mines[k] && !revealed[k]) { delete mines[k]; mines[i] = true; return; }
+        }
+      }
+      function relocateMineAwayFrom(i) {    // Mine von Feld i auf ein anderes Feld schieben
+        var free = [];
+        for (var k = 0; k < N; k++) { if (k !== i && !mines[k] && !revealed[k]) free.push(k); }
+        if (!free.length) return;
+        delete mines[i];
+        mines[free[Math.floor(Math.random() * free.length)]] = true;
+      }
+
       function onCellClick(i) {
         if (state !== 'playing' || revealed[i]) return;
+        // Erzwungenes Ergebnis: 'lose' -> Mine unters Feld, 'win' -> Feld sicher machen.
+        if (forcedOutcome === 'lose') makeMineAt(i);
+        else if (forcedOutcome === 'win' && mines[i]) relocateMineAwayFrom(i);
         revealed[i] = true;
         var cell = cells[i];
         if (mines[i]) { hitMine(i); return; }
@@ -295,7 +315,7 @@
 
       function resetToSetup() {
         state = 'setup';
-        mines = null; revealed = null; revealedCount = 0; currentBet = 0; over = false;
+        mines = null; revealed = null; revealedCount = 0; currentBet = 0; over = false; forcedOutcome = null;
         cells.forEach(function (c) { c.className = 'mines-cell'; c.textContent = ''; });
         applyState();
         updateReadout();

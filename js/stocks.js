@@ -84,16 +84,23 @@
     return a + (b - a) * u;
   }
 
-  /** Mehrere Frequenzen übereinander: Trend + Welle + Zappeln. */
+  /** Mehrere Frequenzen übereinander: Trend + Welle + Zappeln.
+   *  Bewusst HOCHVOLATIL abgestimmt — kräftigere schnelle Oktaven + eine
+   *  zusätzliche ganz schnelle (Skala 2,2) lassen die Kurse pro Tick viel
+   *  extremer steigen/fallen (Ø ~2,5 % statt 0,5 %, Einzelsprünge bis ~120 %).
+   *  Bleibt trotzdem durch die Sigmoid (rawPrice) IMMER im Band [lo,hi]. */
   function fbm(seed, t) {
     return (noise(seed, t, 240) - 0.5) * 1.0
-      + (noise(seed + 1, t, 60) - 0.5) * 0.5
-      + (noise(seed + 2, t, 16) - 0.5) * 0.25
-      + (noise(seed + 3, t, 5) - 0.5) * 0.12;
+      + (noise(seed + 1, t, 50) - 0.5) * 0.9
+      + (noise(seed + 2, t, 13) - 0.5) * 0.6
+      + (noise(seed + 3, t, 4.5) - 0.5) * 0.38
+      + (noise(seed + 4, t, 2.2) - 0.5) * 0.2;
   }
 
   function rawPrice(st, t) {
-    var u = 1 / (1 + Math.exp(-3.2 * fbm(st.seed, t)));   // 0..1, ohne harte Grenzen
+    // Steilere Sigmoid (5,0 statt 3,2) drückt den Kurs härter an die Bandränder,
+    // damit die Ausschläge extrem, aber nie außerhalb [lo,hi] sind.
+    var u = 1 / (1 + Math.exp(-5.0 * fbm(st.seed, t)));   // 0..1, ohne harte Grenzen
     return st.lo + (st.hi - st.lo) * u;
   }
 

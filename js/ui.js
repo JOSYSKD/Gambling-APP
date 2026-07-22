@@ -4,28 +4,46 @@
   window.App = window.App || {};
 
   function formatCoins(n) {
-    n = Math.round(Number(n) || 0);
-    return n.toLocaleString('de-DE');
+    n = Number(n) || 0;
+    // Ab 10^15 (16 Stellen) wird die volle Ziffernkette unlesbar und JS-Number
+    // ohnehin ungenau -> auf die abgekürzte Form ausweichen. Darunter exakt.
+    if (Math.abs(n) >= 1e15 || !isFinite(n)) return formatShort(n);
+    return Math.round(n).toLocaleString('de-DE');
   }
 
-  /** Große Zahlen abgekürzt: 1.234 -> "1,23K", 2.500.000 -> "2,5M", … bis "T" (Billion). */
-  var SHORT_UNITS = [
-    { v: 1e12, s: 'T' }, { v: 1e9, s: 'B' }, { v: 1e6, s: 'M' }, { v: 1e3, s: 'K' }
+  /** Große Zahlen abgekürzt: 1.234 -> "1,23K", 2.500.000 -> "2,5M", … in
+   *  Tausenderschritten (jede Einheit = 1000× die vorige). Die ersten Einheiten
+   *  sind benannt (K … Sx, dann dx … yx, dann SKD); danach werden Kürzel
+   *  automatisch endlos erzeugt (aa, ab, …), sodass Zahlen bis ans JS-Limit
+   *  (~10^300) lesbar bleiben, ohne dass die Einheiten je ausgehen. */
+  var NAMED_UNITS = [
+    'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx',        // 10^3 … 10^21 (wie bisher)
+    'dx', 'fx', 'gx', 'hx', 'jx', 'kx', 'lx', 'öx', 'äx', 'yx',  // 10^24 … 10^51
+    'SKD'                                         // 10^54
   ];
+  /** Kürzel für die i-te Einheit (i=0 -> 10^3 = K). Endlos: nach der benannten
+   *  Liste kommen automatisch generierte Zweibuchstaben-Kürzel (aa, ab, …). */
+  function unitSuffix(i) {
+    if (i < NAMED_UNITS.length) return NAMED_UNITS[i];
+    var n = i - NAMED_UNITS.length;              // 0-basiert ab dem ersten generierten
+    var a = Math.floor(n / 26), b = n % 26;
+    return String.fromCharCode(97 + a) + String.fromCharCode(97 + b);
+  }
   function formatShort(n) {
     n = Number(n) || 0;
     var sign = n < 0 ? '-' : '';
     n = Math.abs(n);
+    if (!isFinite(n)) return sign + '∞';
     if (n < 1000) return sign + Math.round(n).toLocaleString('de-DE');
-    for (var i = 0; i < SHORT_UNITS.length; i++) {
-      var u = SHORT_UNITS[i];
-      if (n >= u.v) {
-        var v = n / u.v;
-        var txt = (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10).toLocaleString('de-DE');
-        return sign + txt + u.s;
-      }
-    }
-    return sign + Math.round(n).toLocaleString('de-DE');
+    // 3er-Gruppe bestimmen: group 1 -> K (10^3), 2 -> M (10^6) …
+    var group = Math.floor((Math.log(n) / Math.LN10) / 3);
+    if (group < 1) group = 1;
+    var v = n / Math.pow(10, group * 3);
+    // Rundungsrutscher an exakten Zehnerpotenzen abfangen (z. B. 1000 -> 1K, nicht 0,001M)
+    if (v >= 1000) { group += 1; v /= 1000; }
+    else if (v < 1 && group > 1) { group -= 1; v *= 1000; }
+    var txt = (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10).toLocaleString('de-DE');
+    return sign + txt + unitSuffix(group - 1);
   }
 
   /** Mini-DOM-Helfer: el('div', {class:'x', onclick:fn}, [kind|'text']) */

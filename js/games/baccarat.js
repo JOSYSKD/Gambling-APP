@@ -331,6 +331,21 @@
 
         var deck = buildDeck();
         var result = playHand(deck);
+        // Rigging: Deck neu ziehen, bis das erzwungene Ergebnis eintritt (Auszahlung bleibt unverändert).
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced) {
+          var matches = function (res) {
+            var pv = handTotal(res.player), bv = handTotal(res.banker);
+            var w = pv > bv ? 'player' : (bv > pv ? 'banker' : 'tie');
+            if (forced === 'win') return (roundChoice === 'tie') ? (w === 'tie') : (w === roundChoice);
+            // 'lose' = echte Niete (kein Push): bei Tie-Wette jede Nicht-Tie, sonst Gegenseite (Tie wäre Push)
+            return (roundChoice === 'tie') ? (w !== 'tie') : (w !== 'tie' && w !== roundChoice);
+          };
+          for (var tries = 0; tries < 200 && !matches(result); tries++) {
+            deck = buildDeck();
+            result = playHand(deck);
+          }
+        }
         player = result.player;
         banker = result.banker;
         pShown = 0; bShown = 0;

@@ -24,6 +24,17 @@
 
   function isRed(suit) { return suit === '♥' || suit === '♦'; }
 
+  // Simuliert das Austeilen (dealIndex 0 = deck.pop() = letztes Element; gerade -> Andar, ungerade -> Bahar)
+  // und liefert die Gewinnerseite (erste Karte mit Joker-Rang) oder null.
+  function simulateWinner(dk, jk) {
+    var di = 0;
+    for (var p = dk.length - 1; p >= 0; p--) {
+      if (dk[p].rank === jk.rank) return (di % 2 === 0) ? 'andar' : 'bahar';
+      di++;
+    }
+    return null;
+  }
+
   function buildDeck() {
     var d = [], si, ri, i, j, t;
     for (si = 0; si < SUITS.length; si++)
@@ -275,6 +286,19 @@
         // Deck bauen, Joker aufdecken
         deck = buildDeck();
         joker = deck.pop();
+
+        // Rigging: Deck/Joker neu ziehen, bis die Gewinnerseite zum erzwungenen Ergebnis passt.
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced) {
+          for (var tries = 0; tries < 400; tries++) {
+            var w = simulateWinner(deck, joker);
+            var ok = (forced === 'win') ? (w === chosen) : (w && w !== chosen);
+            if (ok) break;
+            deck = buildDeck();
+            joker = deck.pop();
+          }
+        }
+
         turnIndex = 0;
         dealtAndar = 0; dealtBahar = 0;
         andarCards.innerHTML = '';

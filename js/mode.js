@@ -24,6 +24,7 @@
     gj_run_peak: 1,  // höchster Stand des Runs
     gj_progress: 1,  // Level, XP, Quests, Stats
     gj_stocks: 1,    // Aktien-Depot
+    gj_cours: 1,     // COURS-Position (einzelner Kurs)
     gj_chips: 1      // Pokerchips (sonst ließe sich Gold über die Chip-Kasse ins Casino tauschen)
   };
 
@@ -57,6 +58,7 @@
     if (App.Chips && App.Chips.reloadFromStorage) App.Chips.reloadFromStorage();
     if (App.Progress && App.Progress.reloadFromStorage) App.Progress.reloadFromStorage();
     if (App.Stocks && App.Stocks.reload) App.Stocks.reload();
+    if (App.Cours && App.Cours.reload) App.Cours.reload();
   }
 
   var Mode = {

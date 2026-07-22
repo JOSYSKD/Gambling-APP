@@ -62,7 +62,16 @@
     val = val || {};
     return Object.keys(val).map(function (k) {
       var p = val[k] || {};
-      return { name: p.name, peak: Number(p.casinoPeak) || 0, updatedAt: Number(p.lastSeen) || 0, maxLevel: !!p.maxLevel };
+      return {
+        key: k, accountKey: p.accountKey || null,
+        name: p.name, peak: Number(p.casinoPeak) || 0, updatedAt: Number(p.lastSeen) || 0, maxLevel: !!p.maxLevel,
+        // Profil-Daten für die Bestenliste (Profilkarte + gespielte Spiele, siehe presence.js).
+        cos: p.cos || null, level: Number(p.level) || 1, bulbs: Number(p.bulbs) || 0,
+        games: (p.games && p.games.slice) ? p.games : [], stats: p.pstats || null,
+        // Für die neuen Bestenlisten + Verschenken (js/boards.js, js/gift.js).
+        playtimeMs: Number(p.playtimeMs) || 0, giftedTotal: Number(p.giftedTotal) || 0,
+        mod: !!(p.admin && p.admin.mod)
+      };
     }).filter(function (p) { return p.name && p.name !== 'Gast'; });
   }
 
