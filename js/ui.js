@@ -27,7 +27,10 @@
   var NAMED_UNITS = [
     'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx',        // 10^3 … 10^21 (wie bisher)
     'dx', 'fx', 'gx', 'hx', 'jx', 'kx', 'lx', 'öx', 'äx', 'yx',  // 10^24 … 10^51
-    'SKD'                                         // 10^54
+    'SKD',                                        // 10^54
+    'zx', 'ax', 'bx', 'cx', 'ex', 'ix', 'mx', 'nx', 'ox', 'px',  // 10^57 … 10^84
+    'qx', 'rx', 'tx', 'ux', 'vx', 'wx',           // 10^87 … 10^102
+    'SKE', 'SKF', 'SKG', 'SKH', 'SKJ', 'SKK', 'SKL', 'SKM'       // 10^105 … 10^126
   ];
   /** Kürzel für die i-te Einheit (i=0 -> 10^3 = K). Endlos: nach der benannten
    *  Liste kommen automatisch generierte Zweibuchstaben-Kürzel (aa, ab, …). */
@@ -208,6 +211,8 @@
     formatFull: formatFull,
     formatShort: formatShort,
     formatFull: formatFull,
+    /** Kürzel der i-ten Einheit (i=0 -> K, 10^3). Für den Einheiten-Katalog. */
+    unitSuffix: unitSuffix,
     coinIcon: coinIcon,
     el: el,
     flash: flash,

@@ -189,6 +189,7 @@
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/leaderboard'); } }, ['🏆 Bestenliste']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/boards'); } }, ['📊 Ranglisten']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/gift'); } }, ['🎁 Verschenken']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/einheiten'); } }, ['🔢 Einheiten']),
         (App.Mods && App.Mods.isMod && App.Mods.isMod())
           ? el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/modpanel'); } }, ['🛡 Mod-Panel'])
           : null,
@@ -656,6 +657,7 @@
     .add('/mini/:id', function (p) { return App.MinigameHub.open(p.id); })
     .add('/leaderboard', renderLeaderboard)
     .add('/boards', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Boards.renderPage(d); })
+    .add('/einheiten', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.UnitsCatalog.renderPage(d); })
     .add('/gift', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.Gift.renderPage(d); })
     .add('/modpanel', function () {
       if (!App.Mods || !App.Mods.isMod()) { go('/'); return; }

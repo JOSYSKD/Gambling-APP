@@ -17,7 +17,10 @@
   window.App = window.App || {};
   var UI = App.UI, el = UI.el;
   var KEY = 'gj_theme', KEY_RM = 'gj_reduce_motion', KEY_BG = 'gj_bgstyle';
-  var KEY_BG_IMG = 'gj_bg_image';   // selbst hochgeladenes Hintergrundbild (Data-URL, nur lokal)
+  var KEY_BG_IMG = 'gj_bg_image';        // ALT: einzelnes Bild (Data-URL) — nur noch für die Migration gelesen
+  var KEY_BG_IMGS = 'gj_bg_images';      // Galerie eigener Hintergrundbilder (Array von Data-URLs, nur lokal)
+  var KEY_BG_IMG_IDX = 'gj_bg_image_idx';// Index des aktuell aktiven Bilds in der Galerie
+  var MAX_BG_IMGS = 12;                  // Obergrenze, damit der localStorage nicht überläuft
   // Schnelles-Weiterspielen-Optionen (siehe app.js Game-Over + ui.js createBetPanel):
   var KEY_AUTORESTART = 'gj_auto_restart';   // kein Game-Over-Overlay, sofort Einstiegsgeld
   var KEY_AUTOMAX = 'gj_auto_maxbet';        // Einsatz automatisch auf Max vorwählen
@@ -65,8 +68,34 @@
   try { reduceMotion = App.Storage ? App.Storage.get(KEY_RM, false) : (localStorage.getItem(KEY_RM) === '1'); } catch (e) {}
   var currentBg = 'jungle';
   try { currentBg = (App.Storage ? App.Storage.get(KEY_BG, null) : localStorage.getItem(KEY_BG)) || 'jungle'; } catch (e) {}
-  var customImg = null;   // Data-URL des eigenen Hintergrundbilds (falls hochgeladen)
-  try { customImg = (App.Storage ? App.Storage.get(KEY_BG_IMG, null) : localStorage.getItem(KEY_BG_IMG)) || null; } catch (e) {}
+  // Galerie eigener Hintergrundbilder (Data-URLs, nur lokal). Statt eines einzelnen
+  // Bilds werden mehrere gesammelt; customImg ist das gerade aktive (abgeleitet).
+  var customImgs = [];    // alle gesammelten Bilder (Data-URLs)
+  var customIdx = 0;      // Index des aktiven Bilds in customImgs
+  (function loadCustomImgs() {
+    try {
+      var arr = App.Storage ? App.Storage.get(KEY_BG_IMGS, null)
+        : JSON.parse(localStorage.getItem(KEY_BG_IMGS) || 'null');
+      if (arr && arr.length) customImgs = arr.filter(function (x) { return typeof x === 'string' && x; });
+    } catch (e) {}
+    // Migration: alter Einzelwert -> als erstes Bild in die Galerie übernehmen (nichts geht verloren).
+    if (!customImgs.length) {
+      try {
+        var old = App.Storage ? App.Storage.get(KEY_BG_IMG, null) : localStorage.getItem(KEY_BG_IMG);
+        if (old) {
+          customImgs = [old];
+          try { App.Storage ? App.Storage.set(KEY_BG_IMGS, customImgs) : localStorage.setItem(KEY_BG_IMGS, JSON.stringify(customImgs)); } catch (e) {}
+          try { App.Storage && App.Storage.remove ? App.Storage.remove(KEY_BG_IMG) : (window.localStorage && localStorage.removeItem(KEY_BG_IMG)); } catch (e) {}
+        }
+      } catch (e) {}
+    }
+    try {
+      var i = App.Storage ? App.Storage.get(KEY_BG_IMG_IDX, 0)
+        : parseInt(localStorage.getItem(KEY_BG_IMG_IDX) || '0', 10);
+      customIdx = (typeof i === 'number' && i >= 0 && i < customImgs.length) ? i : 0;
+    } catch (e) {}
+  })();
+  var customImg = customImgs[customIdx] || null;   // aktives Bild (abgeleitet aus Galerie + Index)
   var autoRestart = false;
   try { autoRestart = App.Storage ? App.Storage.get(KEY_AUTORESTART, false) : (localStorage.getItem(KEY_AUTORESTART) === '1'); } catch (e) {}
   var autoMax = false;
@@ -424,18 +453,52 @@
     img.src = dataUrl;
   }
 
-  // Datei einlesen -> verkleinern -> speichern -> als Hintergrund aktivieren.
+  // Galerie + aktiven Index speichern. App.Storage.set schluckt Quota-Fehler still
+  // (Fallback in den RAM), darum bei verfügbarem localStorage direkt schreiben, um
+  // ein Überlaufen (zu viele Bilder) erkennen zu können. Rückgabe: true = gespeichert.
+  function persistCustom() {
+    var okSave = true;
+    try {
+      if (App.Storage && App.Storage.available && window.localStorage) {
+        window.localStorage.setItem(KEY_BG_IMGS, JSON.stringify(customImgs));
+        window.localStorage.setItem(KEY_BG_IMG_IDX, JSON.stringify(customIdx));
+      } else if (App.Storage) {
+        App.Storage.set(KEY_BG_IMGS, customImgs);
+        App.Storage.set(KEY_BG_IMG_IDX, customIdx);
+      } else {
+        localStorage.setItem(KEY_BG_IMGS, JSON.stringify(customImgs));
+        localStorage.setItem(KEY_BG_IMG_IDX, JSON.stringify(customIdx));
+      }
+    } catch (e) { okSave = false; }  // z. B. Quota voll
+    return okSave;
+  }
+
+  // Datei einlesen -> verkleinern -> als NEUES Bild an die Galerie HÄNGEN (nicht ersetzen)
+  // -> speichern -> als Hintergrund aktivieren.
   function loadCustomFile(file, done) {
     if (!file || !/^image\//.test(file.type)) { if (done) done(false); return; }
+    if (customImgs.length >= MAX_BG_IMGS) {
+      if (App.UI && App.UI.toast) App.UI.toast('Maximal ' + MAX_BG_IMGS + ' Hintergründe — bitte erst einen entfernen.', 'lose');
+      if (done) done(false, 'limit'); return;
+    }
     var reader = new FileReader();
     reader.onload = function () {
       downscaleImage(reader.result, 1600, function (small) {
+        customImgs.push(small);
+        customIdx = customImgs.length - 1;
         customImg = small;
-        var ok = true;
-        try { App.Storage ? App.Storage.set(KEY_BG_IMG, small) : localStorage.setItem(KEY_BG_IMG, small); }
-        catch (e) { ok = false; } // z. B. Quota voll
-        injectBgImgCss(customImg);
-        applyBg('custom');
+        var ok = persistCustom();
+        if (!ok) {                       // Quota voll -> neues Bild wieder verwerfen
+          customImgs.pop();
+          customIdx = customImgs.length - 1;
+          customImg = customImgs[customIdx] || null;
+          persistCustom();
+          injectBgImgCss(customImg);
+          if (currentBg === 'custom' && !customImg) applyBg('jungle');
+        } else {
+          injectBgImgCss(customImg);
+          applyBg('custom');
+        }
         if (done) done(ok);
       });
     };
@@ -443,13 +506,34 @@
     reader.readAsDataURL(file);
   }
 
+  // Ein gesammeltes Bild als aktiven Hintergrund wählen.
+  function selectCustom(idx) {
+    if (idx < 0 || idx >= customImgs.length) return;
+    customIdx = idx;
+    customImg = customImgs[idx];
+    persistCustom();
+    injectBgImgCss(customImg);
+    applyBg('custom');
+  }
+
+  // Ein einzelnes Bild aus der Galerie entfernen (die anderen bleiben erhalten).
+  function removeCustomAt(idx) {
+    if (idx < 0 || idx >= customImgs.length) return;
+    customImgs.splice(idx, 1);
+    if (customIdx >= customImgs.length) customIdx = customImgs.length - 1;
+    if (customIdx < 0) customIdx = 0;
+    customImg = customImgs[customIdx] || null;
+    persistCustom();
+    injectBgImgCss(customImg);
+    if (!customImgs.length) { if (currentBg === 'custom') applyBg('jungle'); }
+    else if (currentBg === 'custom') applyBg('custom');
+  }
+
+  // Alle eigenen Hintergründe entfernen (Reset).
   function clearCustomImage() {
-    customImg = null;
-    try {
-      if (App.Storage && App.Storage.remove) App.Storage.remove(KEY_BG_IMG);
-      else if (App.Storage) App.Storage.set(KEY_BG_IMG, null);
-      else localStorage.removeItem(KEY_BG_IMG);
-    } catch (e) {}
+    customImgs = []; customIdx = 0; customImg = null;
+    try { App.Storage && App.Storage.remove ? App.Storage.remove(KEY_BG_IMGS) : (window.localStorage && localStorage.removeItem(KEY_BG_IMGS)); } catch (e) {}
+    try { App.Storage && App.Storage.remove ? App.Storage.remove(KEY_BG_IMG_IDX) : (window.localStorage && localStorage.removeItem(KEY_BG_IMG_IDX)); } catch (e) {}
     injectBgImgCss(null);
     if (currentBg === 'custom') applyBg('jungle');
   }
@@ -514,6 +598,16 @@
       '.bg-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}',
       '.bg-mini{font:inherit;font-size:12px;font-weight:800;padding:6px 10px;border-radius:10px;border:1px solid var(--stroke);background:rgba(9,32,21,.7);color:var(--text);cursor:pointer;}',
       '.bg-mini:hover{border-color:var(--neon);}',
+      // Galerie der gesammelten eigenen Hintergründe (Kacheln + Hinzufügen).
+      '.bg-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;}',
+      '.bgg-tile{position:relative;height:64px;border-radius:12px;border:1px solid var(--stroke);background-size:cover;background-position:center;cursor:pointer;transition:.15s;overflow:hidden;}',
+      '.bgg-tile:hover{transform:translateY(-2px);border-color:var(--neon);}',
+      '.bgg-tile.cur{border-color:var(--neon);box-shadow:0 0 0 2px var(--neon),0 0 14px var(--stroke-2);}',
+      '.bgg-badge{position:absolute;top:5px;left:6px;font-size:12px;font-weight:900;color:#04140d;background:var(--neon);border-radius:99px;padding:1px 7px;box-shadow:0 0 8px var(--stroke-2);}',
+      '.bgg-del{position:absolute;top:4px;right:4px;font-size:12px;line-height:1;padding:3px 5px;border-radius:8px;border:1px solid var(--stroke);background:rgba(4,16,10,.72);color:var(--text);cursor:pointer;}',
+      '.bgg-del:hover{border-color:#ff5a5a;background:rgba(60,10,10,.8);}',
+      '.bgg-add{height:64px;font-size:26px;font-weight:900;color:var(--muted);border-radius:12px;border:1px dashed var(--stroke);background:rgba(255,255,255,.04);cursor:pointer;transition:.15s;}',
+      '.bgg-add:hover{border-color:var(--neon);color:var(--neon);}',
       '.bgprev-jungle{background:radial-gradient(circle at 25% 25%,rgba(57,255,20,.45),transparent 55%),radial-gradient(circle at 80% 70%,rgba(51,230,208,.35),transparent 55%),linear-gradient(160deg,#04170d,#0a2e1a);}',
       '.bgprev-water{background:radial-gradient(circle at 50% 0%,rgba(90,205,255,.5),transparent 60%),radial-gradient(circle at 30% 80%,rgba(60,150,230,.35),transparent 60%),linear-gradient(180deg,#083650,#02101f);}',
       '.bgprev-fire{background:radial-gradient(circle at 50% 105%,rgba(255,150,30,.8),rgba(255,80,20,.3) 45%,transparent 70%),linear-gradient(0deg,#2a0a04,#140406);}',
@@ -573,6 +667,7 @@
       }
     });
     var customActive = currentBg === 'custom';
+    var atLimit = customImgs.length >= MAX_BG_IMGS;
     var customCard = el('div', {
       class: 'theme-card bg-card bg-custom' + (customActive ? ' active' : ''),
       onclick: function () {
@@ -586,15 +681,40 @@
         style: customImg ? ('background-image:url("' + customImg + '")') : null
       }, [customImg ? null : el('span', { class: 'bg-custom-plus' }, ['＋'])]),
       el('div', { class: 'theme-name' }, ['🖼️ Eigenes Bild']),
+      el('div', { class: 'bg-desc' }, [customImgs.length ? (customImgs.length + ' gesammelt' + (atLimit ? ' (max)' : '')) : 'Eigenes Foto als Hintergrund']),
       el('div', { class: 'bg-actions' }, [
-        el('button', { class: 'bg-mini', type: 'button', onclick: function (e) { e.stopPropagation(); bgFileInput.click(); } },
-          [customImg ? '🔄 Ändern' : '📁 Bild wählen']),
-        customImg ? el('button', { class: 'bg-mini', type: 'button', onclick: function (e) { e.stopPropagation(); clearCustomImage(); if (App.Audio) App.Audio.sfx('select'); rerender(); } },
-          ['✕ Entfernen']) : null
+        atLimit
+          ? el('span', { class: 'bg-desc' }, ['Maximal ' + MAX_BG_IMGS + ' erreicht'])
+          : el('button', { class: 'bg-mini', type: 'button', onclick: function (e) { e.stopPropagation(); bgFileInput.click(); } },
+              [customImgs.length ? '＋ Hinzufügen' : '📁 Bild wählen'])
       ]),
       bgFileInput
     ]);
     bgGrid.appendChild(customCard);
+
+    // Galerie: alle gesammelten eigenen Hintergründe als Vorschau-Kacheln. Klick =
+    // aktivieren, 🗑 = einzeln entfernen, ＋ = weiteres Bild hinzufügen.
+    var gallery = customImgs.length ? el('div', { class: 'bg-gallery' },
+      customImgs.map(function (img, i) {
+        return el('div', {
+          class: 'bgg-tile' + (i === customIdx ? ' cur' : ''),
+          style: 'background-image:url("' + img + '")',
+          title: 'Als Hintergrund verwenden',
+          onclick: function () { selectCustom(i); if (App.Audio) App.Audio.sfx('select'); rerender(); }
+        }, [
+          i === customIdx ? el('span', { class: 'bgg-badge' }, ['✓']) : null,
+          el('button', {
+            class: 'bgg-del', type: 'button', title: 'Diesen Hintergrund entfernen',
+            onclick: function (e) { e.stopPropagation(); removeCustomAt(i); if (App.Audio) App.Audio.sfx('select'); rerender(); }
+          }, ['🗑'])
+        ]);
+      }).concat([
+        atLimit ? null : el('button', {
+          class: 'bgg-add', type: 'button', title: 'Hintergrund hinzufügen',
+          onclick: function () { bgFileInput.click(); }
+        }, ['＋'])
+      ])
+    ) : null;
 
     var rmSwitch = el('div', { class: 'switch' + (reduceMotion ? ' on' : ''), onclick: function () { setReduceMotion(!reduceMotion); this.classList.toggle('on', reduceMotion); } }, [el('span', { class: 'knob' })]);
     var soundOn = !(App.Audio && App.Audio.isMuted && App.Audio.isMuted());
@@ -611,6 +731,8 @@
       grid,
       el('div', { class: 'set-sec-h' }, ['Stil / Hintergrund']),
       bgGrid,
+      gallery ? el('div', { class: 'set-sec-h' }, ['Deine Hintergründe (tippen zum Wählen)']) : null,
+      gallery,
       el('div', { class: 'set-sec-h' }, ['Optionen']),
       el('div', { class: 'set-toggle' }, [el('div', {}, [el('div', { class: 'st-l' }, ['🔊 Sound & Musik']), el('div', { class: 'st-d' }, ['Effekte + Menü-Musik'])]), sndSwitch]),
       el('div', { class: 'set-toggle' }, [el('div', {}, [el('div', { class: 'st-l' }, ['🎞️ Bewegung reduzieren']), el('div', { class: 'st-d' }, ['Weniger Animationen (schont schwache Geräte)'])]), rmSwitch]),
@@ -640,9 +762,12 @@
     autoMaxBet: function () { return autoMax; }, setAutoMaxBet: setAutoMax,
     // Stil-/Hintergrund-API (unabhängig von den Farb-Themes)
     applyBg: applyBg, currentBg: function () { return currentBg; }, bgStyles: function () { return BG_STYLES.slice(); },
-    // Eigenes Hintergrundbild
-    customImage: function () { return customImg; }, clearCustomImage: clearCustomImage,
-    setCustomFile: loadCustomFile
+    // Eigene Hintergrundbilder (Galerie): customImage = aktives Bild, customImages = alle,
+    // setCustomFile hängt ein neues an, selectCustomImage/removeCustomImage wählen/löschen.
+    customImage: function () { return customImg; }, customImages: function () { return customImgs.slice(); },
+    activeCustomIndex: function () { return customIdx; }, maxCustomImages: MAX_BG_IMGS,
+    clearCustomImage: clearCustomImage, setCustomFile: loadCustomFile,
+    selectCustomImage: selectCustom, removeCustomImage: removeCustomAt
   };
 
   // Theme + Hintergrund so früh wie möglich anwenden (kein Flackern), Nav wenn DOM bereit.

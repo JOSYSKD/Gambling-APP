@@ -16,7 +16,7 @@
   // falls der Deckel später zentral geändert wird.
   var MAX = (App.Progress && App.Progress.MAX_LEVEL) || 99999;
   // Level lesbar formatieren (99999 -> 99.999), damit hohe Freischalt-Stufen sauber anzeigen.
-  function fmtLv(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function fmtLv(n) { return (App.UI && App.UI.formatShort) ? App.UI.formatShort(n) : String(n); }
 
   /* ---------------- Kosmetik-Kataloge (unlock = benötigtes Level) ----------------
    * Die Freischalt-Level sind bewusst über die GESAMTE Spanne bis MAX (=99999) verteilt,

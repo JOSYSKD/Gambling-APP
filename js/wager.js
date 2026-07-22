@@ -27,6 +27,7 @@
   var INV_ROOT = 'scores/__wager_inv';
   var MATCH_ROOT = 'scores/__wager_m';
   var KEY_STAKED = 'gj_wager_staked';   // matchIds, bei denen mein Einsatz schon abgebucht ist
+  var KEY_SENT = 'gj_wager_sent';       // matchIds von mir verschickter Herausforderungen (Host-Outbox)
 
   function store() { return App.Net.store(); }
   function T() { return App.Tournament; }
@@ -80,8 +81,23 @@
       game: gameId, rounds: rounds, seconds: seconds, stake: stake, at: Date.now(), status: 'pending'
     };
     var patch = {}; patch[id] = rec;
-    return store().then(function (b) { return b.update(INV_ROOT + '/' + toPid, patch); }).then(function () { return rec; });
+    return store().then(function (b) { return b.update(INV_ROOT + '/' + toPid, patch); })
+      .then(function () { rememberSent(id); return rec; });
   }
+  /* Host-Outbox: matchIds (== Einladungs-ID) meiner offenen Herausforderungen,
+   * damit der Herausforderer merkt, wenn der Gegner annimmt, und selbst in den
+   * Kampf springt (er ist der Host und muss die Runden werten/auszahlen). */
+  function rememberSent(matchId) {
+    var a = App.Storage.get(KEY_SENT, []) || [];
+    if (a.indexOf(matchId) < 0) a.push(matchId);
+    if (a.length > 30) a = a.slice(-30);
+    App.Storage.set(KEY_SENT, a);
+  }
+  function forgetSent(matchId) {
+    var a = (App.Storage.get(KEY_SENT, []) || []).filter(function (x) { return x !== matchId; });
+    App.Storage.set(KEY_SENT, a);
+  }
+  function sentMatchIds() { return App.Storage.get(KEY_SENT, []) || []; }
   /** Eingehende Herausforderungen an mich (noch offen). */
   function incoming() {
     return store().then(function (b) { return b.get(INV_ROOT + '/' + myPid()); }).then(function (o) {
@@ -243,6 +259,8 @@
     patchMatch: patchMatch,
     stakeOnce: stakeOnce,
     alreadyStaked: alreadyStaked,
+    sentMatchIds: sentMatchIds,
+    forgetSent: forgetSent,
     roundRoom: roundRoom,
     roundWinner: roundWinner,
     finish: finish,

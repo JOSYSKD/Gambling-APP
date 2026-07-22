@@ -73,8 +73,8 @@
   // LEVEL_CAP ist nur die (rein technische) Obergrenze der Binärsuche, weit
   // jenseits von allem real Erreichbaren. MAX_LEVEL ist jetzt nur noch die
   // Schwelle für den goldenen "Legenden"-Namen, nicht mehr das Ende.
-  var LEVEL_CAP = 1e9;          // praktisch unendlich (Binärsuche-Grenze)
-  var MAX_LEVEL = 99999;        // Prestige-Schwelle: goldener Name (kein Ende mehr)
+  var LEVEL_CAP = 1e100;        // praktisch unendlich (wie Coins) — nur Binärsuche-Grenze
+  var MAX_LEVEL = Infinity;     // KEIN Höchstlevel mehr — Level läuft endlos weiter, nie "MAX"
 
   // XP von Level L nach L+1 — BRUTAL STEIL und mit dem Level immer steiler: ein
   // quadratischer PLUS ein kubischer Term, damit jedes weitere Level spürbar
@@ -612,7 +612,7 @@
   }
   function updateChip() {
     if (!chip) return;
-    chipLvl.textContent = isMaxLevel() ? 'MAX' : String(level());
+    chipLvl.textContent = UI.formatShort(level());
     chip.classList.toggle('chip-max', isMaxLevel());
     chipFill.style.width = levelPct() + '%';
   }
@@ -627,10 +627,10 @@
     var maxed = isMaxLevel();
     var pct = levelPct();
     var head = el('div', { class: 'lvl-head glass' }, [
-      el('div', { class: 'lvl-badge' }, ['⭐', el('span', { class: 'lvl-badge-n' }, [maxed ? 'MAX' : String(L)])]),
+      el('div', { class: 'lvl-badge' }, ['⭐', el('span', { class: 'lvl-badge-n' }, [UI.formatShort(L)])]),
       el('div', { class: 'lvl-meta' }, [
         el('div', { class: 'lvl-title neon' + (maxed ? ' name-gold' : '') }, [title()]),
-        el('div', { class: 'lvl-sub' }, [maxed ? ('Level ' + UI.formatCoins(L) + ' · HÖCHSTLEVEL erreicht 👑') : ('Level ' + L + ' · ' + xpInLevel() + ' / ' + xpForLevel() + ' XP')]),
+        el('div', { class: 'lvl-sub' }, ['Level ' + UI.formatShort(L) + ' · ' + UI.formatShort(xpInLevel()) + ' / ' + UI.formatShort(xpForLevel()) + ' XP']),
         el('div', { class: 'lvl-bar' }, [el('div', { class: 'lvl-bar-fill', style: 'width:' + pct + '%' })]),
         el('div', { class: 'lvl-start' }, ['Auffüllung bei Pleite: ', el('b', {}, [UI.formatCoins(startBalance()) + ' 🪙'])])
       ])

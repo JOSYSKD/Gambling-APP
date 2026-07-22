@@ -206,11 +206,12 @@
     var frame = el('div', { class: 'wg-match' });
     root.appendChild(frame);
 
-    var state = { match: null, offWatch: null, gameApi: null, roundHostTimer: null, dead: false, curRound: -1, playHost: null };
+    var state = { match: null, offWatch: null, gameApi: null, roundHostTimer: null, dead: false, curRound: -1, playHost: null, countdownRound: -1, countdownTimer: null };
 
     function cleanup() {
       state.dead = true;
       if (state.roundHostTimer) clearTimeout(state.roundHostTimer);
+      if (state.countdownTimer) clearTimeout(state.countdownTimer);
       if (state.gameApi && state.gameApi.cleanup) { try { state.gameApi.cleanup(); } catch (e) {} }
       if (state.offWatch) { try { state.offWatch(); } catch (e) {} }
       if (state.curRoom) { try { state.curRoom.leave(); } catch (e) {} }
@@ -256,6 +257,8 @@
         var left = Math.max(0, Math.ceil((m.roundStartAt - Date.now()) / 1000));
         body.appendChild(el('div', { class: 'wg-count' }, [left > 0 ? String(left) : 'Los!']));
         body.appendChild(el('div', { style: 'text-align:center;opacity:.7;' }, ['Runde ' + (m.round + 1) + ' startet …']));
+        // Der Host schaltet nach Ablauf des Countdowns auf 'playing' — sonst startet die Runde nie.
+        if (iAmHost()) hostDriveCountdown(m);
         return;
       }
 
@@ -287,6 +290,23 @@
         // Der Host gibt dem Spiel den synchronen Start und wertet nach Ablauf.
         if (iAmHost()) hostDriveRound(m);
       });
+    }
+
+    // Host: Wenn der Countdown abgelaufen ist, die Runde tatsächlich starten (phase -> 'playing').
+    // Genau ein Timer pro Runde (Guard über countdownRound), damit nicht dauernd gepatcht wird.
+    function hostDriveCountdown(m) {
+      if (state.dead) return;
+      if (state.countdownRound === m.round) return;   // für diese Runde schon geplant
+      state.countdownRound = m.round;
+      if (state.countdownTimer) clearTimeout(state.countdownTimer);
+      var delay = Math.max(0, (m.roundStartAt || Date.now()) - Date.now());
+      state.countdownTimer = setTimeout(function () {
+        if (state.dead) return;
+        var cur = state.match;
+        if (cur && cur.phase === 'countdown' && cur.round === m.round) {
+          W.patchMatch(m.id, { phase: 'playing' });
+        }
+      }, delay);
     }
 
     // Host: Runde starten (round.startAt setzen), nach der Zeit werten, weiterschalten.
@@ -370,7 +390,29 @@
     document.body.appendChild(overlay);
   }
 
-  function boot() { setInterval(pollInvites, 8000); setTimeout(pollInvites, 3000); }
+  /* Der Herausforderer (= Host) wartet nicht in der Kampf-Ansicht, sondern irgendwo
+   * auf der Seite. Sobald der Gegner annimmt, existiert der Match-Datensatz -> hier
+   * erkennen und den Host in den Kampf holen, damit er die Runden startet/auszahlt. */
+  function pollMyMatches() {
+    if (!App.Wager) return;
+    var ids = App.Wager.sentMatchIds();
+    if (!ids.length) return;
+    var onMatch = App.Router.current().indexOf('/wager/match/') === 0;
+    ids.forEach(function (id) {
+      App.Wager.getMatch(id).then(function (m) {
+        if (!m) return;                                  // noch nicht angenommen
+        if (m.done || m.phase === 'done') { App.Wager.forgetSent(id); return; }
+        if (m.host !== App.Wager.myPid()) { App.Wager.forgetSent(id); return; }
+        App.Wager.forgetSent(id);                        // genau einmal hineinholen
+        if (!onMatch) App.Router.go('/wager/match/' + id);
+      }).catch(function () {});
+    });
+  }
+
+  function boot() {
+    setInterval(pollInvites, 8000); setTimeout(pollInvites, 3000);
+    setInterval(pollMyMatches, 4000); setTimeout(pollMyMatches, 2500);
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 

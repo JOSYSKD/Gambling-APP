@@ -37,6 +37,9 @@
         'Neues Spiel: Busfahrer 🚌 — vier Stufen (Rot/Schwarz → Höher/Tiefer → Rein/Raus → Symbol) bis ×20.',
         'Moderatoren: der Admin kann Spielern eine Mod-Rolle geben. Mods können an alle shouten und Spielern live zuschauen — mehr nicht. Der Admin sieht alle Mods und ihren Aktions-Verlauf.',
         'Admin kann pro Spieler die Gewinnchancen erzwingen (z. B. Coinflip zu 80 % Verlust, Crash bei genau 1,01×) und Ideen jetzt auch mit Coin-Abzug bestrafen.',
+        'Level sind jetzt WIRKLICH unendlich (kein „MAX" mehr) und werden wie Coins mit Einheiten angezeigt. Neuer Einheiten-Katalog (🔢) zeigt, welche Einheit nach welcher kommt.',
+        'Du kannst jetzt mehrere eigene Hintergrundbilder sammeln und dazwischen wählen (statt den alten immer zu ersetzen).',
+        'Wagern (1v1-Wetten) repariert: Runden starten jetzt zuverlässig und der Pot wird ausgezahlt.',
       ]
     },
     {
