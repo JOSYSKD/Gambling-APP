@@ -19,20 +19,19 @@
     return Math.round(n).toLocaleString('de-DE');
   }
 
-  /** Große Zahlen abgekürzt: 1.234 -> "1,23K", 2.500.000 -> "2,5M", … in
-   *  Tausenderschritten (jede Einheit = 1000× die vorige). Die ersten Einheiten
-   *  sind benannt (K … Sx, dann dx … yx, dann SKD); danach werden Kürzel
-   *  automatisch endlos erzeugt (aa, ab, …), sodass Zahlen bis ans JS-Limit
-   *  (~10^300) lesbar bleiben, ohne dass die Einheiten je ausgehen. */
+  /** Kürzel der Einheiten-Stufen. Jede Stufe ist UNIT_STEP (=60) Nullen weiter:
+   *  K=10^60, M=10^120, B=10^180 … Die ersten sind benannt (K … Sx, dx … SKD, …),
+   *  danach werden endlos Zweibuchstaben-Kürzel erzeugt, sodass die Einheiten nie
+   *  ausgehen. Siehe Einheiten-Katalog (js/units-catalog.js). */
   var NAMED_UNITS = [
-    'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx',        // 10^3 … 10^21 (wie bisher)
-    'dx', 'fx', 'gx', 'hx', 'jx', 'kx', 'lx', 'öx', 'äx', 'yx',  // 10^24 … 10^51
-    'SKD',                                        // 10^54
-    'zx', 'ax', 'bx', 'cx', 'ex', 'ix', 'mx', 'nx', 'ox', 'px',  // 10^57 … 10^84
-    'qx', 'rx', 'tx', 'ux', 'vx', 'wx',           // 10^87 … 10^102
-    'SKE', 'SKF', 'SKG', 'SKH', 'SKJ', 'SKK', 'SKL', 'SKM'       // 10^105 … 10^126
+    'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx',
+    'dx', 'fx', 'gx', 'hx', 'jx', 'kx', 'lx', 'öx', 'äx', 'yx',
+    'SKD',
+    'zx', 'ax', 'bx', 'cx', 'ex', 'ix', 'mx', 'nx', 'ox', 'px',
+    'qx', 'rx', 'tx', 'ux', 'vx', 'wx',
+    'SKE', 'SKF', 'SKG', 'SKH', 'SKJ', 'SKK', 'SKL', 'SKM'
   ];
-  /** Kürzel für die i-te Einheit (i=0 -> 10^3 = K). Endlos: nach der benannten
+  /** Kürzel für die i-te Einheit (i=0 -> K = 10^60). Endlos: nach der benannten
    *  Liste kommen automatisch generierte Zweibuchstaben-Kürzel (aa, ab, …). */
   function unitSuffix(i) {
     if (i < NAMED_UNITS.length) return NAMED_UNITS[i];
@@ -40,19 +39,24 @@
     var a = Math.floor(n / 26), b = n % 26;
     return String.fromCharCode(97 + a) + String.fromCharCode(97 + b);
   }
+  // Nullen pro Einheiten-Stufe. Auf Wunsch: 60 (statt 3) — die erste Einheit (K)
+  // beginnt also erst bei 10^60. Alles darunter (Millionen … bis 10^60) wird als
+  // volle Ziffernkette ohne Kürzel angezeigt; die Kürzel machen dafür Riesensprünge.
+  var UNIT_STEP = 60;
+  var UNIT_BASE = Math.pow(10, UNIT_STEP);   // 10^60
   function formatShort(n) {
     n = Number(n) || 0;
     var sign = n < 0 ? '-' : '';
     n = Math.abs(n);
     if (!isFinite(n)) return sign + '∞';
-    if (n < 1000) return sign + Math.round(n).toLocaleString('de-DE');
-    // 3er-Gruppe bestimmen: group 1 -> K (10^3), 2 -> M (10^6) …
-    var group = Math.floor((Math.log(n) / Math.LN10) / 3);
+    if (n < UNIT_BASE) return sign + Math.round(n).toLocaleString('de-DE');
+    // Einheiten-Gruppe: group 1 -> K (10^60), 2 -> M (10^120) …
+    var group = Math.floor((Math.log(n) / Math.LN10) / UNIT_STEP);
     if (group < 1) group = 1;
-    var v = n / Math.pow(10, group * 3);
-    // Rundungsrutscher an exakten Zehnerpotenzen abfangen (z. B. 1000 -> 1K, nicht 0,001M)
-    if (v >= 1000) { group += 1; v /= 1000; }
-    else if (v < 1 && group > 1) { group -= 1; v *= 1000; }
+    var v = n / Math.pow(10, group * UNIT_STEP);
+    // Rundungsrutscher an exakten Zehnerpotenzen abfangen.
+    if (v >= UNIT_BASE) { group += 1; v /= UNIT_BASE; }
+    else if (v < 1 && group > 1) { group -= 1; v *= UNIT_BASE; }
     var txt = (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10).toLocaleString('de-DE');
     return sign + txt + unitSuffix(group - 1);
   }

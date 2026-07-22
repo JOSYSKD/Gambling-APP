@@ -23,7 +23,7 @@
   'use strict';
   window.App = window.App || {};
 
-  window.APP_VERSION = '2026-07-22.8';
+  window.APP_VERSION = '2026-07-22.9';
 
   var CHECK_MS = 60000;              // seltener prüfen (vorher 25s)
   var SEEN_KEY = 'gj_reloaded_for';  // welche Zielversion haben wir schon versucht?
