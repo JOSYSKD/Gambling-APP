@@ -81,6 +81,11 @@ async function main() {
   })()`);
   await sleep(1200);
 
+  // Hauptmenü (zeigt, ob alle Kacheln aus beiden Entwicklungssträngen da sind)
+  await evaluate("location.hash = '#/'");
+  await sleep(900);
+  await shot('00-menue');
+
   // Kategorie-Übersicht
   await evaluate("location.hash = '#/category/slotmachines'");
   await sleep(900);

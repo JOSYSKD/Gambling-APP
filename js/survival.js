@@ -203,10 +203,27 @@
 
   function getBoard(limit) {
     var list = (driver ? driver.list() : board).slice();
+    // GENAU EIN Eintrag pro Spieler = sein bester Run. Ein Spieler kann unter
+    // mehreren Keys publiziert haben (erst als Gast d_…, später mit Konto a_…,
+    // oder nach einer Umbenennung) und tauchte dann mehrfach auf. Wir gruppieren
+    // über den normalisierten Namen und behalten je Spieler den höchsten Peak.
+    var byName = {};
+    list.forEach(function (e) {
+      var nk = String(e.name || 'Anonym').trim().toLowerCase();
+      var cur = byName[nk];
+      if (!cur || (e.peak || 0) > (cur.peak || 0) || ((e.peak || 0) === (cur.peak || 0) && (e.gold || 0) > (cur.gold || 0))) {
+        // Besten Run behalten, aber „lebt gerade" und Krone vom aktuellsten Stand.
+        byName[nk] = Object.assign({}, e, cur ? { alive: e.alive || cur.alive, crown: e.crown || cur.crown } : {});
+      } else if (cur) {
+        cur.alive = cur.alive || e.alive;
+        cur.crown = cur.crown || e.crown;
+      }
+    });
+    var merged = Object.keys(byName).map(function (k) { return byName[k]; });
     // Rangliste = bester Run ALLER ZEITEN: nach dem höchsten je erreichten Vermögen
     // (peak) sortieren, aktueller Goldstand nur als Gleichstand-Entscheider.
-    list.sort(function (a, b) { return (b.peak - a.peak) || (b.gold - a.gold); });
-    return list.slice(0, limit || 20);
+    merged.sort(function (a, b) { return (b.peak - a.peak) || (b.gold - a.gold); });
+    return merged.slice(0, limit || 20);
   }
 
   /* ================= Run-Steuerung ================= */
@@ -588,6 +605,13 @@
       App.Storage.set(KEY_PEAK, 0);
       App.Storage.remove('gj_sv_board_local');
       App.Storage.set(KEY_RESET, SV_RESET_GEN);
+    }
+    // Bedingter Reset (Josls Wunsch): NUR wer einen Survival-Rekord über 2,5 Mio.
+    // hat, wird zurückgesetzt — kleinere Rekorde bleiben. Läuft pro Client genau
+    // einmal, damit online-Spieler ihren großen Rekord nicht gleich neu publizieren.
+    if ((Number(App.Storage.get('gj_sv_big_reset_gen', 0)) || 0) < 1) {
+      App.Storage.set('gj_sv_big_reset_gen', 1);
+      if (peakEver() > 2500000) { App.Storage.set(KEY_PEAK, assets()); }
     }
     installBadge();
     syncBadge();

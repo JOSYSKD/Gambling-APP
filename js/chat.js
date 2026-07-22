@@ -55,7 +55,7 @@
     } else if (raw && typeof raw === 'object') {
       arr = Object.keys(raw).map(function (k) {
         var m = raw[k] || {};
-        return { id: k, name: m.name, text: m.text, ts: Number(m.ts) || 0, gold: !!m.gold };
+        return { id: k, name: m.name, text: m.text, ts: Number(m.ts) || 0, gold: !!m.gold, nc: m.nc, nf: m.nf, lv: m.lv };
       });
     } else {
       arr = [];
@@ -136,7 +136,7 @@
       kind: 'local',
       send: function (msg) {
         var arr = lsLoad();
-        arr.push({ id: msg.ts + '_' + Math.random().toString(36).slice(2, 8), name: msg.name, text: msg.text, ts: msg.ts, gold: msg.gold });
+        arr.push({ id: msg.ts + '_' + Math.random().toString(36).slice(2, 8), name: msg.name, text: msg.text, ts: msg.ts, gold: msg.gold, nc: msg.nc, nf: msg.nf, lv: msg.lv });
         if (arr.length > MAX) arr = arr.slice(-MAX);
         lsSave(arr);
         if (bc) { try { bc.postMessage({ t: 'msg' }); } catch (e) {} }
@@ -163,7 +163,9 @@
     name = String(name).slice(0, MAX_NAME) || 'Anonym';
     var gold = !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel());
 
-    var msg = { name: name, text: text, ts: now(), gold: gold };
+    var myc = (App.ProfileCard && App.ProfileCard.myNameCos) ? App.ProfileCard.myNameCos() : {};
+    var myLv = (App.Progress && App.Progress.level) ? App.Progress.level() : 1;
+    var msg = { name: name, text: text, ts: now(), gold: gold, nc: myc.nameColor || 'default', nf: myc.nameFont || 'default', lv: myLv };
     mySent[sig(msg)] = true;   // eigene Nachricht später optisch abheben
     driver.send(msg);
     return true;
@@ -224,6 +226,8 @@
     function rowFor(m) {
       var name = el('span', { class: 'chat-name' + (m.gold ? ' name-gold' : '') });
       name.textContent = m.name || 'Anonym';           // textContent -> kein XSS
+      // Namensfarbe + Schriftart des Absenders (kommt mit der Nachricht mit).
+      if (App.ProfileCard && App.ProfileCard.styleName) App.ProfileCard.styleName(name, { nameColor: m.nc, nameFont: m.nf }, m.lv || 1, m.gold);
       var text = el('div', { class: 'chat-text' });
       text.textContent = m.text || '';                 // textContent -> kein XSS
       return el('div', { class: 'chat-row' + (isMine(m) ? ' mine' : '') }, [

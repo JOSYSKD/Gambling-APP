@@ -24,7 +24,7 @@
   // Survival getrennt (mode.js präfixt gj_progress). Über den Konto-Heartbeat
   // (account.js snapshotToAccount) landet der Reset danach auch in den Cloud-Konten,
   // sodass ein späterer Login den alten Stand NICHT zurückholt.
-  var RESET_GEN = 2;
+  var RESET_GEN = 9;
 
   function freshStats() {
     return {
@@ -42,10 +42,13 @@
   function load() {
     var s = App.Storage ? App.Storage.get(KEY, null) : null;
     if (!s || typeof s !== 'object') s = {};
-    // Globaler Reset (siehe RESET_GEN): alter/kein Generationsstempel -> alles auf null,
-    // sofort persistieren, damit der leere Stand auch in den Konto-Snapshot wandert.
+    // Globaler Reset (siehe RESET_GEN): Level/XP, Quests UND Stats komplett auf null.
+    // Die Stats werden bewusst mit zurückgesetzt: die Quests hängen an ihnen, und das
+    // durch den alten Geld-Bug astronomisch verfälschte `wagered` (10^21) hielt die
+    // Risiko-Quests dauerhaft erfüllt. Nur ein voller Reset macht ALLE Quests wieder
+    // offen. Der checkQuests-Backfill (unten) bleibt als Schutz gegen Rest-Stände.
     if ((Number(s.resetGen) || 0) < RESET_GEN) {
-      s = { xp: 0, stats: freshStats(), quests: {}, lastDaily: '', daily: [], resetGen: RESET_GEN };
+      s = { xp: 0, stats: freshStats(), quests: {}, lastDaily: s.lastDaily || '', daily: s.daily || [], resetGen: RESET_GEN };
       if (App.Storage) App.Storage.set(KEY, s);
       return s;
     }
@@ -73,20 +76,32 @@
   var LEVEL_CAP = 1e9;          // praktisch unendlich (Binärsuche-Grenze)
   var MAX_LEVEL = 99999;        // Prestige-Schwelle: goldener Name (kein Ende mehr)
 
-  // XP von Level L nach L+1 — BEWUSST STEIL (quadratisch statt linear), damit
-  // Aufleveln sich erarbeitet anfühlt und nicht in Minuten passiert. Zusammen mit
-  // den stark reduzierten XP-Gewinnen (siehe onWager/onOutcome) ist das ~5-6× so
-  // langsam wie vorher.
-  function reqFor(level) { return Math.round(500 + (level - 1) * (level - 1) * 130); }
+  // XP von Level L nach L+1 — BRUTAL STEIL und mit dem Level immer steiler: ein
+  // quadratischer PLUS ein kubischer Term, damit jedes weitere Level spürbar
+  // länger dauert als das vorige. AB HARD_AT (3000) legt ein zusätzlicher, eigener
+  // kubischer Term obendrauf -> ab dort wird es extrem. Auf Josls Wunsch um Faktor 5
+  // gesenkt (alle Koeffizienten /5): man levelt jetzt 5× so schnell wie zuvor, die
+  // Form der Kurve (mit dem Level immer steiler) bleibt gleich.
+  var LC_BASE = 100, LC_Q = 40, LC_K = 0.6, LC_XTRA = 10, HARD_AT = 3000;
+  function reqFor(level) {
+    var d = level - 1;
+    var r = LC_BASE + LC_Q * d * d + LC_K * d * d * d;
+    if (level > HARD_AT) r += LC_XTRA * Math.pow(level - HARD_AT, 3);
+    return Math.round(r);
+  }
 
-  // Kumulierte XP bis zum Beginn von Level L — GESCHLOSSENE FORMEL statt Schleife.
-  // Bei einem Höchstlevel von 99999 wäre die frühere O(L)-Summe (in einer O(L)-Level-
-  // Suche = O(L²)) katastrophal und würde den Browser einfrieren. cumFor(L) ist die
-  // Summe von reqFor(1..L-1) = 500·n + 130·Σ(k=0..n-1) k²   mit n = L-1.
+  // Kumulierte XP bis zum Beginn von Level L — GESCHLOSSENE FORMEL statt Schleife
+  // (bei Höchstlevel 99999 wäre eine O(L)-Summe in der O(L)-Level-Suche = O(L²) ein
+  // Browser-Freeze). cumFor(L) = Summe reqFor(1..L-1). Mit n = L-1:
+  //   500·n + 200·Σk² + 3·Σk³ (k=0..n-1)  [+ 50·Σk³ (k=0..n-3000) ab HARD_AT].
+  function sumSq(m) { return m < 0 ? 0 : m * (m + 1) * (2 * m + 1) / 6; }   // Σ_{k=0..m} k²
+  function sumCu(m) { if (m < 0) return 0; var t = m * (m + 1) / 2; return t * t; }  // Σ_{k=0..m} k³
   function cumFor(level) {
     var n = level - 1;
     if (n <= 0) return 0;
-    return 500 * n + 130 * ((n - 1) * n * (2 * n - 1) / 6);
+    var c = LC_BASE * n + LC_Q * sumSq(n - 1) + LC_K * sumCu(n - 1);
+    if (n > HARD_AT) c += LC_XTRA * sumCu(n - HARD_AT);
+    return c;
   }
   // Level aus XP per Binärsuche über [1, LEVEL_CAP] (O(log) statt O(L)).
   function levelFromXp(xp) {
@@ -104,16 +119,24 @@
   // "Max" ist jetzt nur noch die Prestige-Schwelle für den goldenen Namen.
   function isMaxLevel() { return level() >= MAX_LEVEL; }
 
-  // Bonus aus bereits erledigten Quests: jede fertige Quest hebt den Wieder-Auffüll-
-  // Betrag dauerhaft um einen Teil ihrer Belohnung an — summiert sich mit jeder weiteren
-  // Quest auf, daher kein Deckel mehr nötig.
+  // Wie stark Level und Quests das Wieder-Auffüll-Guthaben heben. Auf Josls Wunsch
+  // gibt das LEVEL jetzt viel mehr fürs Wiedereinstiegsguthaben (100 -> 1000 je Level):
+  // wer hoch levelt, startet nach einer Pleite mit spürbar mehr Coins.
+  var LEVEL_START_STEP = 1000;   // Guthaben-Zuwachs pro Level
+  var QUEST_START_SHARE = 0.02;  // Anteil der Quest-Belohnung im Startguthaben (früher 0.4)
+
+  // Bonus aus SELBST erledigten Quests: jede hebt den Wieder-Auffüll-Betrag um einen
+  // Teil ihrer Belohnung. Vor einem Reset erfüllte Quests (bf=true) zählen NICHT mit,
+  // und der Bonus ist bei QUEST_START_CAP gedeckelt — sonst startet man nach dem Reset
+  // mit hunderttausenden statt ~1000.
+  var QUEST_START_CAP = 25000;
   function questBonusOf(st) {
     var total = 0, quests = (st && st.quests) || {};
     for (var i = 0; i < QUESTS.length; i++) {
       var q = QUESTS[i], rec = quests[q.id];
-      if (rec && rec.done) total += Math.round(q.reward.coins * 0.1);
+      if (rec && rec.done && !rec.bf) total += Math.round(q.reward.coins * QUEST_START_SHARE);
     }
-    return total;
+    return Math.min(QUEST_START_CAP, total);
   }
   function questBonus() { return questBonusOf(state); }
 
@@ -137,6 +160,32 @@
   }
   function startBalance() { return startBalanceOf(state); }
 
+  /* Level des Spielers auf ein Ziel setzen bzw. um N senken (Admin-Werkzeug,
+   * siehe js/admin.js). XP werden auf den Beginn des Ziellevels gesetzt — das
+   * Level sinkt, XP/Quests darüber hinaus gehen dabei bewusst verloren. Nie
+   * unter Level 1. */
+  function setLevelTo(target) {
+    target = Math.max(1, Math.min(MAX_LEVEL, Math.round(Number(target) || 1)));
+    state.xp = cumFor(target);
+    save(); updateChip(); emit();
+    return level();
+  }
+  function subtractLevels(n) { return setLevelTo(level() - Math.max(0, Math.round(Number(n) || 0))); }
+
+  /* Admin-Level-Abzug einlösen (genau einmal, Muster wie applyGoldGrant in
+   * survival.js): Der Admin setzt admin.levelAdjust = {id, delta}; der Client
+   * senkt sein eigenes Level einmalig und merkt sich die id. */
+  var KEY_LVL_SEEN = 'gj_level_adjust_seen';
+  function applyLevelAdjust(grant) {
+    if (!grant || !grant.id) return false;
+    if (App.Storage.get(KEY_LVL_SEEN, null) === grant.id) return false;
+    App.Storage.set(KEY_LVL_SEEN, grant.id);
+    if (typeof grant.setTo === 'number') setLevelTo(grant.setTo);
+    else subtractLevels(grant.delta || 0);
+    if (App.UI) App.UI.toast('⬇️ Ein Admin hat dein Level angepasst — jetzt Level ' + level() + '.', 'lose');
+    return true;
+  }
+
   /* Einstiegsguthaben eines BESTIMMTEN Modus — auch wenn gerade der andere aktiv
    * ist. Nötig für die Ideen-Belohnung (js/ideas.js), die immer in Casino-Silber
    * ausgezahlt wird, egal ob der Spieler gerade Survival spielt. */
@@ -145,6 +194,20 @@
     var st = App.Mode.readIn(m, KEY, null);
     if (!st || typeof st !== 'object') return 1000;
     return startBalanceOf(st);
+  }
+
+  /* Längste Sieg-Serie (Siege in Folge über ALLE Gambling-Spiele; reißt bei jedem
+   * Verlust). state.stats.maxStreak wird in onOutcome geführt — Quelle für die
+   * Serien-Quests UND die Streak-Bestenliste (js/leaderboard.js getStreakBoard). */
+  function maxStreak() { return Math.max(0, Math.round(Number(state.stats.maxStreak) || 0)); }
+  function curStreak() { return Math.max(0, Math.round(Number(state.stats.streak) || 0)); }
+  /* Wie maxStreak(), aber für einen BESTIMMTEN Modus — auch wenn gerade der andere
+   * aktiv ist. Die Bestenliste soll immer die Casino-Serie zeigen (wie der
+   * Casino-Peak in js/presence.js), egal ob der Spieler gerade Survival spielt. */
+  function maxStreakIn(m) {
+    if (!App.Mode || !App.Mode.readIn) return maxStreak();
+    var st = App.Mode.readIn(m, KEY, null);
+    return Math.max(0, Math.round(Number(st && st.stats && st.stats.maxStreak) || 0));
   }
 
   var TITLES = ['Spielhallen-Neuling', 'Anfänger', 'Zocker', 'Stammgast', 'Kartenhai', 'Glücksritter',
@@ -238,20 +301,63 @@
     { id: 'bal50k', icon: '👑', title: 'Millionär in spe', desc: 'Erreiche 120.000 Coins Guthaben', target: 120000, prog: function (s) { return s.peakBalance || 0; }, reward: { coins: 15000, xp: 520 } }
   ];
 
-  // Belohnung anhand der Zielgröße herleiten (Coins wachsen mit dem Ziel, XP nur logarithmisch,
-  // damit die Level-Kurve auch bei den ganz großen Zielen sinnvoll bleibt).
-  function questReward(target) {
+  // FAIRE Belohnung: Coins wachsen mit der Schwierigkeit (Ziel), aber STARK sublinear
+  // (≈ dritte Wurzel) und gedeckelt. Früher war es 0,6× des Ziels — dadurch gab eine
+  // einzige große Quest fast so viel wie ihr Ziel und hebelte jeden Reset sofort aus.
+  // Jetzt: kleine Quests lohnen sich spürbar, riesige Ziele sprengen das Geld nicht mehr.
+  // `weight` = wie schwer der Quest-TYP pro Ziel-Einheit ist: Coins setzen ist leicht
+  // (0,35), eine Sieg-Serie schwer (2,0). So spiegelt die Belohnung die echte Mühe
+  // wider und nicht nur die nackte Zielzahl.
+  var QR_K = 60, QR_P = 0.34, QR_MIN = 150, QR_MAX = 300000;
+  function questReward(target, weight) {
+    var t = Math.max(1, Number(target) || 1);
+    var w = (weight == null) ? 1 : weight;
+    var coins = Math.round(QR_K * Math.pow(t, QR_P) * w);
     return {
-      coins: Math.max(200, Math.round(target * 0.25)),
-      xp: Math.max(30, Math.round(40 * Math.log10(target + 10)))
+      coins: Math.max(QR_MIN, Math.min(QR_MAX, coins)),
+      xp: Math.max(20, Math.round(30 * Math.log10(t + 10)))
     };
   }
-  function tierQuests(prefix, icon, targets, titleFn, descFn, progFn) {
+  function tierQuests(prefix, icon, targets, titleFn, descFn, progFn, weight) {
     return targets.map(function (t) {
-      return { id: prefix + t, icon: icon, title: titleFn(t), desc: descFn(t), target: t, prog: progFn, reward: questReward(t) };
+      return { id: prefix + t, icon: icon, title: titleFn(t), desc: descFn(t), target: t, prog: progFn, reward: questReward(t, weight) };
     });
   }
   var fmt = function (n) { return UI.formatShort(n); };
+
+  /* ---------------- Risiko-Mega-Quests ---------------- */
+  // 150 Quests, bei denen man ASTRONOMISCHE Summen setzt (riskiert) — von 1 Billion
+  // (10^12) bis zu 1 Trilliarde (10^21). Gemessen am gesamten Einsatz (s.wagered),
+  // nahtlose Fortsetzung der normalen 'wager'-Quests (die bei 10^11 enden).
+  //
+  // Auch die Mega-Quests bekommen die faire, gedeckelte Belohnung (früher Ziel/2 =
+  // astronomisch und spielbrechend). Sie sind reine Prestige-Ziele; die Belohnung
+  // ist wie bei allen Quests gedeckelt, nur die XP etwas höher.
+  function megaReward(target) {
+    var r = questReward(target);
+    return { coins: r.coins, xp: Math.max(300, r.xp) };
+  }
+  function megaRiskQuests() {
+    var LO = 1e12, HI = 1e21, N = 150;
+    var span = Math.log10(HI / LO);   // = 9 Größenordnungen
+    var out = [];
+    for (var i = 0; i < N; i++) {
+      // Geometrisch gestaffelt, auf 3 signifikante Stellen gerundet -> streng steigend.
+      var raw = LO * Math.pow(10, span * i / (N - 1));
+      var mag = Math.pow(10, Math.floor(Math.log10(raw)) - 2);
+      var t = Math.round(raw / mag) * mag;
+      out.push({
+        id: 'risk' + i,
+        icon: (i >= 130 ? '💎' : i >= 90 ? '👑' : i >= 45 ? '🐋' : '🎲'),
+        title: 'Risiko ' + fmt(t),
+        desc: 'Setze (riskiere) insgesamt ' + fmt(t) + ' Coins' + (i === N - 1 ? ' — der absolute Wahnsinn!' : ''),
+        target: t,
+        prog: function (s) { return s.wagered; },
+        reward: megaReward(t)
+      });
+    }
+    return out;
+  }
 
   // 16 Solo-Gambling-Spiele + 4 Poker-Tische (Multiplayer per Raum-Code) — je einmal antreten.
   var PLAY_GAMES = [
@@ -276,7 +382,7 @@
   var STREAK_QUESTS = tierQuests('streak', '🔥', [3, 5, 8, 12, 20, 30, 50, 75],
     function (t) { return t + 'er-Serie'; },
     function (t) { return 'Gewinne ' + t + ' Runden HINTEREINANDER (ohne Verlust dazwischen)'; },
-    function (s) { return s.maxStreak || 0; });
+    function (s) { return s.maxStreak || 0; }, 2.0);
 
   // NEUE Quest-Art: Spiel-Meisterschaft — an EINEM bestimmten Spiel oft gewinnen.
   var MASTERY_GAMES = [
@@ -306,23 +412,23 @@
       function (s) { return s.rounds; }))
     .concat(tierQuests('wins', '🍀', [150, 400, 1000, 2500, 6000, 15000, 40000, 100000],
       function (t) { return 'Siegesserie ' + fmt(t); }, function (t) { return 'Gewinne ' + fmt(t) + ' Runden'; },
-      function (s) { return s.wins; }))
+      function (s) { return s.wins; }, 1.3))
     .concat(tierQuests('wager', '💸', [500000, 2000000, 10000000, 50000000, 250000000, 1000000000, 10000000000, 100000000000],
       function (t) { return 'Kapitaleinsatz ' + fmt(t); }, function (t) { return 'Setze insgesamt ' + fmt(t) + ' Coins'; },
-      function (s) { return s.wagered; }))
+      function (s) { return s.wagered; }, 0.35))
     .concat(tierQuests('bigwin', '💥', [50000, 250000, 1000000, 5000000, 25000000, 100000000, 500000000, 2000000000],
       function (t) { return 'Mega-Coup ' + fmt(t); }, function (t) { return 'Gewinne ' + fmt(t) + '+ in einer Runde'; },
-      function (s) { return s.biggestWin; }))
+      function (s) { return s.biggestWin; }, 0.7))
     .concat(tierQuests('bal', '👑', [250000, 1000000, 5000000, 25000000, 100000000, 500000000, 2500000000, 10000000000, 50000000000, 250000000000, 1000000000000],
       function (t) { return t >= 1000000000000 ? 'Trillionär' : 'Vermögen ' + fmt(t); },
       function (t) { return 'Erreiche ' + fmt(t) + ' Coins Guthaben' + (t >= 1000000000000 ? ' — die schwerste Quest überhaupt!' : ''); },
-      function (s) { return s.peakBalance || 0; }))
+      function (s) { return s.peakBalance || 0; }, 0.6))
     .concat(tierQuests('games', '🕹️', [10, 15, 20, 25],
       function (t) { return 'Vielspieler ' + t; }, function (t) { return 'Spiele ' + t + ' verschiedene Spiele'; },
-      function (s) { return Object.keys(s.games || {}).length; }))
+      function (s) { return Object.keys(s.games || {}).length; }, 1.5))
     .concat(tierQuests('losses', '🛡️', [10, 50, 150, 400, 1000],
       function (t) { return 'Durchhalten ' + fmt(t); }, function (t) { return 'Verliere ' + fmt(t) + ' Runden — Kopf hoch!'; },
-      function (s) { return s.losses; }))
+      function (s) { return s.losses; }, 0.4))
     .concat(tierQuests('level', '⭐',
       [5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300, 500, 750, 1000,
        1500, 2500, 5000, 7500, 10000, 15000, 25000, 40000, 60000, 80000, 99999],
@@ -335,12 +441,8 @@
         target: 1, prog: function (s) { return (s.games && s.games[g.id]) ? 1 : 0; }, reward: questReward(1)
       };
     }))
-    .concat((App.Chips ? App.Chips.DENOMS : []).slice().reverse().map(function (d) {
-      return {
-        id: 'chip_' + d.v, icon: '🎟️', title: d.label + '-Chip', desc: 'Besitze Pokerchips im Wert von ' + fmt(d.v),
-        target: d.v, prog: function () { return App.Chips ? App.Chips.get() : 0; }, reward: questReward(d.v)
-      };
-    }));
+    // (Chip-Quests entfernt — Pokerchips wurden durch die Bank ersetzt.)
+    .concat(megaRiskQuests());   // 150 Risiko-Mega-Quests (10^12 … 10^21)
 
   var QUESTS = BASE_QUESTS.concat(EXTRA_QUESTS);
   function questById(id) { for (var i = 0; i < QUESTS.length; i++) if (QUESTS[i].id === id) return QUESTS[i]; return null; }
@@ -352,26 +454,40 @@
       streak: s.streak || 0, maxStreak: s.maxStreak || 0, peakBalance: peakBalance };
   }
   var peakBalance = 0;
+  // Wird bei jedem (Re)Load auf false gesetzt (siehe reloadFromStorage). Der ERSTE
+  // checkQuests danach markiert schon erfüllte Quests nur als abgeholt (bf), statt sie
+  // auszuzahlen — SO wird verhindert, dass nach einem Stats-erhaltenden Reset die
+  // durch die behaltenen Stats erfüllten Quests (inkl. Mega-Quests à 300k) rückwirkend
+  // Millionen auszahlen. Auch nach einem Konto-Login (der neue Stats bringt) greift das.
+  var questScanDone = false;
 
-  // Fertige, noch nicht belohnte Quests automatisch einlösen.
+  // Fertige Quests: beim ersten Scan nach dem Laden NUR markieren (bf, kein Geld),
+  // danach im Spiel frisch erreichte normal belohnen.
   function checkQuests() {
     var changed = false;
+    var backfill = !questScanDone;
+    questScanDone = true;
     QUESTS.forEach(function (q) {
-      var rec = state.quests[q.id] || (state.quests[q.id] = { done: false, claimed: false });
-      if (!rec.done && questDone(q)) {
-        rec.done = true; rec.claimed = true;
+      var rec = state.quests[q.id];
+      if (rec && rec.done) return;
+      if (!questDone(q)) return;
+      if (backfill) {
+        // Schon beim Laden erfüllt -> als abgeholt markieren, NICHT auszahlen und NICHT
+        // zum Startguthaben zählen (bf).
+        state.quests[q.id] = { done: true, claimed: true, bf: true };
+        changed = true;
+      } else {
+        // Frisch im Spiel erreicht -> normal belohnen.
+        rec = state.quests[q.id] = { done: true, claimed: true };
         if (App.Coins) App.Coins.add(q.reward.coins);
-        state.xp += q.reward.xp;               // direkt (Level-Up-Check folgt via addXp(0)-Pfad unten)
-        // Quests sind die Quelle für Turnier-Tickets (siehe js/tickets.js).
+        state.xp += q.reward.xp;
         if (App.Tickets) rec.tickets = App.Tickets.grantForQuest(q.reward);
         changed = true;
         toastQuest(q);
       }
     });
     if (changed) {
-      // eventuelles Level-Up durch Quest-XP nachziehen
       var before = level(); save();
-      // (Level-Up-Feier läuft über addXp; hier XP schon addiert -> kurzer Sync)
       var after = level();
       if (after > before) onLevelUp(before, after);
       emit();
@@ -408,12 +524,20 @@
     return m ? m[1] : null;
   }
 
+  /** true, wenn die aktuelle Coin-Runde durch ein Verlust-Erstattungs-Power-Up
+   *  risikofrei ist (Freispiel/Schild/Goldene Hand). Dann gibt es weder Wager-
+   *  noch Gewinn-XP und die Runde zählt nicht für Quests — sonst wäre die
+   *  garantierte Erstattung ein XP-Automat (Einsatz raus, Verlust zurück). */
+  function riskFreeRound() {
+    return !!(App.Powerups && App.Powerups.roundProtected && App.Powerups.roundProtected());
+  }
+
   function onWager(amount) {
     amount = Math.round(Math.abs(amount));
     if (amount <= 0) return;
     state.stats.wagered += amount;
     state.stats.rounds += 1;
-    addXp(Math.max(1, Math.round(amount / 130)));  // XP fürs Spielen — bewusst wenig (Leveln ist zäh)
+    addXp(Math.max(1, Math.round(amount / 70)));  // XP fürs Spielen — bewusst wenig (Leveln ist zäh)
     checkQuests();
   }
   function onOutcome(delta) {
@@ -427,7 +551,7 @@
       // Siege je Spiel (für Meister-Quests) — curGame kommt aus dem Hash.
       if (curGame) state.stats.gameWins[curGame] = (state.stats.gameWins[curGame] || 0) + 1;
       if (delta > state.stats.biggestWin) state.stats.biggestWin = delta;
-      addXp(Math.max(1, Math.round(delta / 90)));  // Bonus-XP fürs Gewinnen — ebenfalls reduziert
+      addXp(Math.max(1, Math.round(delta / 50)));  // Bonus-XP fürs Gewinnen — ebenfalls reduziert
       if (delta >= 2000) confetti(Math.min(70, 20 + Math.round(delta / 600)));  // Konfetti nur bei größeren Gewinnen
 
     } else if (delta < 0) {
@@ -444,7 +568,7 @@
       var _add = App.Coins.add.bind(App.Coins);
       App.Coins.add = function (delta) {
         var r = _add(delta);
-        if (delta < 0) onWager(delta);
+        if (delta < 0 && !riskFreeRound()) onWager(delta);
         if (App.Coins.get() > peakBalance) { peakBalance = App.Coins.get(); checkQuests(); }
         return r;
       };
@@ -454,15 +578,10 @@
     // Rundenergebnis: UI.flash(delta) wird in Gambling-Spielen mit dem Netto-Gewinn/-Verlust aufgerufen
     if (App.UI && !App.UI.__progHooked) {
       var _flash = App.UI.flash;
-      App.UI.flash = function (amount) { try { onOutcome(Number(amount) || 0); } catch (e) {} return _flash.apply(this, arguments); };
+      App.UI.flash = function (amount) { try { if (!riskFreeRound()) onOutcome(Number(amount) || 0); } catch (e) {} return _flash.apply(this, arguments); };
       App.UI.__progHooked = true;
     }
-    // Pokerchip-Einsätze/-Gewinne zählen umgerechnet (× Kurs) genauso für XP & Quests.
-    if (App.Chips && !App.Chips.__progHooked) {
-      App.Chips.onWager(function (amt) { onWager(amt * App.Chips.RATE); });
-      App.Chips.onOutcome(function (amt) { onOutcome(amt * App.Chips.RATE); });
-      App.Chips.__progHooked = true;
-    }
+    // (Pokerchips abgeschafft — Video Poker läuft jetzt über App.Coins/UI.flash.)
     window.addEventListener('hashchange', function () { noteGame(hashGame()); });
     noteGame(hashGame());
   }
@@ -498,6 +617,9 @@
   }
 
   /* ---------------- Quest-/Level-Seite ---------------- */
+  // Such-/Sortier-Zustand der Quest-Liste — modulweit, damit die Auswahl beim
+  // Verlassen und Zurückkehren auf die Seite erhalten bleibt.
+  var questQuery = '', questSort = 'default';
   function renderPage(root) {
     injectCss();
     var L = level();
@@ -521,9 +643,14 @@
       statCard('💥', 'Größter Gewinn', UI.formatCoins(s.biggestWin))
     ]);
 
-    var list = el('div', { class: 'quest-list' }, QUESTS.map(function (q) {
+    // Fortschritt 0..1 einer Quest (für Sortierung "Fast fertig").
+    function questPct(q) { return Math.min(1, q.prog(s) / q.target); }
+    function isDone(q) { return (state.quests[q.id] && state.quests[q.id].done) || q.prog(s) >= q.target; }
+
+    // Eine einzelne Quest-Zeile bauen.
+    function questRow(q) {
       var cur = Math.min(q.target, q.prog(s));
-      var done = (state.quests[q.id] && state.quests[q.id].done) || cur >= q.target;
+      var done = isDone(q);
       var p = Math.round(cur / q.target * 100);
       return el('div', { class: 'quest-row glass' + (done ? ' done' : '') }, [
         el('div', { class: 'quest-ic' }, [done ? '✅' : q.icon]),
@@ -539,7 +666,63 @@
           App.Tickets ? el('div', { class: 'quest-rw-x', style: 'color:#ffc740;' }, ['+' + App.Tickets.ticketsFor(q.reward) + ' 🎟️']) : null
         ].filter(Boolean))
       ]);
-    }));
+    }
+
+    // Sortier-Varianten. `null` = Original-Reihenfolge (wie definiert). Bei
+    // Gleichstand fällt jeder Vergleicher auf die Definition-Reihenfolge zurück.
+    var idx = function (q) { return QUESTS.indexOf(q); };
+    // Für A–Z: führende Emojis/Symbole abschneiden, damit z. B. "👑 Höchstlevel"
+    // unter H statt ganz oben einsortiert wird.
+    var azKey = function (q) { return q.title.replace(/^[^\p{L}\p{N}]+/u, '').trim() || q.title; };
+    var SORTERS = {
+      default:  null,
+      progress: function (a, b) { return (questPct(b) - questPct(a)) || (idx(a) - idx(b)); },
+      reward:   function (a, b) { return (b.reward.coins - a.reward.coins) || (idx(a) - idx(b)); },
+      open:     function (a, b) { return (isDone(a) - isDone(b)) || (idx(a) - idx(b)); },
+      done:     function (a, b) { return (isDone(b) - isDone(a)) || (idx(a) - idx(b)); },
+      az:       function (a, b) { return azKey(a).localeCompare(azKey(b), 'de'); }
+    };
+
+    var list = el('div', { class: 'quest-list' });
+    var count = el('span', { class: 'quest-count' });
+
+    // Liste nach aktuellem Suchtext + Sortierung neu aufbauen.
+    function rebuild() {
+      var qy = questQuery.trim().toLowerCase();
+      var rows = QUESTS.filter(function (q) {
+        return !qy || (q.title + ' ' + q.desc).toLowerCase().indexOf(qy) >= 0;
+      });
+      var sorter = SORTERS[questSort];
+      if (sorter) rows = rows.slice().sort(sorter);
+      list.innerHTML = '';
+      if (!rows.length) {
+        list.appendChild(el('div', { class: 'quest-empty glass' }, ['Keine Quest gefunden 🔍']));
+      } else {
+        rows.forEach(function (q) { list.appendChild(questRow(q)); });
+      }
+      count.textContent = rows.length === QUESTS.length
+        ? (QUESTS.length + ' Quests')
+        : (rows.length + ' / ' + QUESTS.length);
+    }
+
+    var searchInput = el('input', {
+      class: 'text-input quest-search', type: 'search', placeholder: '🔍 Quest suchen …', value: questQuery,
+      oninput: function () { questQuery = this.value; rebuild(); }
+    });
+    var sortSelect = el('select', {
+      class: 'text-input quest-sort',
+      onchange: function () { questSort = this.value; rebuild(); }
+    }, [
+      el('option', { value: 'default'  }, ['Standard']),
+      el('option', { value: 'progress' }, ['Fast fertig']),
+      el('option', { value: 'reward'   }, ['Höchste Belohnung']),
+      el('option', { value: 'open'     }, ['Offen zuerst']),
+      el('option', { value: 'done'     }, ['Erledigt zuerst']),
+      el('option', { value: 'az'       }, ['A – Z'])
+    ]);
+    sortSelect.value = questSort;
+
+    rebuild();
 
     root.appendChild(el('div', { class: 'quests-page' }, [
       el('div', { class: 'page-head' }, [
@@ -547,7 +730,11 @@
         el('h2', { class: 'page-title neon' }, ['⭐ Level & Quests'])
       ]),
       head, stats,
-      el('h3', { class: 'quest-h' }, ['Quests']),
+      el('div', { class: 'quest-h-row' }, [
+        el('h3', { class: 'quest-h' }, ['Quests']),
+        count
+      ]),
+      el('div', { class: 'quest-tools' }, [searchInput, sortSelect]),
       list
     ]));
   }
@@ -605,7 +792,14 @@
       '.lvl-stat-ic{font-size:22px;}',
       '.lvl-stat-v{font-size:19px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums;}',
       '.lvl-stat-l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:800;}',
-      '.quest-h{margin:4px 0 -4px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-size:13px;}',
+      '.quest-h{margin:0;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-size:13px;}',
+      '.quest-h-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:4px 0 -4px;}',
+      '.quest-count{color:var(--gold);font-weight:800;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap;}',
+      '.quest-tools{display:flex;gap:10px;}',
+      '.quest-search{flex:1;min-width:0;}',
+      '.quest-sort{flex:0 0 auto;width:auto;cursor:pointer;}',
+      '@media(max-width:480px){.quest-tools{flex-direction:column;}.quest-sort{width:100%;}}',
+      '.quest-empty{padding:22px;text-align:center;color:var(--muted);font-weight:700;}',
       '.quest-list{display:flex;flex-direction:column;gap:10px;}',
       '.quest-row{display:flex;gap:12px;align-items:center;padding:12px 14px;}',
       '.quest-row.done{border-color:var(--stroke-2,var(--stroke));box-shadow:0 0 0 1px rgba(57,255,20,.25);}',
@@ -638,14 +832,24 @@
       return el('span', { class: 'gj-name' + (isGold ? ' name-gold' : '') }, [String(name == null ? '' : name)]);
     },
     stats: function () { return statsView(); },
+    setLevelTo: setLevelTo, subtractLevels: subtractLevels, applyLevelAdjust: applyLevelAdjust,
+    /** Level bzw. Start-Guthaben aus einem fremden Fortschritts-Objekt (Admin-Panel). */
+    levelForXp: function (xp) { return levelFromXp(Math.max(0, Math.round(Number(xp) || 0))); },
+    startBalanceForProgress: function (prog) { return startBalanceOf(prog || { xp: 0 }); },
+    /** Längste Sieg-Serie (aktiver Modus) bzw. für einen bestimmten Modus. */
+    maxStreak: maxStreak, maxStreakIn: maxStreakIn, curStreak: curStreak,
     quests: function () { return QUESTS.slice(); },
     onChange: onChange, renderPage: renderPage,
 
     /** Fortschritt neu aus dem Storage laden — nach Konto-Login oder beim Wechsel
      *  zwischen Casino und Survival, die getrennte Stände haben (siehe js/mode.js). */
     reloadFromStorage: function () {
+      // Neuer Stand (z.B. nach Konto-Login): der nächste Quest-Scan ist wieder ein
+      // Backfill-Pass -> schon erfüllte Quests werden nur markiert, nicht ausgezahlt.
+      questScanDone = false;
       state = load();
       peakBalance = App.Coins ? App.Coins.get() : 0;
+      checkQuests();
       updateChip();
       emit();
     }

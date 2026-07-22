@@ -179,6 +179,23 @@
     }).catch(function () {});
   }
 
+  /** Coins an das Postfach eines beliebigen Spielers schicken (Spieler-zu-Spieler-
+   *  Überweisung, siehe js/wallet.js). Anders als queuePay wird die payId frisch
+   *  erzeugt (jede Überweisung ist eigenständig) und Fehler werden NICHT
+   *  verschluckt — der Aufrufer muss bei einem Schreibfehler die Abbuchung
+   *  zurücknehmen. Das Postfach leert der Empfänger über collectPay (addRaw,
+   *  also KEIN XP), egal ob er gerade online ist. */
+  function mailCoins(toPid, amount, reason) {
+    amount = Math.round(Number(amount) || 0);
+    if (!toPid || amount <= 0) return Promise.reject(new Error('Ungültige Überweisung.'));
+    var id = 'tr' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    return store().then(function (b) {
+      return b.set(ROOT + '/pay/' + toPid + '/' + id, {
+        amount: amount, reason: String(reason || ''), tid: '', ts: Date.now()
+      });
+    });
+  }
+
   /* Eigenes Postfach leeren: gutschreiben, was noch nicht gesehen wurde, und den
    * Eintrag in jedem Fall entfernen (auch wenn schon kassiert — sonst bliebe er
    * für immer liegen). */
@@ -538,6 +555,7 @@
     markDone: markDone,
     payoutPlan: payoutPlan,
     queuePay: queuePay,
+    mailCoins: mailCoins,
 
     casinoBalance: casinoBalance,
     payCasino: payCasino,

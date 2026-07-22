@@ -508,17 +508,34 @@
 
   /** Preis einlösen — jeder Client prüft für sich, ob er gewonnen hat.
    *  Nur für Power-Up-Turniere: Preisgeld kommt übers Postfach, weil der Sieger
-   *  beim Werten nicht online sein muss (siehe js/tournament-host.js). */
-  var prizeTaken = null;
+   *  beim Werten nicht online sein muss (siehe js/tournament-host.js).
+   *
+   *  Der „schon geholt"-Merker liegt DAUERHAFT im Storage (nicht nur im
+   *  Speicher): Die done-Phase mit dem Sieger bleibt in Firebase stehen, bis das
+   *  nächste Turnier nachrückt. Ohne persistenten Merker würde ein Reload den
+   *  In-Memory-Guard zurücksetzen und die Siegerehrung vergäbe den Power-Up bei
+   *  jedem erneuten Laden aufs Neue. */
+  var PRIZE_TAKEN_KEY = 'gj_tour_prize_taken';
+  function prizeAlreadyTaken(id) {
+    var l = App.Storage.get(PRIZE_TAKEN_KEY, null);
+    return Array.isArray(l) && l.indexOf(id) >= 0;
+  }
+  function markPrizeTaken(id) {
+    var l = App.Storage.get(PRIZE_TAKEN_KEY, null);
+    if (!Array.isArray(l)) l = [];
+    if (l.indexOf(id) < 0) l.push(id);
+    if (l.length > 40) l = l.slice(-40);
+    App.Storage.set(PRIZE_TAKEN_KEY, l);
+  }
   function claimPrizeIfWinner() {
     if (!live || live.phase !== 'done' || !live.winner || !cfg) return null;
     if (cfg.prizeKind === 'money') return null;
     if (live.winner.pid !== myPid()) return null;
-    if (prizeTaken === cfg.id) return null;
+    if (prizeAlreadyTaken(cfg.id)) return null;
     // Erst merken, wenn die Vergabe wirklich geklappt hat — sonst würde ein
     // Fehler beim ersten Versuch den Preis für immer verschlucken.
     var text = App.Powerups.grant(cfg.prize);
-    prizeTaken = cfg.id;
+    markPrizeTaken(cfg.id);
     return text;
   }
 

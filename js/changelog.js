@@ -40,10 +40,49 @@
       ]
     },
     {
+      date: '2026-07-18',
+      title: 'Schneller leveln & Feinschliff',
+      items: [
+        'Leveln geht jetzt 5× so schnell — dieselbe Kurve, nur ein Fünftel der XP nötig.',
+        'Aktienkurse ticken ruhiger: ein neuer Kurs alle 3 Sekunden (statt jede Sekunde).',
+        'Wett-Spiele werden jetzt bequem im Admin-Panel freigegeben (Knopf „⚔️ Wett-Spiele").',
+      ]
+    },
+    {
+      date: '2026-07-18',
+      title: 'Neu: Wagern — 1v1 um Coins',
+      items: [
+        'Neue Menü-Kachel ⚔️ Wagern: fordere einen Online-Spieler direkt heraus.',
+        'Ihr setzt beide denselben Betrag — der Gewinner bekommt den ganzen Pot.',
+        'Spiel, Anzahl Runden und Zeit pro Runde sucht ihr euch beim Herausfordern selbst aus (Best-of-N).',
+        'Eine Herausforderung meldet sich mit Popup, egal wo du gerade bist — annehmen und los.',
+        'Welche Spiele in einer Wette erlaubt sind, gibt der Admin frei.',
+      ]
+    },
+    {
+      date: '2026-07-17',
+      title: 'Aktien jetzt LIVE & extrem',
+      items: [
+        'Aktien laufen jetzt LIVE: jede Sekunde ein neuer Kurs (statt alle 10 s) — Preise, Charts und Depotwert aktualisieren sich flüssig.',
+        'Extrem extrem: einzelne Kurssprünge bis zu 200 % pro Tick (vorher 150 %). Bleibt trotzdem im Kursband und für alle Spieler gleich.',
+      ]
+    },
+    {
+      date: '2026-07-17',
+      title: 'Farbige Namen & 30 Schriftarten',
+      items: [
+        'Neu im Profil: färbe deinen Namen — über 60 Farben plus animierte Verläufe (Regenbogen, Feuer, Galaxie, Plasma …).',
+        '30 richtig coole Schriftarten für deinen Namen zur Auswahl (Orbitron, Bungee, Press Start 2P, Nabla u. v. m.).',
+        'Deine Farbe & Schrift sieht jeder — in der Bestenliste, im Chat und auf deiner Profilkarte.',
+      ]
+    },
+    {
       date: '2026-07-17',
       title: 'COURS & Update-News',
       items: [
         'Neu: COURS — ein einziger, wilder Kurs, der ohne Pause steigt und fällt (3 Ticks/Sekunde, jeder Tick 1–10 %). Für alle Spieler gleich, jederzeit ein- und aussteigen.',
+        'COURS deutlich steiler gemacht: jeder Tick bewegt den Kurs jetzt um 3–22 % (statt 1–10 %) — viel heftigere Ausschläge.',
+        'Neu: COURS — ein einziger, wilder Kurs, der ohne Pause steigt und fällt (3 Ticks/Sekunde, jeder Tick 3–22 %). Für alle Spieler gleich, jederzeit ein- und aussteigen.',
         'Admin kann die COURS-Geschwindigkeit für alle live einstellen.',
         'Diese Update-News-Seite: hier steht ab jetzt kurz & knapp, was neu dazukommt.',
       ]

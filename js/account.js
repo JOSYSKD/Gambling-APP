@@ -64,7 +64,8 @@
       var p = val[k] || {};
       return {
         key: k, accountKey: p.accountKey || null,
-        name: p.name, peak: Number(p.casinoPeak) || 0, updatedAt: Number(p.lastSeen) || 0, maxLevel: !!p.maxLevel,
+        name: p.name, peak: Number(p.casinoPeak) || 0, streak: Number(p.streak) || 0,
+        updatedAt: Number(p.lastSeen) || 0, maxLevel: !!p.maxLevel,
         // Profil-Daten für die Bestenliste (Profilkarte + gespielte Spiele, siehe presence.js).
         cos: p.cos || null, level: Number(p.level) || 1, bulbs: Number(p.bulbs) || 0,
         games: (p.games && p.games.slice) ? p.games : [], stats: p.pstats || null,
@@ -97,6 +98,8 @@
       getPresence: function (key) { return Promise.resolve(readAllPresence()[key] || null); },
       setPresence: function (key, data) { var all = readAllPresence(); all[key] = data; writeAllPresence(all); return Promise.resolve(); },
       listPresence: function () { return Promise.resolve(readAllPresence()); },
+      removeAccount: function (key) { var all = readAll(); delete all[key]; writeAll(all); return Promise.resolve(); },
+      removePresence: function (key) { var all = readAllPresence(); delete all[key]; writeAllPresence(all); return Promise.resolve(); },
       leaderboardDriver: function () {
         return {
           load: function () { return App.Storage.get(KEY_LOCAL_LB, []); },
@@ -123,6 +126,8 @@
       getPresence: function (key) { return db.ref('presence/' + key).get().then(function (s) { return s.val(); }); },
       setPresence: function (key, data) { return db.ref('presence/' + key).set(data); },
       listPresence: function () { return db.ref('presence').get().then(function (s) { return s.val() || {}; }); },
+      removeAccount: function (key) { return db.ref('accounts/' + key).remove(); },
+      removePresence: function (key) { return db.ref('presence/' + key).remove(); },
       leaderboardDriver: function () {
         var cache = [], pCache = [];
         var ref = db.ref('leaderboard');
@@ -237,9 +242,33 @@
    * Casino-Guthaben im Gold-Stand. */
   function applyAccountToLocalState(acct) {
     var M = App.Mode;
+    // Globaler Geld-Reset (siehe coins.js balanceResetOnce): Bringt das Konto
+    // noch einen alten Generationsstempel mit, wird das Casino-Guthaben auf das
+    // (kleine) Einstiegsguthaben gesetzt, statt den alten hohen Kontostand zu
+    // übernehmen. So greift der Reset auch für eingeloggte Spieler zuverlässig
+    // (der neue Stand wandert beim nächsten Snapshot ins Konto). Level bleiben.
+    var GEN = (App.Coins && App.Coins.BAL_RESET_GEN) || 0;
+    if ((Number(acct.balResetGen) || 0) < GEN) {
+      var start = (App.Progress && App.Progress.startBalanceForProgress)
+        ? App.Progress.startBalanceForProgress(acct.progress) : (App.Coins ? App.Coins.START : 1000);
+      start = Math.max(0, Math.round(Number(start) || 0));
+      acct.balance = start; acct.runPeak = start; acct.bank = 0;
+      acct.balResetGen = GEN;
+      App.Storage.set('gj_bal_reset_gen', GEN);
+    }
+    // Ergänzung zum Geld-Reset: Depot, Survival-Stand, Level/Quests und Alt-Chips
+    // eines noch nicht zurückgesetzten Kontos nullen (siehe js/hardreset.js).
+    if (App.HardReset && App.HardReset.accountNeedsReset(acct)) acct = App.HardReset.cleanAccount(acct);
     if (typeof acct.balance === 'number') M.writeIn('casino', 'gj_balance', acct.balance);
     if (typeof acct.runPeak === 'number') M.writeIn('casino', 'gj_run_peak', Math.max(acct.runPeak, acct.balance || 0));
-    if (typeof acct.chips === 'number') M.writeIn('casino', 'gj_chips', acct.chips);
+    // Alt-Pokerchips ins Guthaben falten (Chips wurden abgeschafft, siehe js/chips.js):
+    // ein Chip = 100.000 Coins. Der neue Bank-Stand liegt in acct.bank.
+    if (typeof acct.chips === 'number' && acct.chips > 0) {
+      var base = (typeof acct.balance === 'number') ? acct.balance : 0;
+      M.writeIn('casino', 'gj_balance', base + acct.chips * 100000);
+      M.writeIn('casino', 'gj_chips', 0);
+    }
+    if (typeof acct.bank === 'number') M.writeIn('casino', 'gj_bank', acct.bank);
     // Casino-Fortschritt (Level, XP, Quests/Erfolge) ans Konto binden -> der
     // level-abhängige Wieder-Auffüll-Betrag (startBalance) wandert geräte-
     // übergreifend mit. Survival-Fortschritt liegt separat in acct.sv.progress.
@@ -271,7 +300,9 @@
     var M = App.Mode;
     acct.balance = M.readIn('casino', 'gj_balance', App.Coins.START);
     acct.runPeak = M.readIn('casino', 'gj_run_peak', acct.balance);
-    acct.chips = M.readIn('casino', 'gj_chips', 0);
+    acct.chips = 0;   // Chips abgeschafft -> beim Restore ins Guthaben gefaltet
+    acct.bank = M.readIn('casino', 'gj_bank', 0);   // Bank-Einlage (Casino-Silber)
+    acct.balResetGen = Number(App.Storage.get('gj_bal_reset_gen', 0)) || 0;   // Geld-Reset-Generation
     acct.progress = M.readIn('casino', 'gj_progress', null);   // Level/XP/Quests/Erfolge (Casino)
     acct.sv = {
       balance: M.readIn('survival', 'gj_balance', 0),
@@ -292,6 +323,9 @@
     // Erfolgreiche Spielideen (goldene Glühbirnen, siehe js/ideas.js): einmal verdient,
     // für immer behalten — also ans Konto binden statt nur ans Gerät.
     acct.ideaWins = App.Storage.get('gj_idea_wins', 0) || 0;
+    // Hard-Reset-Zusatz-Stempel mitschreiben -> Depot/Survival/Level eines Kontos
+    // werden nicht erneut gekappt (siehe js/hardreset.js).
+    if (App.HardReset) acct.hardGen = App.HardReset.GEN;
     return acct;
   }
 
@@ -389,6 +423,10 @@
         if (App.Survival && acct.admin && acct.admin.goldGrant) {
           App.Survival.applyGoldGrant(acct.admin.goldGrant);
           acct.admin.goldGrant = null;
+        }
+        // Vom Admin gesetzter Level-Abzug (genau einmal, siehe progress.js).
+        if (App.Progress && App.Progress.applyLevelAdjust && acct.admin && acct.admin.levelAdjust) {
+          App.Progress.applyLevelAdjust(acct.admin.levelAdjust);
         }
         acct.session.lastSeen = Date.now();
         snapshotToAccount(acct);
@@ -579,6 +617,14 @@
         mutator(rec);
         return state.backend.setPresence(key, rec);
       });
+    },
+    adminRemoveAccount: function (key) {
+      if (!state.backend || !state.backend.removeAccount) return Promise.reject(new Error('Kein Backend verfügbar.'));
+      return state.backend.removeAccount(key);
+    },
+    adminRemovePresence: function (key) {
+      if (!state.backend || !state.backend.removePresence) return Promise.reject(new Error('Kein Backend verfügbar.'));
+      return state.backend.removePresence(key);
     }
   };
 
@@ -598,7 +644,7 @@
     }, 1500);
   }
   App.Coins.onChange(scheduleSync);
-  App.Chips.onChange(scheduleSync);
+  if (App.Bank) App.Bank.onChange(scheduleSync);
   App.Leaderboard.onChange(scheduleSync);
 
   App.Account = Account;

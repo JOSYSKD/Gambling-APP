@@ -58,11 +58,11 @@
   /* Einsatz-Panel wie App.UI.createBetPanel, aber in Pokerchips (App.Chips) statt Coins. */
   function buildChipBetPanel(options) {
     options = options || {};
-    var MIN = App.Chips.MIN_BET;
+    var MIN = App.Coins.MIN_BET;
 
     var input = el('input', {
       class: 'bet-input', type: 'number', min: MIN, step: 1,
-      value: Math.min(Math.max(MIN, options.initial || 1), Math.max(MIN, App.Chips.get())),
+      value: Math.min(Math.max(MIN, options.initial || MIN), Math.max(MIN, App.Coins.get())),
       inputmode: 'numeric'
     });
 
@@ -71,21 +71,21 @@
       return el('button', { class: 'chip', type: 'button', onclick: function () { setBet(v); } }, [String(v)]);
     });
     var maxBtn = el('button', { class: 'chip chip-alt', type: 'button', onclick: function () {
-      setBet(App.Chips.get());
+      setBet(App.Coins.get());
     } }, ['Max']);
 
     var chips = el('div', { class: 'bet-chips' }, quickBtns.concat([maxBtn]));
 
-    var label = el('label', { class: 'bet-label' }, ['Einsatz (Pokerchips)']);
+    var label = el('label', { class: 'bet-label' }, ['Einsatz (Coins)']);
     var inputWrap = el('div', { class: 'bet-input-wrap' }, [
-      el('span', { class: 'bet-coin' }, ['🎟️']), input
+      el('span', { class: 'bet-coin' }, ['🪙']), input
     ]);
 
     var root = el('div', { class: 'bet-panel' }, [label, inputWrap, chips]);
 
     function clamp(v) {
       v = Math.floor(Number(v) || 0);
-      var bal = App.Chips.get();
+      var bal = App.Coins.get();
       if (v > bal) v = bal;
       if (v < MIN) v = MIN;
       return v;
@@ -103,7 +103,7 @@
       root: root,
       getBet: getBet,
       setBet: setBet,
-      refresh: function () { if (getBet() > App.Chips.get()) setBet(App.Chips.get()); },
+      refresh: function () { if (getBet() > App.Coins.get()) setBet(App.Coins.get()); },
       setDisabled: function (d) {
         input.disabled = !!d;
         [].concat(quickBtns, [maxBtn]).forEach(function (b) { b.disabled = !!d; });
@@ -231,7 +231,7 @@
       });
       var payTable = el('div', { class: 'glass game-panel vp-paytable' }, [
         el('table', { class: 'vp-pay' }, [
-          el('caption', {}, ['Auszahlung (Einsatz × Faktor, in Pokerchips 🎟️)']),
+          el('caption', {}, ['Auszahlung (Einsatz × Faktor, in Coins 🪙)']),
           payBody
         ])
       ]);
@@ -251,7 +251,7 @@
       });
 
       var chipHint = el('p', { class: 'hint-text vp-chip-hint' }, ['']);
-      var buyChipsBtn = el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { App.Router.go('/chips'); } }, ['🎟️ Zur Chip-Kasse']);
+      var buyChipsBtn = el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { App.Router.go('/bank'); } }, ['🏦 Zur Bank']);
 
       var controls = el('div', { class: 'game-panel glass vp-controls' }, [
         betPanel.root,
@@ -302,7 +302,7 @@
       function updatePayCoins() {
         var bet = betPanel.getBet();
         PAYTABLE.forEach(function (row) {
-          payRows[row.key].coins.textContent = UI.formatCoins(bet * row.factor) + ' 🎟️';
+          payRows[row.key].coins.textContent = UI.formatCoins(bet * row.factor) + ' 🪙';
         });
       }
       function highlightPay(key) {
@@ -319,17 +319,17 @@
       function refreshControls() {
         betPanel.setDisabled(phase !== 'bet');
         handRow.classList.toggle('vp-can-hold', phase === 'draw');
-        var noChips = App.Chips.get() < App.Chips.MIN_BET;
-        chipHint.textContent = noChips ? 'Keine Pokerchips — erst in der Kasse gegen Coins tauschen.' : '';
+        var noChips = App.Coins.get() < App.Coins.MIN_BET;
+        chipHint.textContent = noChips ? 'Zu wenig Coins für den Mindesteinsatz.' : '';
         buyChipsBtn.style.display = noChips ? '' : 'none';
         if (phase === 'bet') {
           actionMain.textContent = '🍃 Geben';
-          actionSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🎟️';
+          actionSub.textContent = 'Einsatz ' + UI.formatCoins(betPanel.getBet()) + ' 🪙';
           actionBtn.className = 'btn btn-primary btn-lg btn-block vp-action btn-2l';
-          actionBtn.disabled = noChips || !App.Chips.canBet(betPanel.getBet());
+          actionBtn.disabled = noChips || !App.Coins.canBet(betPanel.getBet());
         } else if (phase === 'draw') {
           actionMain.textContent = '🔄 Tauschen';
-          actionSub.textContent = 'Einsatz ' + UI.formatCoins(roundBet) + ' 🎟️';
+          actionSub.textContent = 'Einsatz ' + UI.formatCoins(roundBet) + ' 🪙';
           actionBtn.className = 'btn btn-aqua btn-lg btn-block vp-action btn-2l';
           actionBtn.disabled = false;
         } else if (phase === 'result') {
@@ -346,11 +346,11 @@
       function deal() {
         if (phase !== 'bet') return;
         var bet = betPanel.getBet();
-        if (!App.Chips.canBet(bet)) { UI.toast('Nicht genug Pokerchips', 'lose'); return; }
+        if (!App.Coins.canBet(bet)) { UI.toast('Nicht genug Coins', 'lose'); return; }
 
         phase = 'busy';
         refreshControls();
-        App.Chips.add(-bet);
+        App.Coins.add(-bet);
         roundBet = bet;
 
         deck = P.shuffle(P.makeDeck());
@@ -407,8 +407,9 @@
 
         // Bruttoauszahlung gutschreiben (der Einsatz wurde bereits bei deal() abgebucht) und
         // das Netto-Ergebnis separat für Level/Quests melden (wie UI.flash bei den Coin-Spielen).
-        if (payout > 0) App.Chips.credit(payout);
-        App.Chips.reportOutcome(net);
+        if (payout > 0) App.Coins.add(payout);
+        if (App.UI.flash) App.UI.flash(net);
+        App.Coins.settle();
         highlightPay(key);
 
         var cls, toastKind, head;
@@ -419,7 +420,7 @@
 
         setBanner(head + ' · ' + name, cls);
         subline.textContent = factor >= 1
-          ? 'Auszahlung ×' + factor + ' = ' + UI.formatShort(payout) + ' 🎟️' + (net > 0 ? ' (+' + UI.formatShort(net) + ')' : (net === 0 ? ' (Einsatz zurück)' : ''))
+          ? 'Auszahlung ×' + factor + ' = ' + UI.formatShort(payout) + ' 🪙' + (net > 0 ? ' (+' + UI.formatShort(net) + ')' : (net === 0 ? ' (Einsatz zurück)' : ''))
           : 'Kein Gewinn — mindestens ein Paar Buben nötig.';
 
         UI.toast(head + ' · ' + name, toastKind);

@@ -39,7 +39,7 @@
       id: 'stocks',
       name: 'Aktien',
       icon: '📈',
-      desc: '20 Aktien von 100 bis 1.000 Coins. Alle 10 Sekunden ein neuer Kurs — kaufen, halten, im richtigen Moment verkaufen.',
+      desc: '20 Aktien von 100 bis 1.000 Coins. LIVE: jede Sekunde ein neuer Kurs — extrem extrem, Sprünge bis 200 %. Kaufen, halten, im richtigen Moment verkaufen.',
       route: '/stocks',
       mode: 'casino'
     },
@@ -47,7 +47,7 @@
       id: 'cours',
       name: 'COURS',
       icon: '🎢',
-      desc: 'Ein einziger, wilder Kurs — 3 Ticks pro Sekunde, jeder Tick 1–10 % rauf oder runter. Läuft nie aus, für alle gleich. Steig ein und im richtigen Moment wieder aus.',
+      desc: 'Ein einziger, wilder Kurs — 3 Ticks pro Sekunde, jeder Tick 1–15 % rauf oder runter, und selten crasht er komplett. Läuft nie aus, für alle gleich. Steig ein und im richtigen Moment wieder aus.',
       route: '/cours',
       mode: 'casino'
     },
@@ -73,6 +73,14 @@
       route: '/tournament',
       // Turniere laufen immer im Casino: eine Gambling-Runde würde sonst mit
       // Gold gespielt und könnte einen Survival-Run beenden.
+      mode: 'casino'
+    },
+    {
+      id: 'wager',
+      name: 'Wagern',
+      icon: '⚔️',
+      desc: 'Fordere einen Online-Spieler direkt heraus: beide setzen Coins, der Gewinner bekommt den ganzen Pot. Spiel, Runden und Zeit sucht ihr euch aus (der Admin gibt die Spiele frei).',
+      route: '/wager',
       mode: 'casino'
     }
   ];
@@ -176,7 +184,8 @@
       el('div', { class: 'menu-links' }, [
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/quests'); } }, ['⭐ Level & Quests']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chat'); } }, ['💬 Gruppenchat']),
-        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/chips'); } }, ['🎟️ Pokerchips-Kasse']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/send'); } }, ['💸 Coins verschenken']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/bank'); } }, ['🏦 Bank']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/leaderboard'); } }, ['🏆 Bestenliste']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/boards'); } }, ['📊 Ranglisten']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/gift'); } }, ['🎁 Verschenken']),
@@ -304,14 +313,17 @@
   function renderLeaderboard() {
     var container = el('div', { class: 'lb-page' });
     mount(container);
+    var tab = 'coins';   // 'coins' | 'streak'
 
-    function draw() {
+    var shared = App.Account.backendKind() === 'firebase' || App.Account.backendKind() === 'cloud';
+
+    function coinsRows() {
       // Diese Bestenliste ist die des Casinos (Silber). Läuft gerade ein Survival-Run,
       // gehört dessen Gold-Peak NICHT hierher — Survival hat seine eigene Rangliste.
       var activePeak = (App.Mode && App.Mode.is('survival')) ? null : App.Coins.getPeak();
       // Kein Top-10-Deckel mehr: jeder Spieler soll sich selbst finden können.
       var board = App.Leaderboard.getBoard(activePeak, 200);
-      var rows = board.map(function (entry, i) {
+      return board.map(function (entry, i) {
         var rank = i + 1;
         var dateTxt = entry.active ? 'läuft gerade' : (entry.online ? 'online' : (entry.date || '—'));
         var rankTxt = wreath(rank) || ('#' + rank);
@@ -320,6 +332,7 @@
         if (entry.me && App.ProfileCard && App.ProfileCard.renderRow) {
           var meRow = App.ProfileCard.renderRow(null, {
             rankEl: rankTxt,
+            peak: entry.peak,   // All-Time-Peak (inkl. Historie) statt nur aktueller Run-Peak
             tag: entry.active ? el('span', { class: 'lb-tag' }, ['aktiver Run'])
               : (entry.online ? el('span', { class: 'lb-tag lb-tag-on' }, ['🟢 online']) : null)
           });
@@ -331,7 +344,7 @@
         var row = el('div', { class: 'lb-row glass pcp-open ' + medalClass(rank) + (entry.active ? ' active' : '') }, [
           el('div', { class: 'lb-rank' }, [rankTxt]),
           el('div', { class: 'lb-name' }, [
-            el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym']),
+            (App.ProfileCard && App.ProfileCard.styleName ? App.ProfileCard.styleName(el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym']), entry.cos, entry.level, entry.gold) : el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym'])),
             entry.active ? el('span', { class: 'lb-tag' }, ['aktiver Run'])
               : (entry.online ? el('span', { class: 'lb-tag lb-tag-on' }, ['🟢 online']) : null)
           ]),
@@ -341,17 +354,61 @@
         row.onclick = function () { openPlayerModal(entry); };
         return row;
       });
-      if (!rows.length) rows = [el('div', { class: 'lb-empty' }, ['Noch keine Einträge – spiel eine Runde!'])];
+    }
+
+    function streakRows() {
+      // Längste Sieg-Serie (Siege in Folge über ALLE Gambling-Spiele) pro Spieler.
+      // Immer die Casino-Serie (auch in Survival) — deckungsgleich mit presence.js.
+      var mine = (App.Progress && App.Progress.maxStreakIn) ? App.Progress.maxStreakIn('casino') : 0;
+      var board = App.Leaderboard.getStreakBoard(mine, 200);
+      return board.map(function (entry, i) {
+        var rank = i + 1;
+        return el('div', { class: 'lb-row glass ' + medalClass(rank) + (entry.me ? ' active' : '') }, [
+          el('div', { class: 'lb-rank' }, [wreath(rank) || ('#' + rank)]),
+          el('div', { class: 'lb-name' }, [
+            (App.ProfileCard && App.ProfileCard.styleName ? App.ProfileCard.styleName(el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym']), entry.cos, entry.level, entry.gold) : el('span', { class: entry.gold ? 'name-gold' : '' }, [entry.name || 'Anonym'])),
+            entry.me ? el('span', { class: 'lb-tag' }, ['du'])
+              : (entry.online ? el('span', { class: 'lb-tag lb-tag-on' }, ['🟢 online']) : null)
+          ]),
+          el('div', { class: 'lb-coins' }, [UI.formatShort(entry.streak) + ' 🔥']),
+          el('div', { class: 'lb-date' }, [entry.streak === 1 ? 'Sieg in Folge' : 'Siege in Folge'])
+        ]);
+      });
+    }
+
+    function draw() {
+      var rows = tab === 'streak' ? streakRows() : coinsRows();
+      var emptyMsg = tab === 'streak'
+        ? 'Noch keine Siegesserie – gewinne ein paar Runden hintereinander!'
+        : 'Noch keine Einträge – spiel eine Runde!';
+      if (!rows.length) rows = [el('div', { class: 'lb-empty' }, [emptyMsg])];
+
+      function tabBtn(id, label) {
+        return el('button', {
+          class: 'lb-tab' + (tab === id ? ' on' : ''), type: 'button',
+          onclick: function () { if (tab !== id) { tab = id; draw(); } }
+        }, [label]);
+      }
+
+      var hint;
+      if (tab === 'streak') {
+        hint = shared
+          ? 'Längste Sieg-Serie (Siege in Folge) über ALLE Gambling-Spiele — eine Zeile pro Spieler. Die Serie reißt bei jedem Verlust; hier zählt der Allzeit-Rekord.'
+          : 'Längste Sieg-Serie (Siege in Folge) über alle Gambling-Spiele. Kein Cloud-Backend erreichbar: aktuell nur Spieler aus diesem Browser sichtbar.';
+      } else {
+        hint = shared
+          ? 'Höchster Silber-Stand (Peak) — eine Zeile pro Spieler. Jeder, der die Seite offen hat, steht automatisch drauf: man muss nicht erst pleitegehen. Neue Spieler tauchen nach ein paar Sekunden auf.'
+          : 'Höchster Silber-Stand (Peak) — eine Zeile pro Spieler. Kein Cloud-Backend erreichbar: aktuell nur Spieler aus diesem Browser sichtbar.';
+      }
 
       container.innerHTML = '';
       container.appendChild(el('div', { class: 'page-head' }, [
         el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/'); } }, ['← Menü']),
         el('h2', { class: 'page-title neon' }, ['🏆 Bestenliste'])
       ]));
-      var shared = App.Account.backendKind() === 'firebase' || App.Account.backendKind() === 'cloud';
-      var hint = shared
-        ? 'Höchster Silber-Stand (Peak) — eine Zeile pro Spieler. Jeder, der die Seite offen hat, steht automatisch drauf: man muss nicht erst pleitegehen. Neue Spieler tauchen nach ein paar Sekunden auf.'
-        : 'Höchster Silber-Stand (Peak) — eine Zeile pro Spieler. Kein Cloud-Backend erreichbar: aktuell nur Spieler aus diesem Browser sichtbar.';
+      container.appendChild(el('div', { class: 'lb-tabs' }, [
+        tabBtn('coins', '🪙 Coins'), tabBtn('streak', '🔥 Streak')
+      ]));
       container.appendChild(el('p', { class: 'lb-hint' }, [hint]));
       container.appendChild(el('div', { class: 'lb-list' }, rows));
     }
@@ -553,12 +610,22 @@
     // Im Survival-Modus gibt es kein Auffüllen: dort übernimmt js/survival.js
     // (Alles auf null + eine Stunde Sperre statt Neustart-Knopf).
     if (App.Mode && App.Mode.is('survival')) { App.Survival.onBust(info); return; }
-    gameOverActive = true;
     var peak = info && info.peak != null ? info.peak : App.Coins.getPeak();
     var name = App.Leaderboard.getPlayerName() || 'Anonym';
     var date = new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
     App.Leaderboard.recordRun(name, peak, date);
 
+    // Einstellung „Sofort weiterspielen" (js/settings.js): kein Overlay, sofort
+    // das Einstiegsgeld zurück und die aktuelle Ansicht neu aufbauen.
+    if (App.Settings && App.Settings.autoRestart && App.Settings.autoRestart()) {
+      App.Coins.reset();
+      var amt = App.Coins.startAmount ? App.Coins.startAmount() : 1000;
+      if (App.UI && App.UI.toast) App.UI.toast('🌱 Automatisch aufgefüllt: ' + UI.formatCoins(amt) + ' 🪙', 'win');
+      App.Router.render();
+      return;
+    }
+
+    gameOverActive = true;
     document.getElementById('go-peak').textContent = UI.formatCoins(peak) + ' 🪙';
     var refill = App.Coins.startAmount ? App.Coins.startAmount() : 1000;
     var btn = document.getElementById('gameover-restart');
@@ -598,8 +665,11 @@
     .add('/stocks', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Stocks.renderPage(d); })
     .add('/cours', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.Cours.renderPage(d); })
     .add('/chat', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chat.renderPage(d); })
+    .add('/wager', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.WagerUI.renderPage(d); })
+    .add('/wager/match/:id', function (p) { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.WagerUI.renderMatch(d, p.id); })
+    .add('/admin/wager', function () { if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; } var d = el('div', { class: 'view-page' }); mount(d); return App.WagerUI.renderAdmin(d); })
     .add('/quests', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Progress.renderPage(d); })
-    .add('/chips', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Chips.renderPage(d); })
+    .add('/bank', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Bank.renderPage(d); })
     .add('/settings', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Settings.renderPage(d); })
     .add('/profile', renderProfile)
     .add('/changelog', function () { var d = el('div', { class: 'view-page' }); mount(d); App.Changelog.renderPage(d); })
@@ -615,6 +685,10 @@
       if (App.Mode) App.Mode.set('casino');
       var d = el('div', { class: 'view-page' }); mount(d);
       return App.TournamentHostUI.renderPage(d);
+    })
+    .add('/send', function () {
+      var d = el('div', { class: 'view-page' }); mount(d);
+      return App.Wallet.renderPage(d);
     })
     .add('/admin', function () {
       if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; }

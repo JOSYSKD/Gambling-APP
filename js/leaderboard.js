@@ -162,6 +162,60 @@
       return list.slice(0, limit);
     },
 
+    /**
+     * Streak-Bestenliste: längste Sieg-Serie (Siege in Folge über ALLE Gambling-
+     * Spiele) pro Spieler, absteigend. Quelle = Präsenz-Register (js/presence.js
+     * meldet `streak` = Casino-maxStreak) + eigene Live-Serie. Ein Eintrag pro
+     * Spieler; wer noch keine Serie hat (0), erscheint nicht.
+     */
+    getStreakBoard: function (activeStreak, limit) {
+      limit = limit || 200;
+      var now = Date.now();
+      var map = {}, keys = [];
+
+      function put(name, streak, opts) {
+        streak = Math.round(Number(streak) || 0);
+        if (!isFinite(streak) || streak <= 0) return;
+        opts = opts || {};
+        var k = nameKey(name);
+        var e = map[k];
+        if (!e) {
+          e = map[k] = { name: cleanName(name), streak: streak, online: false, me: false, gold: false, cos: null, level: 1 };
+          keys.push(k);
+        } else if (streak > e.streak) {
+          e.streak = streak;
+        }
+        if (opts.online) e.online = true;
+        if (opts.me) e.me = true;
+        if (opts.gold) e.gold = true;
+        if (opts.cos) e.cos = opts.cos;
+        if (opts.level) e.level = opts.level;
+      }
+
+      var meMax = !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel());
+
+      // 1) Register: jeder Spieler, der die Seite offen hat/hatte.
+      this.getPlayers().forEach(function (p) {
+        if (!p || !p.name) return;
+        put(p.name, p.streak, {
+          online: !!p.updatedAt && (now - p.updatedAt) < ONLINE_MS,
+          gold: !!p.maxLevel,
+          cos: p.cos || null, level: p.level || 1
+        });
+      });
+
+      // 2) Eigene Live-Serie — sofort sichtbar, ohne auf die Cloud zu warten.
+      if (typeof activeStreak === 'number') {
+        put(this.getPlayerName() || 'Du', activeStreak, { online: true, me: true, gold: meMax,
+          cos: (App.ProfileCard && App.ProfileCard.myNameCos) ? App.ProfileCard.myNameCos() : null,
+          level: (App.Progress && App.Progress.level) ? App.Progress.level() : 1 });
+      }
+
+      var list = keys.map(function (k) { return map[k]; });
+      list.sort(function (a, b) { return (b.streak - a.streak) || a.name.localeCompare(b.name); });
+      return list.slice(0, limit);
+    },
+
     /** Einen abgeschlossenen Run eintragen (bei Game Over). */
     recordRun: function (name, peak, dateStr) {
       var entry = {
@@ -185,6 +239,13 @@
         if (list.length > 100) list = list.slice(0, 100);
         driver.save(list);
       }
+      emit();
+    },
+
+    /** Admin: die gespeicherte Geld-Bestenliste (Run-Historie) komplett leeren.
+     *  Die Live-Peaks (aus der Präsenz) setzt das Admin-Panel separat zurück. */
+    resetBoard: function () {
+      try { if (driver.save) driver.save([]); } catch (e) {}
       emit();
     }
   };

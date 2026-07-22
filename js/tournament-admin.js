@@ -46,7 +46,14 @@
       '.ta-win-row.done .ta-win-name{text-decoration:line-through;}',
       '.ta-win-name{font-weight:800;}',
       '.ta-win-prize{color:#ffc740;font-size:13px;}',
-      '.ta-win-meta{margin-left:auto;font-size:12px;opacity:.7;}'
+      '.ta-win-meta{margin-left:auto;font-size:12px;opacity:.7;}',
+      '.ta-tpl-save{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 12px;}',
+      '.ta-tpl-save .text-input{flex:1 1 220px;min-width:0;}',
+      '.ta-preset-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border-radius:10px;',
+      'background:rgba(2,10,6,.5);border:1px solid var(--stroke);margin-bottom:7px;}',
+      '.ta-preset-info{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 240px;}',
+      '.ta-preset-info b{font-size:15px;}',
+      '.ta-preset-actions{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;}'
     ].join(''));
   }
 
@@ -238,6 +245,107 @@
         conf.hostName = T.myName();
       }
       return conf;
+    }
+
+    /* ---------------- Vorlagen ---------------- */
+    /* Aktuelle Feldwerte als Vorlage auslesen — die ROHEN Werte, damit das
+     * spätere Laden die Felder 1:1 zurücksetzt (keine Umweg über die
+     * save-Config, sonst ginge z. B. der Uhrzeit-String verloren). */
+    function presetFromForm(name) {
+      return {
+        name: name,
+        title: titleIn.value,
+        time: timeIn.value,
+        roundSec: Math.max(5, Math.round(Number(durIn.value) || 60)),
+        ticketCost: costIn.value,
+        chat: !!chatIn.checked,
+        prizeKind: prizeKindSel.value,
+        prizeType: prizeSel.value,
+        prizeSec: prizeSec.value,
+        prizeAmt: prizeAmt.value,
+        pot: potIn.value,
+        rounds: plan.slice(),
+        roundSecs: planSecs.slice()
+      };
+    }
+    /* Eine Vorlage in die Formularfelder laden. Spiele, die es nicht mehr gibt,
+     * werden stillschweigend übersprungen. */
+    function applyPreset(p) {
+      titleIn.value = (p.title || 'Turnier').slice(0, 40);
+      if (p.time) timeIn.value = p.time;
+      durIn.value = p.roundSec || 60;
+      costIn.value = (p.ticketCost != null ? p.ticketCost : 1);
+      chatIn.checked = !!p.chat;
+      prizeKindSel.value = p.prizeKind === 'powerup' ? 'powerup' : 'money';
+      if (p.prizeType) prizeSel.value = p.prizeType;
+      if (p.prizeSec != null) prizeSec.value = p.prizeSec;
+      if (p.prizeAmt != null) prizeAmt.value = p.prizeAmt;
+      if (p.pot != null) potIn.value = p.pot;
+      plan = [];
+      planSecs = [];
+      (p.rounds || []).forEach(function (gid, i) {
+        if (!T.gameDef(gid)) return;
+        plan.push(gid);
+        var s = p.roundSecs && p.roundSecs[i];
+        planSecs.push(Math.max(5, Math.round(Number(s) || Number(p.roundSec) || 60)));
+      });
+      drawPlan();
+      syncPrizeFields();
+    }
+
+    var presetNameIn = el('input', { class: 'text-input', type: 'text', maxlength: 40, placeholder: 'Name der Vorlage, z. B. Abend-Cup' });
+    var presetsBox = el('div', {});
+    function drawPresets() {
+      App.TournamentPresets.list().then(function (arr) {
+        presetsBox.innerHTML = '';
+        if (!arr.length) {
+          presetsBox.appendChild(el('div', { class: 'ta-empty' }, [
+            'Noch keine Vorlage. Stell unten alles ein, wie du es willst, und speichere es hier oben — dann setzt du dieses Turnier künftig mit einem Klick an.'
+          ]));
+          return;
+        }
+        arr.forEach(function (p) {
+          var rounds = (p.rounds || []).length;
+          var prizeTxt = p.prizeKind === 'powerup' ? '⚡ Power-Up' : ('💰 ' + (p.pot || '—'));
+          presetsBox.appendChild(el('div', { class: 'ta-preset-row' }, [
+            el('div', { class: 'ta-preset-info' }, [
+              el('b', {}, ['📋 ' + (p.name || 'Vorlage')]),
+              el('span', { class: 'cf-info-l' }, [
+                (p.title || 'Turnier') + ' · ' + rounds + ' Runde' + (rounds === 1 ? '' : 'n') +
+                ' · ' + (p.time || '—') + ' Uhr · ' + prizeTxt
+              ])
+            ]),
+            el('div', { class: 'ta-preset-actions' }, [
+              el('button', {
+                class: 'btn btn-ghost', type: 'button', title: 'Felder mit dieser Vorlage füllen',
+                onclick: function () {
+                  applyPreset(p);
+                  UI.toast('Vorlage „' + (p.name || '') + '" geladen — unten prüfen und ansetzen.', 'info');
+                }
+              }, ['📋 Laden']),
+              el('button', {
+                class: 'btn btn-primary', type: 'button', title: 'Vorlage laden und sofort ansetzen',
+                onclick: function () {
+                  applyPreset(p);
+                  var conf = collect();
+                  if (!conf.rounds.length) { UI.toast('Diese Vorlage hat keine (noch gültigen) Runden.', 'lose'); return; }
+                  if (conf.prizeKind === 'money' && !isFinite(potVal())) { UI.toast('Preisgeld der Vorlage nicht lesbar.', 'lose'); return; }
+                  T.Admin.save(conf).then(function () {
+                    UI.toast('🏆 „' + conf.title + '" angesetzt — Start um ' + tsToTime(conf.startAt), 'win');
+                    drawLive();
+                  }).catch(function (e) { UI.toast(e.message, 'lose'); });
+                }
+              }, ['🏆 Ansetzen']),
+              el('button', {
+                class: 'btn btn-ghost', type: 'button', title: 'Vorlage löschen',
+                onclick: function () {
+                  App.TournamentPresets.remove(p.id).then(drawPresets);
+                }
+              }, ['✕'])
+            ])
+          ]));
+        });
+      });
     }
 
     /* ---------------- Live-Bereich ---------------- */
@@ -460,6 +568,31 @@
     ]));
 
     root.appendChild(el('div', { class: 'glass ta-sec' }, [
+      el('h3', { style: 'margin-top:0;' }, ['📋 Vorlagen — einmal einstellen, per Klick ansetzen']),
+      el('p', { class: 'lb-hint' }, [
+        'Stell unten ein Turnier so ein, wie du es willst, gib der Vorlage hier einen Namen und speichere sie. ' +
+        'Später brauchst du nur noch „🏆 Ansetzen" zu drücken — oder „📋 Laden", wenn du vorher noch etwas ändern willst.'
+      ]),
+      el('div', { class: 'ta-tpl-save' }, [
+        presetNameIn,
+        el('button', {
+          class: 'btn btn-primary', type: 'button',
+          onclick: function () {
+            var name = (presetNameIn.value || '').trim();
+            if (!name) { UI.toast('Gib der Vorlage einen Namen.', 'lose'); return; }
+            if (!plan.length) { UI.toast('Stell erst unten einen Rundenplan zusammen, dann speichern.', 'lose'); return; }
+            App.TournamentPresets.save(presetFromForm(name)).then(function () {
+              presetNameIn.value = '';
+              UI.toast('Vorlage „' + name + '" gespeichert.', 'win');
+              drawPresets();
+            }).catch(function (e) { UI.toast((e && e.message) || 'Speichern fehlgeschlagen.', 'lose'); });
+          }
+        }, ['💾 Als Vorlage speichern'])
+      ]),
+      presetsBox
+    ]));
+
+    root.appendChild(el('div', { class: 'glass ta-sec' }, [
       el('h3', { style: 'margin-top:0;' }, ['1 · Turnier konfigurieren']),
       el('div', { class: 'ta-grid' }, [
         el('div', { class: 'ta-field' }, [el('label', {}, ['Name des Turniers']), titleIn]),
@@ -520,6 +653,7 @@
 
     drawPlan();
     drawPool();
+    drawPresets();
     drawLive();
     drawBanned();
     drawWinners();

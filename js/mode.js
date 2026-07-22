@@ -25,7 +25,8 @@
     gj_progress: 1,  // Level, XP, Quests, Stats
     gj_stocks: 1,    // Aktien-Depot
     gj_cours: 1,     // COURS-Position (einzelner Kurs)
-    gj_chips: 1      // Pokerchips (sonst ließe sich Gold über die Chip-Kasse ins Casino tauschen)
+    gj_chips: 1,     // Alt-Pokerchips (nur noch für die einmalige Auszahlung, siehe js/chips.js)
+    gj_bank: 1       // Bank-Einlage (sonst ließe sich Gold über die Bank ins Casino tauschen)
   };
 
   var S = App.Storage;

@@ -113,6 +113,15 @@
   function goldenActive() { return fx().golden > Date.now(); }
   function freebetArmed() { return fx().freebet; }
 
+  /** true, wenn die laufende/nächste Runde durch ein Verlust-erstattendes Power-Up
+   *  risikofrei ist (Freispiel / Verlust-Schild / Goldene Hand). Solche Runden
+   *  dürfen KEINE Wager-/Gewinn-XP geben und nicht in die Quest-Statistik zählen —
+   *  sonst wäre die garantierte Erstattung ein XP-Automat (progress.js prüft das). */
+  function roundProtected() {
+    var f = fx();
+    return !!(f.freebet || f.shield > 0 || goldenActive());
+  }
+
   function anyEffectActive() {
     var f = fx();
     return !!(luckActive() || goldenActive() || f.freebet || f.shield > 0 || f.winMult > 0);
@@ -378,6 +387,7 @@
     use: useItem,
     inventory: inventory,
     freebetArmed: freebetArmed,
+    roundProtected: roundProtected,
     goldenActive: goldenActive,
     consumeWinBonus: consumeWinBonus,
     onRoundEnd: onRoundEnd,

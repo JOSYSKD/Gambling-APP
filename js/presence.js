@@ -50,6 +50,14 @@
 
   function isMax() { return !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel()); }
 
+  /* Längste Sieg-Serie dieses Geräts über alle Gambling-Spiele — IMMER aus dem
+   * Casino-Stand (wie casinoPeak), damit die Streak-Bestenliste (js/leaderboard.js
+   * getStreakBoard) auch dann die Casino-Serie zeigt, wenn gerade Survival läuft. */
+  function casinoStreak() {
+    if (App.Progress && App.Progress.maxStreakIn) return App.Progress.maxStreakIn('casino');
+    return (App.Progress && App.Progress.maxStreak) ? App.Progress.maxStreak() : 0;
+  }
+
   // Antwort eines Gastes auf eine Admin-Nachricht in seinen Präsenz-Eintrag schreiben
   // (Feld `replies`). Der Heartbeat bewahrt replies (siehe next.replies).
   function pushGuestReply(text, msg) {
@@ -128,6 +136,10 @@
         App.Survival.applyGoldGrant(admin.goldGrant);
         admin.goldGrant = null;
       }
+      // Vom Admin gesetzter Level-Abzug für Gäste (genau einmal, siehe progress.js).
+      if (App.Progress && App.Progress.applyLevelAdjust && admin.levelAdjust) {
+        App.Progress.applyLevelAdjust(admin.levelAdjust);
+      }
       // Profil-Snapshot (Kosmetik, Level, Glühbirnen, gespielte Spiele) mitschicken,
       // damit andere Spieler die Profilkarte + Spiele in der Bestenliste sehen können
       // (siehe js/profile-card.js snapshot + js/app.js renderLeaderboard).
@@ -135,8 +147,11 @@
       var next = {
         name: (App.Leaderboard && App.Leaderboard.getPlayerName()) || 'Gast',
         balance: App.Coins ? App.Coins.get() : 0,
+        bank: App.Bank ? App.Bank.get() : 0,
         tickets: App.Tickets ? App.Tickets.get() : 0,
         casinoPeak: casinoPeak(),
+        streak: casinoStreak(),                  // längste Sieg-Serie (Streak-Bestenliste)
+        level: (App.Progress && App.Progress.level) ? App.Progress.level() : 1,  // fürs Admin-Panel
         maxLevel: isMax(),                       // goldener Name (Level 99999)
         replies: (rec && rec.replies) || [],     // Antworten an den Admin bewahren
         lastSeen: Date.now(),
