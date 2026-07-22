@@ -177,6 +177,10 @@
         var stickies = {};          // "reel:row" -> true (Sticky-Wilds)
         var respinsUsed = 0;
         var MAX_RESPINS = 8;
+        var streakMult = 1, streakStep = 0;        // Serien-Multiplikator (feature 'streak')
+        var STREAK_STEPS = [1, 2, 3, 5];
+        var expandUsed = false;                    // Wild-Expansion je Runde nur einmal
+        var inHoldWin = false;                     // läuft gerade der Münz-Sammelbonus?
         var auto = 0;               // verbleibende Autospins
         var spinHold = null;
         var lastGrid = null;
@@ -397,8 +401,22 @@
         }
 
         function resolve(grid, bet) {
+          // Hold & Win prüft VOR der Linienauswertung: genug Münzen im Bild
+          // starten sofort den Sammel-Bonus, die Linien spielen dann keine Rolle.
+          if (theme.coin && !inHoldWin) {
+            var coins = countCoins(grid);
+            if (coins >= (theme.coin.trigger || 6)) { startHoldWin(grid, bet); return; }
+          }
+
+          // Wild-Expansion: jede Walze mit einem Wild wird ganz zu Wild, danach
+          // wird neu ausgewertet (und einmal gratis nachgedreht).
+          var expanded = false;
+          if (theme.feature === 'expandwild' && !expandUsed) {
+            expanded = expandWildReels(grid);
+          }
+
           var expand = freeLeft > 0 ? freeExpand : null;
-          var res = evalGrid(theme, grid, bet, { expand: expand });
+          var res = evalGrid(theme, grid, bet, { expand: expand, globalMult: streakMult > 1 ? streakMult : 0 });
           var won = res.total;
 
           showWins(res);
@@ -409,6 +427,28 @@
           }
 
           // ---- Sonderfeatures ----
+          if (theme.feature === 'streak') {
+            // Serien-Multiplikator: jede Gewinnrunde in Folge hebt ihn, eine
+            // Nullrunde setzt ihn zurück.
+            if (won > 0) {
+              var next = STREAK_STEPS[Math.min(streakStep + 1, STREAK_STEPS.length - 1)];
+              streakStep = Math.min(streakStep + 1, STREAK_STEPS.length - 1);
+              streakMult = next;
+              feature('⚔️ Siegesserie ×' + streakMult + ' für die nächste Runde');
+            } else if (streakMult > 1) {
+              streakStep = 0; streakMult = 1;
+              feature('⚔️ Serie gerissen — zurück auf ×1');
+            }
+          }
+
+          if (expanded) {
+            expandUsed = true;
+            feature('🤠 Wild füllt die Walze — Gratis-Nachdrehen!');
+            later(function () { respin(bet); }, 900);
+            return;
+          }
+          expandUsed = false;
+
           if (theme.feature === 'cascade' && res.lineWins.length) {
             cascade(grid, bet, won, 2);
             return;
@@ -480,6 +520,145 @@
           }, 380);
         }
 
+        /* ---------- Wild-Expansion (feature 'expandwild') ----------
+         * Jede Walze, auf der ein Wild liegt, wird komplett zu Wild. */
+        function expandWildReels(grid) {
+          if (!theme.wild) return false;
+          var any = false;
+          for (var r = 0; r < theme.reels; r++) {
+            var has = false;
+            for (var y = 0; y < theme.rows; y++) if (grid[r][y] === theme.wild) has = true;
+            if (!has) continue;
+            any = true;
+            for (var y2 = 0; y2 < theme.rows; y2++) {
+              grid[r][y2] = theme.wild;
+              var cell = visibleCell(r, y2);
+              if (cell) {
+                cell.textContent = emojiOf(theme.wild);
+                cell.dataset.sym = theme.wild;
+                cell.classList.add('sm-expanded');
+              }
+            }
+            reelEls[r].classList.add('sm-reel-win');
+          }
+          return any;
+        }
+
+        /* ---------- Hold & Win (theme.coin) ----------
+         * Genug Münzen im Bild -> die Münzen bleiben liegen, es gibt Respins, bei
+         * denen NUR Münzen landen können. Jede neue Münze setzt die Respins zurück.
+         * Am Ende zahlt die Summe aller Münzwerte; ein volles Bild den Hauptpreis. */
+        function countCoins(grid) {
+          var n = 0;
+          for (var r = 0; r < theme.reels; r++) {
+            for (var y = 0; y < theme.rows; y++) if (grid[r][y] === theme.coin.id) n++;
+          }
+          return n;
+        }
+        function coinValue() {
+          var vals = theme.coin.values || [1, 1, 2, 3, 5];
+          return vals[(Math.random() * vals.length) | 0];
+        }
+
+        function startHoldWin(grid, bet) {
+          inHoldWin = true;
+          var cfg = theme.coin;
+          var held = {};                 // "r:y" -> Wert (× Einsatz)
+          var respins = cfg.respins || 3;
+          var cells = theme.reels * theme.rows;
+
+          if (App.Audio) App.Audio.sfx('levelup');
+          readout.className = 'sm-readout sm-big';
+          readout.textContent = '🪙 Münz-Bonus!';
+
+          function paintCoins() {
+            for (var r = 0; r < theme.reels; r++) {
+              for (var y = 0; y < theme.rows; y++) {
+                var cell = visibleCell(r, y);
+                if (!cell) continue;
+                var v = held[r + ':' + y];
+                if (v) {
+                  cell.textContent = '×' + v;
+                  cell.classList.add('sm-coin');
+                } else {
+                  cell.textContent = '';
+                  cell.classList.remove('sm-coin');
+                }
+              }
+            }
+          }
+          function total() {
+            var s = 0;
+            Object.keys(held).forEach(function (k) { s += held[k]; });
+            return s;
+          }
+
+          // Startbild übernehmen
+          for (var r0 = 0; r0 < theme.reels; r0++) {
+            for (var y0 = 0; y0 < theme.rows; y0++) {
+              if (grid[r0][y0] === cfg.id) held[r0 + ':' + y0] = coinValue();
+            }
+          }
+          paintCoins();
+
+          function step() {
+            if (destroyed) return;
+            if (respins <= 0 || Object.keys(held).length >= cells) { finish(); return; }
+            feature('🪙 ' + Object.keys(held).length + '/' + cells + ' Münzen · ' + respins +
+              ' Respin' + (respins > 1 ? 's' : '') + ' · aktuell ×' + total());
+
+            later(function () {
+              if (destroyed) return;
+              var fresh = 0;
+              for (var r = 0; r < theme.reels; r++) {
+                for (var y = 0; y < theme.rows; y++) {
+                  if (held[r + ':' + y]) continue;
+                  if (Math.random() < (cfg.chance || 0.09)) {
+                    held[r + ':' + y] = coinValue();
+                    fresh++;
+                  }
+                }
+              }
+              paintCoins();
+              if (fresh > 0) {
+                respins = cfg.respins || 3;          // Zähler zurück auf Anfang
+                if (App.Audio) App.Audio.sfx('coin');
+              } else {
+                respins--;
+                if (App.Audio) App.Audio.sfx('tick');
+              }
+              step();
+            }, 850);
+          }
+
+          function finish() {
+            var mult = total();
+            var full = Object.keys(held).length >= cells;
+            if (full) mult += (cfg.grand || 200);
+            var payout = Math.round(bet * mult);
+            App.Coins.add(payout);
+            UI.flash(payout - bet);
+            if (App.Audio) App.Audio.sfx('jackpot');
+            readout.className = 'sm-readout sm-big';
+            readout.textContent = (full ? '🏆 VOLLES BILD ×' : '🪙 Münz-Bonus ×') + mult + '  +' + UI.formatCoins(payout);
+            UI.toast('Münz-Bonus: +' + UI.formatCoins(payout) + ' ' + UI.coinIcon(), 'win');
+            feature('');
+            inHoldWin = false;
+            // Walzen wieder mit normalen Symbolen füllen
+            later(function () {
+              if (destroyed) return;
+              for (var i = 0; i < theme.reels; i++) settleReel(i, null);
+              cellEls.forEach(function (col) { col.forEach(function (c) { c.classList.remove('sm-coin'); }); });
+            }, 1600);
+            betPanel.refresh();
+            App.Coins.settle();
+            setBusy(false);
+            if (auto > 0) { auto--; if (auto > 0) later(function () { startRound(); }, 900); }
+          }
+
+          step();
+        }
+
         function collectWilds(grid) {
           if (!theme.wild) return 0;
           var n = 0;
@@ -508,14 +687,10 @@
         function finishRound(res, bet, won) {
           // Scatter-Feature auslösen?
           var sc = theme.scatter;
-          if (sc && res.scatterCount >= (sc.trigger || 3) && freeLeft === 0 && theme.feature !== 'pick') {
-            startFreeSpins(bet, res.scatterCount);
-            return;
-          }
-          if (sc && res.scatterCount >= (sc.trigger || 3) && theme.feature === 'pick') {
-            pickBonus(bet, res.scatterCount);
-            return;
-          }
+          var triggered = sc && res.scatterCount >= (sc.trigger || 3);
+          if (triggered && theme.feature === 'pick') { pickBonus(bet, res.scatterCount); return; }
+          if (triggered && theme.feature === 'penalty') { penaltyBonus(bet, res.scatterCount); return; }
+          if (triggered && freeLeft === 0) { startFreeSpins(bet, res.scatterCount); return; }
 
           if (won > 0) {
             UI.flash(won - (freeLeft > 0 ? 0 : bet));
@@ -646,6 +821,101 @@
           }
         }
 
+        /* Elfmeterschießen (feature 'penalty'): pro Treffer wächst der Multiplikator,
+         * ein gehaltener Ball beendet den Bonus — Weiterschießen ist freiwillig. */
+        function penaltyBonus(bet, scount) {
+          if (App.Audio) App.Audio.sfx('levelup');
+          readout.className = 'sm-readout sm-big';
+          readout.textContent = '⚽ ' + scount + ' Pfiffe — Elfmeterschießen!';
+
+          var steps = theme.penaltySteps || [2, 4, 7, 12, 25];
+          var saveChance = theme.penaltySave || 0.42;
+          var shot = 0, banked = 0, over = false;
+
+          var info = el('div', { class: 'sm-pickinfo' }, ['Wähle deine Ecke — jeder Treffer erhöht den Gewinn.']);
+          var ladder = el('div', { class: 'sm-ladder' });
+          var corners = el('div', { class: 'sm-pickgrid sm-corners' });
+          var overlay = el('div', { class: 'sm-overlay' }, [
+            el('div', { class: 'sm-picktitle' }, ['⚽ Elfmeterschießen']), info, ladder, corners
+          ]);
+          stage.appendChild(overlay);
+
+          function drawLadder() {
+            ladder.innerHTML = '';
+            steps.forEach(function (m, i) {
+              ladder.appendChild(el('span', {
+                class: 'sm-rung' + (i < shot ? ' sm-rung-done' : '') + (i === shot ? ' sm-rung-now' : '')
+              }, ['×' + m]));
+            });
+          }
+
+          function buildCorners() {
+            corners.innerHTML = '';
+            ['↖ links', '⬆ Mitte', '↗ rechts'].forEach(function (label, i) {
+              corners.appendChild(el('button', {
+                class: 'sm-pick sm-corner', type: 'button', onclick: function () { shoot(i); }
+              }, [label]));
+            });
+            if (shot > 0) {
+              corners.appendChild(el('button', {
+                class: 'btn btn-ghost sm-cashout', type: 'button', onclick: function () { end(true); }
+              }, ['💰 ×' + banked + ' mitnehmen']));
+            }
+          }
+
+          function shoot(dir) {
+            if (over) return;
+            over = true;
+            var keeper = (Math.random() * 3) | 0;
+            // Der Torwart hält nur, wenn er die richtige Ecke wählt UND zupackt.
+            var saved = (keeper === dir) && (Math.random() < 0.85) || (Math.random() < saveChance * 0.35);
+            corners.innerHTML = '';
+            if (saved) {
+              if (App.Audio) App.Audio.sfx('lose');
+              info.textContent = '🧤 Gehalten! Der Bonus ist vorbei.';
+              banked = 0;
+              later(function () { end(false); }, 1100);
+              return;
+            }
+            if (App.Audio) App.Audio.sfx('win');
+            banked = steps[shot];
+            shot++;
+            drawLadder();
+            if (shot >= steps.length) {
+              info.textContent = '⚽ Alle fünf verwandelt — ×' + banked + '!';
+              later(function () { end(true); }, 1100);
+              return;
+            }
+            info.textContent = '⚽ Tor! ×' + banked + ' sicher — weiterschießen für ×' + steps[shot] + '?';
+            over = false;
+            buildCorners();
+          }
+
+          function end(won) {
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            var payout = Math.round(bet * banked);
+            if (payout > 0) {
+              App.Coins.add(payout);
+              UI.flash(payout - bet);
+              if (App.Audio) App.Audio.sfx('jackpot');
+              readout.className = 'sm-readout sm-big';
+              readout.textContent = '🏆 Elfmeterschießen ×' + banked + '  +' + UI.formatCoins(payout);
+              UI.toast('Elfmeter: +' + UI.formatCoins(payout) + ' ' + UI.coinIcon(), 'win');
+            } else {
+              UI.flash(-bet);
+              readout.className = 'sm-readout sm-lose';
+              readout.textContent = '🧤 Der Torwart war da — nichts geholt.';
+            }
+            betPanel.refresh();
+            App.Coins.settle();
+            setBusy(false);
+            if (auto > 0) { auto--; if (auto > 0) later(function () { startRound(); }, 900); }
+          }
+
+          drawLadder();
+          buildCorners();
+        }
+
         function feature(text) {
           featureBar.textContent = text || '';
           featureBar.style.display = text ? '' : 'none';
@@ -711,6 +981,18 @@
         el('td', { class: 'sm-pay-mult' }, [cols.join('  ')])
       ]));
     });
+
+    // Münze (Hold & Win) hat keine Linienauszahlung — trotzdem gehört sie in die
+    // Tabelle, sonst bleibt das wichtigste Symbol des Automaten unerklärt.
+    if (theme.coin) {
+      var coDef = theme._byId[theme.coin.id];
+      var vals = theme.coin.values || [];
+      rows.push(el('tr', { class: 'sm-pay-scatter' }, [
+        el('td', { class: 'sm-pay-sym' }, [coDef ? coDef.emoji : '🪙']),
+        el('td', { class: 'sm-pay-name' }, [(coDef ? coDef.name : 'Münze') + ' · Sammel-Bonus ab ' + (theme.coin.trigger || 6)]),
+        el('td', { class: 'sm-pay-mult' }, ['×' + Math.min.apply(null, vals) + ' – ×' + Math.max.apply(null, vals) + ' je Münze'])
+      ]));
+    }
 
     if (theme.scatter) {
       var sc = theme.scatter, scDef = theme._byId[sc.id];
@@ -802,6 +1084,26 @@
       '.sm-pick:hover:not(:disabled){transform:translateY(-3px);box-shadow:0 0 18px var(--sm-glow);}',
       '.sm-pick-open{font-size:19px;font-weight:900;color:var(--gold);border-color:var(--gold);background:rgba(255,210,63,.15);}',
       '.sm-pick-dead{opacity:.35;font-size:16px;}',
+
+      // Wild-Expansion (Goldrausch)
+      '.sm-cell.sm-expanded{animation:smExpand .35s ease-out;filter:drop-shadow(0 0 12px var(--sm-a));}',
+      '@keyframes smExpand{from{transform:scale(.5);opacity:.3}to{transform:scale(1);opacity:1}}',
+
+      // Münz-Sammelbonus (Drachen-Gold)
+      '.sm-cell.sm-coin{font-size:calc(var(--cell)*.3);font-weight:900;color:#111;border-radius:50%;',
+        'background:radial-gradient(circle at 35% 30%,#ffe985,var(--gold) 60%,#b8860b);',
+        'box-shadow:0 0 14px rgba(255,210,63,.7);animation:smCoinIn .3s ease-out;}',
+      '@keyframes smCoinIn{from{transform:scale(.3) rotate(-25deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}',
+
+      // Elfmeterschießen (Elfmeter-Fieber)
+      '.sm-ladder{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;}',
+      '.sm-rung{font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px;color:var(--muted);',
+        'border:1px solid var(--stroke-2);}',
+      '.sm-rung-done{color:#111;background:var(--sm-a);border-color:var(--sm-a);}',
+      '.sm-rung-now{color:var(--gold);border-color:var(--gold);box-shadow:0 0 12px rgba(255,210,63,.4);}',
+      '.sm-corners{grid-template-columns:repeat(3,1fr);}',
+      '.sm-corner{font-size:13px;font-weight:800;width:auto;min-width:clamp(64px,20vw,92px);height:clamp(48px,14vw,64px);}',
+      '.sm-cashout{grid-column:1 / -1;margin-top:2px;border-color:var(--gold);color:var(--gold);}',
 
       '@media(max-width:520px){.sm-reels{gap:4px;}.sm-spin{flex:1 1 100%;}}'
     ].join(''));

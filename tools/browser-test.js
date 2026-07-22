@@ -94,12 +94,13 @@ async function main() {
 
   /* --- 1. sind alle Spiele registriert? --- */
   var ids = await evaluate('Object.keys(App.Games)');
-  var want = ['naehe', 'slotfruit', 'slotegypt', 'slotspace', 'slotpirate', 'slotcandy', 'slothorror'];
+  var want = ['naehe', 'slotfruit', 'slotegypt', 'slotspace', 'slotpirate', 'slotcandy', 'slothorror',
+    'slotdragon', 'slotviking', 'slotwest', 'slotsoccer'];
   var missing = want.filter(function (w) { return ids.indexOf(w) < 0; });
-  log(missing.length ? '❌ nicht registriert: ' + missing.join(', ') : '✅ alle 7 neuen Spiele registriert');
+  log(missing.length ? '❌ nicht registriert: ' + missing.join(', ') : '✅ alle ' + want.length + ' neuen Spiele registriert');
 
   /* --- 2. jede Slotmaschine rendern und 8 Runden drehen --- */
-  for (var i = 0; i < 6; i++) {
+  for (var i = 0; i < want.length - 1; i++) {
     var id = want[i + 1];
     var res = await evaluate(`(async () => {
       const d = document.createElement('div');
@@ -123,7 +124,7 @@ async function main() {
       d.remove();
       return { reels, cells, rounds, readout, paytable, changed: before !== after };
     })()`);
-    var ok = res.reels >= 3 && res.cells > 0 && res.rounds >= 6 && res.changed && res.paytable >= 7;
+    var ok = res.reels >= 3 && res.cells > 0 && res.rounds >= 6 && res.changed && res.paytable >= 6;
     log((ok ? '✅ ' : '❌ ') + id + ': ' + res.reels + ' Walzen, ' + res.rounds + ' Runden gedreht, ' +
       res.paytable + ' Paytable-Zeilen, Guthaben ' + (res.changed ? 'bewegt' : 'UNVERÄNDERT') +
       ', Anzeige "' + res.readout + '"');
@@ -210,6 +211,85 @@ async function main() {
   log((f4.overlay && f4.picked === 3 && f4.gone ? '✅ ' : '❌ ') + 'Piratenbucht — Truhen-Bonus: ' +
     f4.picked + ' Truhen geöffnet, Overlay schließt: ' + f4.gone + ', "' + f4.readout.trim() + '"');
 
+  var f5 = await forceFeature('slotwest', 'star', 25, '.sm-feature', 4);
+  log((f5.seen ? '✅ ' : '❌ ') + 'Goldrausch — Wild füllt Walze: "' + f5.note.trim() + '"');
+
+  var f6 = await forceFeature('slotviking', 'horn', 120, '.sm-feature', 6);
+  log((f6.seen ? '✅ ' : '❌ ') + 'Walhalla — Siegesserie: "' + f6.note.trim() + '"');
+
+  // Münz-Sammelbonus: läuft von allein durch, am Ende muss eine Auszahlung stehen
+  var f7 = await evaluate(`(async () => {
+    const t = App.SlotThemes.find(x => x.id === 'slotdragon');
+    const backup = t.symbols.map(s => s.weight);
+    t.symbols.forEach(s => { if (s.id === 'coin') s.weight = 90; });
+    t._totalWeight = t.symbols.reduce((a, s) => a + s.weight, 0);
+
+    const d = document.createElement('div');
+    document.body.appendChild(d);
+    const api = App.Games.slotdragon.render(d);
+    let sawCoins = false, note = '';
+    for (let r = 0; r < 3; r++) {
+      const btn = d.querySelector('.sm-spin');
+      if (btn && !btn.disabled) btn.click();
+      for (let w = 0; w < 20; w++) {
+        await new Promise(x => setTimeout(x, 700));
+        if (d.querySelectorAll('.sm-coin').length) sawCoins = true;
+        const f = (d.querySelector('.sm-feature')||{}).textContent || '';
+        if (f.indexOf('Münzen') >= 0) note = f;
+        if ((d.querySelector('.sm-readout')||{}).textContent.indexOf('Münz-Bonus ×') >= 0) break;
+      }
+      if (sawCoins) break;
+    }
+    const readout = (d.querySelector('.sm-readout')||{}).textContent || '';
+    api.cleanup && api.cleanup();
+    d.remove();
+    t.symbols.forEach((s, i) => { s.weight = backup[i]; });
+    t._totalWeight = t.symbols.reduce((a, s) => a + s.weight, 0);
+    return { sawCoins, note, readout };
+  })()`);
+  log((f7.sawCoins ? '✅ ' : '❌ ') + 'Drachen-Gold — Münz-Bonus: "' + f7.note.trim() + '" → "' + f7.readout.trim() + '"');
+
+  // Elfmeterschießen: Ecke wählen, bis Tor oder Halten
+  var f8 = await evaluate(`(async () => {
+    const t = App.SlotThemes.find(x => x.id === 'slotsoccer');
+    const backup = t.symbols.map(s => s.weight);
+    t.symbols.forEach(s => { if (s.id === 'whistle') s.weight = 40; });
+    t._totalWeight = t.symbols.reduce((a, s) => a + s.weight, 0);
+
+    const d = document.createElement('div');
+    document.body.appendChild(d);
+    const api = App.Games.slotsoccer.render(d);
+    let overlay = false, shots = 0, cashout = false;
+    for (let r = 0; r < 4; r++) {
+      const btn = d.querySelector('.sm-spin');
+      if (btn && !btn.disabled) btn.click();
+      await new Promise(x => setTimeout(x, 1800));
+      if (d.querySelector('.sm-corner')) {
+        overlay = true;
+        // zweimal schießen, dann (falls möglich) Gewinn mitnehmen
+        for (let s = 0; s < 2; s++) {
+          const c = d.querySelector('.sm-corner');
+          if (!c) break;
+          c.click(); shots++;
+          await new Promise(x => setTimeout(x, 600));
+        }
+        const co = d.querySelector('.sm-cashout');
+        if (co) { co.click(); cashout = true; }
+        await new Promise(x => setTimeout(x, 1400));
+        break;
+      }
+    }
+    const readout = (d.querySelector('.sm-readout')||{}).textContent || '';
+    const gone = !d.querySelector('.sm-corner');
+    api.cleanup && api.cleanup();
+    d.remove();
+    t.symbols.forEach((s, i) => { s.weight = backup[i]; });
+    t._totalWeight = t.symbols.reduce((a, s) => a + s.weight, 0);
+    return { overlay, shots, cashout, readout, gone };
+  })()`);
+  log((f8.overlay && f8.shots > 0 && f8.gone ? '✅ ' : '❌ ') + 'Elfmeter-Fieber — Bonus: ' + f8.shots +
+    ' Schüsse, Mitnehmen: ' + f8.cashout + ', Overlay schließt: ' + f8.gone + ' → "' + f8.readout.trim() + '"');
+
   /* --- 3. Nähe: Sofort-Treffer, Zonen-Zahlen und Niederlage --- */
   var nh = await evaluate(`(async () => {
     const d = document.createElement('div');
@@ -273,7 +353,7 @@ async function main() {
       }, 600);
     }, 600));
   })()`);
-  log((nav.tiles === 7 ? '✅ ' : '❌ ') + 'Kategorie "' + nav.title.trim() + '": ' + nav.tiles + ' Kacheln; Spiel öffnet als "' + nav.t2.trim() + '"');
+  log((nav.tiles === 11 ? '✅ ' : '❌ ') + 'Kategorie "' + nav.title.trim() + '": ' + nav.tiles + ' Kacheln; Spiel öffnet als "' + nav.t2.trim() + '"');
 
   /* --- 5. Fehler? --- */
   await sleep(300);

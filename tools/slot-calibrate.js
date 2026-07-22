@@ -37,6 +37,7 @@ function scaled(theme, f) {
     feature: theme.feature, wild: theme.wild, wildMult: theme.wildMult,
     scatter: theme.scatter, respinTrigger: theme.respinTrigger,
     pickCount: theme.pickCount, pickPool: theme.pickPool,
+    coin: theme.coin, penaltySteps: theme.penaltySteps, penaltySave: theme.penaltySave,
     symbols: theme.symbols
   }));
   copy.symbols.forEach(function (s) {
@@ -57,7 +58,8 @@ function rtpOf(theme, f) {
   var wag = 0, won = 0;
   SEEDS.forEach(function (seed) {
     Math.random = seeded(seed);
-    for (var i = 0; i < N; i++) { wag += sim.BET; won += sim.playRound(t); }
+    var carry = { streak: 1, step: 0 };
+    for (var i = 0; i < N; i++) { wag += sim.BET; won += sim.playRound(t, carry); }
   });
   return won / wag * 100;
 }

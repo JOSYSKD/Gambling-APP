@@ -23,9 +23,11 @@ console.log('Automat            RTP      Linien   Feature  Scatter  Treffer  max
 console.log('--------------------------------------------------------------------');
 THEMES.forEach(function (theme) {
   var wag = 0, base = 0, feat = 0, scat = 0, hits = 0, max = 0;
+  var carry = { streak: 1, step: 0 };
   for (var i = 0; i < N; i++) {
     wag += sim.BET;
-    var r = sim.playRoundSplit(theme);
+    var r = sim.playRoundSplit(theme, carry);
+    carry.streak = r.streak || 1; carry.step = r.step || 0;
     var w = r.base + r.feature;
     base += r.base; feat += r.feature; scat += r.scatterPay;
     if (w > 0) hits++;

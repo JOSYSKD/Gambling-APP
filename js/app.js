@@ -24,8 +24,9 @@
       id: 'slotmachines',
       name: 'Slot-Maschinen',
       icon: '🎰',
-      desc: '7 Automaten mit eigenem Thema und eigenem Sonderfeature: Freispiele, Kettenreaktionen, Sticky-Wilds, Truhen-Bonus.',
-      games: ['slots', 'slotfruit', 'slotegypt', 'slotspace', 'slotpirate', 'slotcandy', 'slothorror'],
+      desc: '11 Automaten, jeder mit eigenem Thema und eigenem Sonderfeature: Freispiele, Kettenreaktionen, Sticky-Wilds, Münz-Sammeln, Siegesserie und Elfmeterschießen.',
+      games: ['slots', 'slotfruit', 'slotegypt', 'slotspace', 'slotpirate', 'slotcandy', 'slothorror',
+        'slotdragon', 'slotviking', 'slotwest', 'slotsoccer'],
       mode: 'casino'
     },
     {

@@ -389,6 +389,8 @@
     { id: 'slotfruit', icon: '🍒', name: 'Fruit Fever' }, { id: 'slotegypt', icon: '🏺', name: 'Pharaos Buch' },
     { id: 'slotspace', icon: '🚀', name: 'Neon Nebula' }, { id: 'slotpirate', icon: '🏴‍☠️', name: 'Piratenbucht' },
     { id: 'slotcandy', icon: '🍬', name: 'Candy Cascade' }, { id: 'slothorror', icon: '🧛', name: 'Blutmond' },
+    { id: 'slotdragon', icon: '🐉', name: 'Drachen-Gold' }, { id: 'slotviking', icon: '⚔️', name: 'Walhalla' },
+    { id: 'slotwest', icon: '🤠', name: 'Goldrausch' }, { id: 'slotsoccer', icon: '⚽', name: 'Elfmeter-Fieber' },
     { id: 'busfahrer', icon: '🚌', name: 'Busfahrer' }
   ];
 

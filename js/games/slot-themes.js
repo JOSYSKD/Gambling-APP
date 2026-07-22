@@ -11,6 +11,10 @@
  *   'pick'       — Scatter -> Truhen-Bonus (3 aus 9)
  *   'cascade'    — Gewinnsymbole fallen weg, Kettenmultiplikator
  *   'respin'     — Wilds bleiben kleben, Gratis-Respins
+ *   'holdwin'    — Münzen sammeln (theme.coin), Respins bis nichts Neues kommt
+ *   'streak'     — Multiplikator steigt mit jeder Gewinnrunde in Folge
+ *   'expandwild' — Wild füllt seine Walze, danach ein Gratis-Nachdrehen
+ *   'penalty'    — Scatter -> Elfmeterschießen mit Mitnehmen-Entscheidung
  */
 (function () {
   'use strict';
@@ -44,7 +48,7 @@
     {
       id: 'slotegypt', title: 'Pharaos Buch', icon: '🏺',
       subtitle: '5 Walzen — 3 Bücher bringen 10 Freispiele mit Sondersymbol',
-      reels: 5, rows: 3, feature: 'freespins', rtp: 93,
+      reels: 5, rows: 3, feature: 'freespins', rtp: 94,
       hint: 'Hohe Schwankung, dafür fette Freispiele.',
       featureText: '📕 Das Buch ist Wild UND Scatter. Drei Bücher irgendwo starten 10 Freispiele: dabei wird ein Zufallssymbol gezogen, das über die ganze Walze expandiert und egal wo zahlt.',
       colors: { a: '#ffd23f', b: '#e8b04b', bg1: 'rgba(28,20,4,.95)', bg2: 'rgba(48,34,8,.85)', glow: 'rgba(255,210,63,.55)' },
@@ -66,7 +70,7 @@
     {
       id: 'slotspace', title: 'Neon Nebula', icon: '🚀',
       subtitle: '5 Walzen — jedes Wild in der Linie verdoppelt den Gewinn',
-      reels: 5, rows: 3, feature: 'multiplier', wildMult: 2, rtp: 92,
+      reels: 5, rows: 3, feature: 'multiplier', wildMult: 2, rtp: 91,
       hint: 'Zwei Wilds in einer Linie = vierfacher Gewinn.',
       featureText: '🌌 Der Nebel ist Wild: er ersetzt jedes Symbol und verdoppelt den Liniengewinn. Zwei Nebel in derselben Linie zahlen vierfach.',
       colors: { a: '#7c5cff', b: '#33e6d0', bg1: 'rgba(6,6,26,.95)', bg2: 'rgba(14,10,44,.85)', glow: 'rgba(124,92,255,.6)' },
@@ -129,7 +133,7 @@
     {
       id: 'slothorror', title: 'Blutmond', icon: '🧛',
       subtitle: '5 Walzen — Vollmonde bleiben kleben und geben Gratis-Respins',
-      reels: 5, rows: 3, feature: 'respin', rtp: 93,
+      reels: 5, rows: 3, feature: 'respin', rtp: 92,
       hint: 'Selten, aber wenn, dann richtig.',
       featureText: '🌕 Jeder Vollmond ist Wild, bleibt kleben und löst einen Gratis-Respin aus. Landen dabei weitere Monde, geht es weiter — bis zu 8 Respins.',
       colors: { a: '#ff2e4d', b: '#b06cff', bg1: 'rgba(14,2,6,.96)', bg2: 'rgba(30,4,14,.88)', glow: 'rgba(255,46,77,.6)' },
@@ -143,6 +147,89 @@
         { id: 'zombie', emoji: '🧟', name: 'Zombie',    weight: 6,  pay: { 3: 16, 4: 88,  5: 476 } },
         { id: 'vamp',   emoji: '🧛', name: 'Vampir',    weight: 3,  pay: { 3: 27, 4: 157, 5: 1019 } },
         { id: 'moon',   emoji: '🌕', name: 'Vollmond',  weight: 3,  pay: { 3: 22, 4: 125, 5: 680 } }
+      ]
+    },
+
+    /* ---------------- 7. Asien: Münzen sammeln (Hold & Win) ---------------- */
+    {
+      id: 'slotdragon', title: 'Drachen-Gold', icon: '🐉',
+      subtitle: '5 Walzen — sechs Münzen starten den Sammel-Bonus',
+      reels: 5, rows: 3, feature: 'holdwin', rtp: 93,
+      hint: 'Jede neue Münze schenkt dir die Respins zurück.',
+      featureText: '🪙 Sechs oder mehr Münzen starten den Sammel-Bonus: die Münzen bleiben liegen, du bekommst 3 Respins, und jede neue Münze setzt die Respins wieder auf 3. Am Ende zahlt die Summe aller Münzwerte — ein volles Bild bringt zusätzlich den Hauptpreis.',
+      colors: { a: '#ff3b30', b: '#ffd23f', bg1: 'rgba(28,4,6,.95)', bg2: 'rgba(52,10,12,.85)', glow: 'rgba(255,59,48,.55)' },
+      wild: 'dragon',
+      coin: { id: 'coin', trigger: 6, respins: 3, chance: 0.075, grand: 150, values: [1, 1, 1, 2, 2, 3, 5, 10] },
+      symbols: [
+        { id: 'fan',    emoji: '🪭', name: 'Fächer',    weight: 28, pay: { 3: 2,  4: 11,  5: 41 } },
+        { id: 'lamp',   emoji: '🏮', name: 'Laterne',   weight: 24, pay: { 3: 3,  4: 14,  5: 55 } },
+        { id: 'fish',   emoji: '🐟', name: 'Koi',       weight: 19, pay: { 3: 4,  4: 20,  5: 81 } },
+        { id: 'tiger',  emoji: '🐯', name: 'Tiger',     weight: 14, pay: { 3: 7,  4: 29,  5: 122 } },
+        { id: 'ingot',  emoji: '💰', name: 'Goldbarren',weight: 9,  pay: { 3: 11, 4: 50,  5: 224 } },
+        { id: 'dragon', emoji: '🐉', name: 'Drache',    weight: 4,  pay: { 3: 24, 4: 120, 5: 611 } },
+        { id: 'coin',   emoji: '🪙', name: 'Münze',     weight: 17 }
+      ]
+    },
+
+    /* ---------------- 8. Wikinger: Siegesserie ---------------- */
+    {
+      id: 'slotviking', title: 'Walhalla', icon: '⚔️',
+      subtitle: '5 Walzen — jede Gewinnrunde in Folge erhöht den Multiplikator',
+      reels: 5, rows: 3, feature: 'streak', rtp: 91,
+      hint: 'Zwei Gewinne hintereinander zahlen doppelt, drei dreifach, ab vier fünffach.',
+      featureText: '⚔️ Nach jeder Gewinnrunde steigt der Multiplikator für die NÄCHSTE Runde: ×2, ×3 und ab der vierten ×5. Eine Runde ohne Gewinn reißt die Serie und setzt zurück auf ×1.',
+      colors: { a: '#5ac8fa', b: '#c0c8d0', bg1: 'rgba(6,14,24,.95)', bg2: 'rgba(12,26,42,.85)', glow: 'rgba(90,200,250,.55)' },
+      wild: 'thor',
+      symbols: [
+        { id: 'horn',   emoji: '🥂', name: 'Methorn',   weight: 30, pay: { 3: 2,  4: 6,   5: 24 } },
+        { id: 'shield', emoji: '🛡️', name: 'Schild',    weight: 25, pay: { 3: 2,  4: 8,   5: 31 } },
+        { id: 'boat',   emoji: '⛵', name: 'Drachenboot',weight: 20, pay: { 3: 2,  4: 11,  5: 45 } },
+        { id: 'axe',    emoji: '🪓', name: 'Streitaxt', weight: 14, pay: { 3: 4,  4: 16,  5: 68 } },
+        { id: 'raven',  emoji: '🐦‍⬛', name: 'Rabe',     weight: 9,  pay: { 3: 6,  4: 28,  5: 122 } },
+        { id: 'thor',   emoji: '🔨', name: 'Hammer',    weight: 4,  pay: { 3: 13, 4: 65,  5: 325 } }
+      ]
+    },
+
+    /* ---------------- 9. Wilder Westen: Wild füllt die Walze ---------------- */
+    {
+      id: 'slotwest', title: 'Goldrausch', icon: '🤠',
+      subtitle: '5 Walzen — jeder Sheriffstern füllt seine Walze und dreht gratis nach',
+      reels: 5, rows: 3, feature: 'expandwild', rtp: 94,
+      hint: 'Ein Stern macht die ganze Walze wild — und das Nachdrehen ist umsonst.',
+      featureText: '⭐ Landet ein Sheriffstern, wird seine komplette Walze zu Wild und die Runde wird sofort neu bewertet. Danach gibt es ein Gratis-Nachdrehen mit demselben Einsatz.',
+      colors: { a: '#e8a33d', b: '#d96c2c', bg1: 'rgba(28,16,6,.95)', bg2: 'rgba(48,28,12,.85)', glow: 'rgba(232,163,61,.55)' },
+      wild: 'star',
+      symbols: [
+        { id: 'boot',   emoji: '👢', name: 'Stiefel',   weight: 30, pay: { 3: 2,  4: 10,  5: 36 } },
+        { id: 'hat',    emoji: '🤠', name: 'Hut',       weight: 25, pay: { 3: 3,  4: 13,  5: 46 } },
+        { id: 'horse',  emoji: '🐎', name: 'Pferd',     weight: 20, pay: { 3: 4,  4: 17,  5: 68 } },
+        { id: 'cactus', emoji: '🌵', name: 'Kaktus',    weight: 14, pay: { 3: 6,  4: 25,  5: 101 } },
+        { id: 'gun',    emoji: '🔫', name: 'Revolver',  weight: 9,  pay: { 3: 10, 4: 42,  5: 179 } },
+        { id: 'nugget', emoji: '💎', name: 'Goldnugget',weight: 5,  pay: { 3: 19, 4: 90,  5: 443 } },
+        { id: 'star',   emoji: '⭐', name: 'Sheriffstern', weight: 2, pay: { 3: 26, 4: 127, 5: 634 } }
+      ]
+    },
+
+    /* ---------------- 10. Fußball: Elfmeterschießen ---------------- */
+    {
+      id: 'slotsoccer', title: 'Elfmeter-Fieber', icon: '⚽',
+      subtitle: '5 Walzen — 3 Pfiffe und du stehst selbst am Punkt',
+      reels: 5, rows: 3, feature: 'penalty', rtp: 92,
+      hint: 'Im Bonus entscheidest du: weiterschießen oder Gewinn mitnehmen.',
+      featureText: '⚽ Drei Schiedsrichter-Pfiffe starten das Elfmeterschießen: du wählst pro Schuss die Ecke, jeder Treffer hebt den Gewinn (×2 · ×4 · ×7 · ×12 · ×25). Nach jedem Tor darfst du mitnehmen oder weiterschießen — hält der Torwart, ist alles weg.',
+      penaltySteps: [2, 4, 7, 12, 25], penaltySave: 0.42,
+      colors: { a: '#39ff14', b: '#ffffff', bg1: 'rgba(4,20,8,.95)', bg2: 'rgba(8,40,16,.85)', glow: 'rgba(57,255,20,.5)' },
+      wild: 'ball',
+      scatter: { id: 'whistle', trigger: 3, label: 'Elfmeterschießen', pay: { 3: 1, 4: 4, 5: 20 } },
+      symbols: [
+        { id: 'sock',   emoji: '🧦', name: 'Stutzen',   weight: 29, pay: { 3: 3,  4: 17,  5: 66 } },
+        { id: 'card',   emoji: '🟨', name: 'Gelbe Karte',weight: 24, pay: { 3: 5,  4: 23,  5: 87 } },
+        { id: 'shoe',   emoji: '👟', name: 'Schuh',     weight: 19, pay: { 3: 7,  4: 31,  5: 126 } },
+        { id: 'shirt',  emoji: '👕', name: 'Trikot',    weight: 14, pay: { 3: 10, 4: 47,  5: 192 } },
+        { id: 'goal',   emoji: '🥅', name: 'Tor',       weight: 9,  pay: { 3: 17, 4: 79,  5: 341 } },
+        { id: 'cup',    emoji: '🏆', name: 'Pokal',     weight: 5,  pay: { 3: 31, 4: 154, 5: 770 } },
+        { id: 'ball',   emoji: '⚽', name: 'Ball',      weight: 3,  pay: { 3: 45, 4: 227, 5: 1155 } },
+        { id: 'whistle',emoji: '📣', name: 'Pfiff',     weight: 6 }
       ]
     }
   ];

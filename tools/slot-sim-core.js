@@ -85,31 +85,127 @@ module.exports = function (math) {
     return Math.round(BET * sum);
   }
 
+  /* Münz-Sammelbonus (Hold & Win): Münzen bleiben liegen, Respins werden von
+   * jeder neuen Münze zurückgesetzt; am Ende zahlt die Summe der Münzwerte. */
+  function holdWin(theme, grid) {
+    var cfg = theme.coin;
+    var cells = theme.reels * theme.rows;
+    var held = {}, sum = 0;
+    function value() {
+      var v = cfg.values || [1, 1, 2, 3, 5];
+      return v[(Math.random() * v.length) | 0];
+    }
+    for (var r = 0; r < theme.reels; r++) {
+      for (var y = 0; y < theme.rows; y++) {
+        if (grid[r][y] === cfg.id) { held[r + ':' + y] = 1; sum += value(); }
+      }
+    }
+    var respins = cfg.respins || 3;
+    while (respins > 0 && Object.keys(held).length < cells) {
+      var fresh = 0;
+      for (var r2 = 0; r2 < theme.reels; r2++) {
+        for (var y2 = 0; y2 < theme.rows; y2++) {
+          if (held[r2 + ':' + y2]) continue;
+          if (Math.random() < (cfg.chance || 0.09)) { held[r2 + ':' + y2] = 1; sum += value(); fresh++; }
+        }
+      }
+      if (fresh > 0) respins = cfg.respins || 3; else respins--;
+    }
+    if (Object.keys(held).length >= cells) sum += (cfg.grand || 200);
+    return Math.round(BET * sum);
+  }
+
+  /* Wild-Expansion: Walzen mit Wild werden ganz wild, danach ein Gratis-Respin. */
+  function expandWild(theme, grid) {
+    var any = false;
+    for (var r = 0; r < theme.reels; r++) {
+      var has = false;
+      for (var y = 0; y < theme.rows; y++) if (grid[r][y] === theme.wild) has = true;
+      if (!has) continue;
+      any = true;
+      for (var y2 = 0; y2 < theme.rows; y2++) grid[r][y2] = theme.wild;
+    }
+    return any;
+  }
+
+  /* Elfmeterschießen: der simulierte Spieler schießt alle fünf (maximaler
+   * Erwartungswert, weil die Leiter steiler steigt als die Halte-Quote). */
+  function penalty(theme) {
+    var steps = theme.penaltySteps || [2, 4, 7, 12, 25];
+    var banked = 0;
+    for (var i = 0; i < steps.length; i++) {
+      // Engine: Torwart trifft die Ecke zu 1/3 und hält davon 85 %, dazu eine
+      // kleine Restchance auf einen Fangreflex.
+      var saved = (Math.random() < 1 / 3 && Math.random() < 0.85) ||
+        (Math.random() < (theme.penaltySave || 0.42) * 0.35);
+      if (saved) return 0;
+      banked = steps[i];
+    }
+    return Math.round(BET * banked);
+  }
+
   /* Eine Runde. Rückgabe getrennt nach Linien- und Feature-Anteil. */
-  function playRoundSplit(theme) {
+  function playRoundSplit(theme, carry) {
     var grid = math.spinGrid(theme);
-    var res = math.evalGrid(theme, grid, BET);
+
+    // Hold & Win greift vor der Linienauswertung
+    if (theme.coin) {
+      var coins = 0;
+      for (var r = 0; r < theme.reels; r++) {
+        for (var y = 0; y < theme.rows; y++) if (grid[r][y] === theme.coin.id) coins++;
+      }
+      if (coins >= (theme.coin.trigger || 6)) {
+        return { base: 0, feature: holdWin(theme, grid), scatterPay: 0, streak: 0 };
+      }
+    }
+
+    var expanded = theme.feature === 'expandwild' && expandWild(theme, grid);
+    var mult = (carry && carry.streak > 1) ? carry.streak : 0;
+    var res = math.evalGrid(theme, grid, BET, { globalMult: mult });
     var base = res.total, feat = 0;
     var sc = theme.scatter;
 
+    if (expanded) {
+      // Gratis-Nachdrehen mit demselben Einsatz
+      var g2 = math.spinGrid(theme);
+      if (theme.feature === 'expandwild') expandWild(theme, g2);
+      feat += math.evalGrid(theme, g2, BET).total;
+    }
     if (theme.feature === 'cascade' && res.lineWins.length) feat += cascade(theme, grid, res, 2);
     if (theme.feature === 'respin') feat += respinSeries(theme, grid);
 
+    var out = { base: base, feature: feat, scatterPay: res.scatterWin, streak: 1 };
+    if (theme.feature === 'streak') {
+      var STEPS = [1, 2, 3, 5];
+      var step = (carry && carry.step) || 0;
+      out.step = (base + feat) > 0 ? Math.min(step + 1, STEPS.length - 1) : 0;
+      out.streak = STEPS[out.step];
+    }
+
     if (sc && res.scatterCount >= (sc.trigger || 3)) {
+      if (theme.feature === 'penalty') {
+        out.feature += penalty(theme);
+        return out;
+      }
       if (theme.feature === 'pick') {
         feat += pickBonus(theme);
+        out.feature = feat;
       } else {
         var expand = sc.expanding ? pickExpand(theme) : null;
         for (var i = 0; i < (sc.freeSpins || 10); i++) {
           feat += math.evalGrid(theme, math.spinGrid(theme), BET, { expand: expand }).total;
         }
+        out.feature = feat;
       }
     }
-    return { base: base, feature: feat, scatterPay: res.scatterWin };
+    return out;
   }
 
-  function playRound(theme) {
-    var r = playRoundSplit(theme);
+  /* Eine Runde ohne Serien-Gedächtnis (fuer Kalibrierung/Einzelmessung).
+   * `carry` traegt den Serien-Multiplikator von Runde zu Runde weiter. */
+  function playRound(theme, carry) {
+    var r = playRoundSplit(theme, carry);
+    if (carry) { carry.streak = r.streak || 1; carry.step = r.step || 0; }
     return r.base + r.feature;
   }
 

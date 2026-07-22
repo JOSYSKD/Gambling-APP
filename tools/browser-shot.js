@@ -113,6 +113,15 @@ async function main() {
   })()`);
   await shot('03-slot-fruit');
 
+  // Drachen-Gold: Gewinntabelle mit Münz-Zeile
+  await evaluate("location.hash = '#/game/slotdragon'");
+  await sleep(900);
+  await evaluate(`(async () => {
+    const b = document.querySelector('.sm-spin'); if (b) b.click();
+    await new Promise(r => setTimeout(r, 2200));
+  })()`);
+  await shot('05-slot-dragon');
+
   // Nähe mitten in der Runde
   await evaluate("location.hash = '#/game/naehe'");
   await sleep(900);

@@ -18,6 +18,17 @@
   var ENTRIES = [
     {
       date: '2026-07-22',
+      title: 'Vier weitere Automaten: Drachen, Wikinger, Wilder Westen & Elfmeter',
+      items: [
+        'Drachen-Gold 🐉 — sechs Münzen starten den Sammel-Bonus: Münzen bleiben liegen, jede neue schenkt dir die Respins zurück, am Ende zahlt die Summe. Volles Bild = Hauptpreis.',
+        'Walhalla ⚔️ — jede Gewinnrunde in Folge erhöht den Multiplikator: ×2, ×3, ab der vierten ×5. Eine Nullrunde reißt die Serie.',
+        'Goldrausch 🤠 — jeder Sheriffstern macht seine ganze Walze wild, und danach gibt es ein Gratis-Nachdrehen.',
+        'Elfmeter-Fieber ⚽ — drei Pfiffe und du stehst selbst am Punkt: Ecke wählen, jeder Treffer erhöht den Gewinn (bis ×25), nach jedem Tor darfst du mitnehmen oder weiterschießen.',
+        'Damit stehen 11 Automaten in der Kategorie 🎰 Slot-Maschinen.',
+      ]
+    },
+    {
+      date: '2026-07-22',
       title: 'Sechs neue Slot-Maschinen & das Spiel „Nähe"',
       items: [
         'Neue Kategorie 🎰 Slot-Maschinen: sechs Automaten mit eigenem Thema — Fruit Fever 🍒, Pharaos Buch 🏺, Neon Nebula 🚀, Piratenbucht 🏴‍☠️, Candy Cascade 🍬 und Blutmond 🧛. Der alte Automat heißt jetzt Dschungel-Slots.',
