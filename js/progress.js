@@ -111,13 +111,16 @@
   //     mit Iterationslimit als Sicherheitsnetz. So kann nichts mehr hängen.
   function levelFromXp(xp) {
     xp = Math.max(0, Number(xp) || 0);
-    if (xp < 500) return 1;                       // reqFor(1)=500 -> unter Level 2
-    var approx = Math.floor(Math.cbrt(3 * xp / 130)) + 1;
-    if (!isFinite(approx) || approx < 1) approx = 1;
-    if (approx > LEVEL_CAP) approx = LEVEL_CAP;
-    if (approx >= 9e15) return approx;            // jenseits der Number-Präzision: Schätzung genügt
-    // Feinjustierung in kleinem, präzisem Fenster um die Schätzung.
-    var lo = 1, hi = Math.min(LEVEL_CAP, approx * 2 + 8), iter = 0;
+    if (xp < reqFor(1)) return 1;                 // unter dem XP für Level 2
+    // Obere Grenze per Verdopplung suchen — KURVENUNABHÄNGIG (egal ob reqFor
+    // quadratisch, kubisch … ist) und immer terminierend (guard). Danach exakte
+    // Binärsuche im gefundenen Fenster. Verhindert jeden Freeze und liefert auch
+    // bei sehr großer XP ein korrektes Level (keine kurvenabhängige Schätzung mehr).
+    var hi = 2, guard = 0;
+    while (hi < LEVEL_CAP && cumFor(hi) <= xp && guard++ < 400) hi *= 2;
+    if (hi > LEVEL_CAP) hi = LEVEL_CAP;
+    if (hi >= 9e15) return Math.floor(hi);        // jenseits der Number-Präzision: grobe Grenze genügt
+    var lo = Math.max(1, Math.floor(hi / 2)), iter = 0;
     while (lo < hi && iter++ < 200) {
       var mid = Math.floor((lo + hi + 1) / 2);
       if (mid <= lo || mid > hi) break;           // Präzisions-Stillstand -> raus
