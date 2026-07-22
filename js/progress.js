@@ -53,6 +53,7 @@
       return s;
     }
     s.xp = Math.max(0, Math.round(Number(s.xp) || 0));
+    if (!isFinite(s.xp) || s.xp > 1e300) s.xp = 1e300;   // korruptes/Infinity-XP reparieren
     s.stats = Object.assign(freshStats(), s.stats || {});
     if (!s.stats.games || typeof s.stats.games !== 'object') s.stats.games = {};
     if (!s.stats.gameWins || typeof s.stats.gameWins !== 'object') s.stats.gameWins = {};
@@ -241,6 +242,7 @@
     if (!amount) return;
     var before = level();
     state.xp += amount;
+    if (!isFinite(state.xp) || state.xp > 1e300) state.xp = 1e300;   // nie Infinity -> kein kaputtes Level
     var after = level();
     if (after > before) onLevelUp(before, after);
     save(); emit();

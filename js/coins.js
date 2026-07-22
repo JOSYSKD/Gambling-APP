@@ -85,14 +85,20 @@
     App.Mode.writeIn('casino', 'gj_bank', 0);   // Bank-Einlage beim Geld-Reset ebenfalls auf 0
   })();
 
+  // Höchstwert für Guthaben/Peak: knapp unter dem JS-Zahlen-Limit, damit nie
+  // "Infinity" ("∞") entsteht. Mit den 60er-Einheiten wird das als "1Qa" o.Ä.
+  // angezeigt — riesig, aber endlich und lesbar.
+  var BAL_CAP = 1e300;
   function loadBalance() {
     var b = App.Storage.get(KEY_BAL, null);
-    if (b === null || typeof b !== 'number' || b < 0) { b = START; App.Storage.set(KEY_BAL, b); }
+    if (b === null || typeof b !== 'number' || b < 0 || !isFinite(b)) { b = START; App.Storage.set(KEY_BAL, b); }
+    else if (b > BAL_CAP) { b = BAL_CAP; App.Storage.set(KEY_BAL, b); }
     return b;
   }
   function loadPeak() {
     var p = App.Storage.get(KEY_PEAK, null);
-    if (p === null || typeof p !== 'number') { p = loadBalance(); App.Storage.set(KEY_PEAK, p); }
+    if (p === null || typeof p !== 'number' || !isFinite(p)) { p = loadBalance(); App.Storage.set(KEY_PEAK, p); }
+    else if (p > BAL_CAP) { p = BAL_CAP; App.Storage.set(KEY_PEAK, p); }
     return p;
   }
 
@@ -107,8 +113,10 @@
   /** Guthaben ändern — ohne Rigging und ohne Quest-/XP-Erfassung. */
   function apply(delta) {
     delta = Math.round(Number(delta) || 0);
+    if (!isFinite(delta)) delta = delta > 0 ? BAL_CAP : 0;   // Infinity-Gewinn/Einsatz abfangen
     balance += delta;
     if (balance < 0) balance = 0;
+    if (!isFinite(balance) || balance > BAL_CAP) balance = BAL_CAP;   // nie "Unendlich" (∞)
     if (balance > runPeak) {
       runPeak = balance;
       // Peak live an die Bestenliste melden (aktiver Run).
