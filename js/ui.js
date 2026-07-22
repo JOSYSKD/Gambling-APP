@@ -10,6 +10,7 @@
     return n.toLocaleString('de-DE');
   }
 
+
   function formatCoins(n) {
     n = Number(n) || 0;
     // Ab 10^15 (16 Stellen) wird die volle Ziffernkette unlesbar und JS-Number
@@ -206,6 +207,7 @@
     formatCoins: formatCoins,
     formatFull: formatFull,
     formatShort: formatShort,
+    formatFull: formatFull,
     coinIcon: coinIcon,
     el: el,
     flash: flash,

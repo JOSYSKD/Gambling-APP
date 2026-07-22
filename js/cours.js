@@ -39,8 +39,8 @@
   var DEFAULT_SPEED_MS = 333;   // ~3 Ticks/Sekunde (Standard)
   var MIN_SPEED_MS = 100;       // schnellstens 10 Ticks/s
   var MAX_SPEED_MS = 2000;      // langsamstens 1 Tick / 2 s
-  var MIN_STEP = 0.01;          // 1 %  – kleinster Sprung pro Tick
-  var MAX_STEP = 0.15;          // 15 % – größter Sprung pro Tick (wilder als früher)
+  var MIN_STEP = 0.03;          // 3 %  – kleinster Sprung pro Tick
+  var MAX_STEP = 0.22;          // 22 % – größter Sprung pro Tick (steil, wie zuvor getunt)
   var REVERT = 0.20;            // schwache Rückstellung -> viel breiteres Band, Kurs
                                 //   kann weit hoch UND tief laufen (früher 0.62 = eng um 1000)
   var WARMUP = 1200;            // Vorlauf-Ticks (Einschwingen der Kurve)
@@ -344,7 +344,7 @@
 
     page.appendChild(el('p', { class: 'crs-hint' }, [
       'Ein einziger Kurs, der ohne Pause steigt und fällt — für alle Spieler gleich und immer weiterlaufend. ' +
-      'Jeder Tick bewegt ihn um 1 bis 15 %, und er kann weit hoch UND tief laufen. ' +
+      'Jeder Tick bewegt ihn um 3 bis 22 %, und er kann weit hoch UND tief laufen. ' +
       '⚠️ Selten kommt ein CRASH: der Kurs stürzt fast auf null und wer dann drin ist, verliert seinen ganzen Einsatz. ' +
       'Steig ein, wenn du glaubst er steigt, und wieder aus, bevor er kippt. ' +
       'Gespielt wird mit ' + App.Mode.coinName() + '.'

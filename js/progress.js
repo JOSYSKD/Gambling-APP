@@ -140,13 +140,13 @@
   }
   function questBonus() { return questBonusOf(state); }
 
-  // Wieder-Auffüll-/Start-Betrag steigt mit dem Level. Bis ~Level 100 linear
-  // (L1=1000 … ~L20=15000), danach zusätzlich EXPONENTIELL — grob eine Verdopplung
-  // alle ~1200 Level. So landet man bei ~Level 100.000 bei ~10^33 Coins und der
-  // Betrag wächst praktisch unbegrenzt weiter (bis ans JS-Limit). Bei kleinen
-  // Levels ist der Exponential-Faktor ~1, das frühe Spiel bleibt unverändert.
+  // Wieder-Auffüll-/Start-Betrag steigt mit dem Level: bis ~Level 100 linear
+  // (L1=1000, +LEVEL_START_STEP je Level), danach zusätzlich EXPONENTIELL — grob eine
+  // Verdopplung alle ~1200 Level. So landet man bei ~Level 100.000 bei ~10^33 Coins
+  // und der Betrag wächst praktisch unbegrenzt weiter (bis ans JS-Limit). Bei kleinen
+  // Levels ist der Exponential-Faktor ~1, das frühe Spiel bleibt wie getunt.
   function startBalanceAtLevel(L) {
-    var base = 1000 + (L - 1) * 750;
+    var base = 1000 + (L - 1) * LEVEL_START_STEP;
     var growth = Math.pow(10, 0.00025 * (L - 1));
     var amt = base * growth;
     if (!isFinite(amt) || amt > 1e300) amt = 1e300;   // nie Infinity
@@ -375,7 +375,8 @@
     // Themen-Slotmaschinen (js/games/slot-themes.js)
     { id: 'slotfruit', icon: '🍒', name: 'Fruit Fever' }, { id: 'slotegypt', icon: '🏺', name: 'Pharaos Buch' },
     { id: 'slotspace', icon: '🚀', name: 'Neon Nebula' }, { id: 'slotpirate', icon: '🏴‍☠️', name: 'Piratenbucht' },
-    { id: 'slotcandy', icon: '🍬', name: 'Candy Cascade' }, { id: 'slothorror', icon: '🧛', name: 'Blutmond' }
+    { id: 'slotcandy', icon: '🍬', name: 'Candy Cascade' }, { id: 'slothorror', icon: '🧛', name: 'Blutmond' },
+    { id: 'busfahrer', icon: '🚌', name: 'Busfahrer' }
   ];
 
   // NEUE Quest-Art: Sieg-Serien (Siege in Folge, ohne Verlust dazwischen).

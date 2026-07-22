@@ -47,7 +47,7 @@
       id: 'cours',
       name: 'COURS',
       icon: '🎢',
-      desc: 'Ein einziger, wilder Kurs — 3 Ticks pro Sekunde, jeder Tick 1–15 % rauf oder runter, und selten crasht er komplett. Läuft nie aus, für alle gleich. Steig ein und im richtigen Moment wieder aus.',
+      desc: 'Ein einziger, wilder Kurs — 3 Ticks pro Sekunde, jeder Tick 3–22 % rauf oder runter, und selten crasht er komplett. Läuft nie aus, für alle gleich. Steig ein und im richtigen Moment wieder aus.',
       route: '/cours',
       mode: 'casino'
     },
