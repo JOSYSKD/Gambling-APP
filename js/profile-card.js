@@ -335,7 +335,9 @@
           pcStat('🏆', UI.formatCoins(v.stats.wins), 'Siege'),
           pcStat('🎲', UI.formatCoins(v.stats.rounds), 'Runden'),
           pcStat('💥', UI.formatCoins(v.stats.biggestWin), 'Top-Gewinn'),
-          pcStat('🪙', UI.formatCoins(v.stats.peak), 'Peak')
+          pcStat('🪙', UI.formatCoins(v.stats.peak), 'Peak'),
+          // Eigene Spielzeit (nur auf der eigenen Karte — App.Playtime kennt nur den lokalen Wert).
+          v.me ? pcStat('⏱', (App.Playtime && App.Playtime.getFormatted) ? App.Playtime.getFormatted() : '—', 'Spielzeit') : null
         ])
       ]))
     ]);

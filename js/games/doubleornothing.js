@@ -336,6 +336,9 @@
         if (phase !== 'running') return;
         var p = stepProb(level);
         var won = Math.random() < p;
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced === 'lose') won = false;
+        else if (forced === 'win') won = true;
         recordAttempt(won);
         if (won) {
           level += 1;

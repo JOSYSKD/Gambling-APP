@@ -10,35 +10,45 @@
     return n.toLocaleString('de-DE');
   }
 
-  /** Coin-/Zahl-Anzeige der GESAMTEN App: kürzt große Zahlen ab (1.234 -> "1,23K",
-   *  … bis "Sx" = 10^21), damit auch riesige Beträge auf der Bestenliste, im
-   *  Guthaben, in Quests usw. überall kompakt und lesbar bleiben. Zahlen < 1000
-   *  bleiben exakt. (Früher: volle Zahl — auf Wunsch überall auf Kurzform umgestellt.) */
+  /** Coin-/Zahl-Anzeige der GESAMTEN App: kürzt große Zahlen ab (überall kompakt und
+   *  lesbar). Zahlen < 1000 bleiben exakt. */
   function formatCoins(n) {
     return formatShort(n);
   }
 
-  /** Große Zahlen abgekürzt: 1.234 -> "1,23K", 2.500.000 -> "2,5M", … bis "Sx" (10^21).
-   *  Über der Billion (T) geht es weiter in der englischen Kurzskala, damit auch die
-   *  Risiko-Mega-Quests (bis 10^21) noch lesbar bleiben: Qa=10^15, Qi=10^18, Sx=10^21. */
-  var SHORT_UNITS = [
-    { v: 1e21, s: 'Sx' }, { v: 1e18, s: 'Qi' }, { v: 1e15, s: 'Qa' },
-    { v: 1e12, s: 'T' }, { v: 1e9, s: 'B' }, { v: 1e6, s: 'M' }, { v: 1e3, s: 'K' }
+  /** Große Zahlen abgekürzt: 1.234 -> "1,23K", 2.500.000 -> "2,5M", … in
+   *  Tausenderschritten (jede Einheit = 1000× die vorige). Die ersten Einheiten
+   *  sind benannt (K … Sx, dann dx … yx, dann SKD); danach werden Kürzel
+   *  automatisch endlos erzeugt (aa, ab, …), sodass Zahlen bis ans JS-Limit
+   *  (~10^300) lesbar bleiben, ohne dass die Einheiten je ausgehen. */
+  var NAMED_UNITS = [
+    'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx',        // 10^3 … 10^21 (wie bisher)
+    'dx', 'fx', 'gx', 'hx', 'jx', 'kx', 'lx', 'öx', 'äx', 'yx',  // 10^24 … 10^51
+    'SKD'                                         // 10^54
   ];
+  /** Kürzel für die i-te Einheit (i=0 -> 10^3 = K). Endlos: nach der benannten
+   *  Liste kommen automatisch generierte Zweibuchstaben-Kürzel (aa, ab, …). */
+  function unitSuffix(i) {
+    if (i < NAMED_UNITS.length) return NAMED_UNITS[i];
+    var n = i - NAMED_UNITS.length;              // 0-basiert ab dem ersten generierten
+    var a = Math.floor(n / 26), b = n % 26;
+    return String.fromCharCode(97 + a) + String.fromCharCode(97 + b);
+  }
   function formatShort(n) {
     n = Number(n) || 0;
     var sign = n < 0 ? '-' : '';
     n = Math.abs(n);
+    if (!isFinite(n)) return sign + '∞';
     if (n < 1000) return sign + Math.round(n).toLocaleString('de-DE');
-    for (var i = 0; i < SHORT_UNITS.length; i++) {
-      var u = SHORT_UNITS[i];
-      if (n >= u.v) {
-        var v = n / u.v;
-        var txt = (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10).toLocaleString('de-DE');
-        return sign + txt + u.s;
-      }
-    }
-    return sign + Math.round(n).toLocaleString('de-DE');
+    // 3er-Gruppe bestimmen: group 1 -> K (10^3), 2 -> M (10^6) …
+    var group = Math.floor((Math.log(n) / Math.LN10) / 3);
+    if (group < 1) group = 1;
+    var v = n / Math.pow(10, group * 3);
+    // Rundungsrutscher an exakten Zehnerpotenzen abfangen (z. B. 1000 -> 1K, nicht 0,001M)
+    if (v >= 1000) { group += 1; v /= 1000; }
+    else if (v < 1 && group > 1) { group -= 1; v *= 1000; }
+    var txt = (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10).toLocaleString('de-DE');
+    return sign + txt + unitSuffix(group - 1);
   }
 
   /** Mini-DOM-Helfer: el('div', {class:'x', onclick:fn}, [kind|'text']) */
@@ -193,6 +203,7 @@
   App.UI = {
     formatCoins: formatCoins,
     formatShort: formatShort,
+    formatFull: formatFull,
     coinIcon: coinIcon,
     el: el,
     flash: flash,

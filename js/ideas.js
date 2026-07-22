@@ -34,8 +34,11 @@
   var PATH = 'scores/__ideas';
   var MAX_LEN = 10000;
 
-  /* Auswählbare Belohnungs-Faktoren des Hosts (Vielfaches des Einstiegsguthabens). */
+  /* Auswählbare Belohnungs-Faktoren des Hosts (Vielfaches des Einstiegsguthabens).
+   * Negative Faktoren sind ein ABZUG (Strafe) statt einer Gutschrift. */
   var MULTS = [5, 10, 20, 30];
+  var PENALTY_MULTS = [-5, -10, -20, -30];
+  var ALL_MULTS = MULTS.concat(PENALTY_MULTS);
 
   /* Ideen-Level: erfolgreiche Ideen -> Level 1..5. Level 5 = MAX (20 Ideen). */
   var MAX_IDEA_LEVEL = 5;
@@ -95,7 +98,7 @@
    *  Die Auszahlung selbst macht der Client des Spielers beim nächsten Abholen. */
   function setReward(id, mult) {
     mult = Math.round(Number(mult) || 0);
-    if (MULTS.indexOf(mult) < 0) return Promise.reject(new Error('Ungültiger Faktor'));
+    if (ALL_MULTS.indexOf(mult) < 0) return Promise.reject(new Error('Ungültiger Faktor'));
     var reward = { rid: newId(), mult: mult, at: Date.now() };
     return store().then(function (b) { return b.update(PATH + '/' + id, { reward: reward, done: true }); });
   }
@@ -124,9 +127,9 @@
   /** Belohnung gutschreiben — IMMER auf den Casino-Stand (Silber), egal welcher
    *  Modus gerade läuft (gleiche Mechanik wie App.Survival.applyGoldGrant). */
   function payout(amount) {
-    if (!App.Mode) { if (App.Coins) App.Coins.add(amount); return; }
+    if (!App.Mode) { if (App.Coins) App.Coins.addRaw(amount); return; }
     var bal = Number(App.Mode.readIn('casino', 'gj_balance', 0)) || 0;
-    var next = bal + amount;
+    var next = Math.max(0, bal + amount);   // nie unter 0 (relevant bei Abzügen)
     App.Mode.writeIn('casino', 'gj_balance', next);
     var peak = Number(App.Mode.readIn('casino', 'gj_run_peak', 0)) || 0;
     if (next > peak) App.Mode.writeIn('casino', 'gj_run_peak', next);
@@ -135,6 +138,15 @@
 
   function celebrate(idea, amount) {
     var lv = level();
+    if (amount < 0) {
+      // Abzug (negativer Faktor): keine Feier, klarer Straf-Hinweis.
+      if (App.UI && App.UI.toast) {
+        App.UI.toast('⚠️ Der Admin hat dir ' + App.UI.formatCoins(-amount) + ' 🪙 abgezogen (×' + idea.reward.mult + ')', 'lose');
+      }
+      if (App.Audio && App.Audio.sfx) { try { App.Audio.sfx('lose'); } catch (e) {} }
+      showRewardModal(idea, amount, lv);
+      return;
+    }
     if (App.UI && App.UI.toast) {
       App.UI.toast('💡 Deine Idee wurde angenommen! +' + App.UI.formatCoins(amount) + ' 🪙 (×' + idea.reward.mult + ')', 'win');
     }
@@ -160,11 +172,13 @@
       });
 
       var payouts = [];
+      var positiveCount = 0;
       pending.forEach(function (idea) {
         markPaid(idea.reward.rid);                     // zuerst sperren -> keine Doppelzahlung
-        var amount = Math.max(0, Math.round(startBal() * idea.reward.mult));
+        var amount = Math.round(startBal() * idea.reward.mult);   // negativ = Abzug (Strafe)
         if (!amount) return;
         payout(amount);
+        if (idea.reward.mult > 0) positiveCount++;
         // Für den Admin (und andere Geräte) sichtbar machen, dass sie angekommen ist.
         store().then(function (b) {
           return b.update(PATH + '/' + idea.id, { claimedAt: Date.now(), paid: amount });
@@ -183,8 +197,9 @@
        * Beides über Math.max, damit ein zweiter Lauf mit denselben Daten nicht doppelt zählt. */
       var got = paidIds();
       var earned = 0;
-      mine.forEach(function (idea) { if (isCollected(idea, got)) earned++; });
-      App.Storage.set(KEY_WINS, Math.max(winCount() + payouts.length, earned));
+      // Nur echte (positive) Belohnungen zählen als "erfolgreiche Idee" fürs Ideen-Level.
+      mine.forEach(function (idea) { if (isCollected(idea, got) && idea.reward && idea.reward.mult > 0) earned++; });
+      App.Storage.set(KEY_WINS, Math.max(winCount() + positiveCount, earned));
 
       // Erst NACH dem Zähler feiern — das Feier-Fenster zeigt das neue Ideen-Level.
       payouts.forEach(function (p) { celebrate(p.idea, p.amount); });
@@ -257,6 +272,20 @@
     injectCss();
     if (!App.UI || !App.UI.el) return;
     var el = App.UI.el;
+    if (amount < 0) {
+      var ov = el('div', { class: 'modal-overlay' }, [
+        el('div', { class: 'modal glass', style: 'max-width:460px;width:92%;' }, [
+          el('div', { class: 'modal-leaf' }, ['⚠️']),
+          el('h2', { class: 'neon' }, ['Coin-Abzug vom Admin']),
+          el('p', { class: 'idea-win-quote' }, [String(idea.text || '').slice(0, 300)]),
+          el('div', { class: 'idea-win-sum', style: 'color:var(--danger-2,#ff4d6d);text-shadow:0 0 18px rgba(255,77,109,.5);' }, ['−' + App.UI.formatCoins(-amount) + ' 🪙']),
+          el('div', { class: 'idea-win-mult' }, ['×' + idea.reward.mult + ' dein Einstiegsguthaben · abgezogen im Casino']),
+          el('button', { class: 'btn btn-primary btn-lg', type: 'button', onclick: function () { if (ov.parentNode) document.body.removeChild(ov); } }, ['Verstanden'])
+        ])
+      ]);
+      document.body.appendChild(ov);
+      return;
+    }
     var levelUp = lv > 0 && winCount() === LEVEL_AT[lv - 1];   // genau diese Idee hat das Level gehoben
     var overlay = el('div', { class: 'modal-overlay' }, [
       el('div', { class: 'modal glass', style: 'max-width:480px;width:92%;' }, [
@@ -391,6 +420,7 @@
 
     /* Belohnung (Admin-Panel, siehe js/admin.js) */
     MULTS: MULTS,
+    PENALTY_MULTS: PENALTY_MULTS,
     setReward: setReward,
     clearReward: clearReward,
 

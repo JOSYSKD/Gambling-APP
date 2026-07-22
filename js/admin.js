@@ -147,6 +147,16 @@
     return (found || RIG_LEVELS[2]).label;
   }
 
+  // Kurzfassung des Wahrscheinlichkeits-Riggings (siehe js/rig.js) für die Anzeige.
+  function oddsSummary(o) {
+    if (!o) return 'aus';
+    var parts = [];
+    if (o.lose) parts.push('Verlust ' + Math.round(o.lose * 100) + '%');
+    if (o.win) parts.push('Gewinn ' + Math.round(o.win * 100) + '%');
+    if (o.crashAt) parts.push('Crash ' + o.crashAt + '×');
+    return parts.length ? parts.join(', ') : 'aus';
+  }
+
   var Admin = {
     isAdmin: function () { return App.Storage.get(KEY_SESSION, false) === true; },
 
@@ -224,6 +234,17 @@
     setRig: function (kind, key, level) {
       var patch = kind === 'guest' ? App.Account.adminPatchPresence : App.Account.adminPatch;
       return patch(key, function (rec) { rec.admin = rec.admin || {}; rec.admin.rig = level; });
+    },
+    /** Wahrscheinlichkeits-Rigging pro Spieler setzen (siehe js/rig.js).
+     *  odds = { lose:0..1|null, win:0..1|null, crashAt:Zahl|null } oder null zum Löschen. */
+    setOdds: function (kind, key, odds) {
+      var patch = kind === 'guest' ? App.Account.adminPatchPresence : App.Account.adminPatch;
+      return patch(key, function (rec) { rec.admin = rec.admin || {}; rec.admin.odds = odds || null; });
+    },
+    /** Mod-Rolle vergeben/entfernen (siehe js/mods.js). */
+    setMod: function (kind, key, on) {
+      var patch = kind === 'guest' ? App.Account.adminPatchPresence : App.Account.adminPatch;
+      return patch(key, function (rec) { rec.admin = rec.admin || {}; rec.admin.mod = !!on; });
     },
     ban: function (kind, key, minutes) {
       var patch = kind === 'guest' ? App.Account.adminPatchPresence : App.Account.adminPatch;
@@ -458,6 +479,9 @@
             App.Router.go('/admin/tournament');
           } }, ['🏆 Turniere & Sieger']),
           el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
+            App.Router.go('/admin/mods');
+          } }, ['🛡 Mods']),
+          el('button', { class: 'btn btn-primary', type: 'button', onclick: function () {
             App.Router.go('/admin/wager');
           } }, ['⚔️ Wett-Spiele']),
           el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () {
@@ -615,6 +639,58 @@
           rigHeadEl, el('div', { class: 'admin-rig-row' }, rigBtns)
         ]);
 
+        // --- Erzwungene Chancen (Wahrscheinlichkeits-Rigging, siehe js/rig.js) ---
+        var oddsHeadEl = el('span', { class: 'admin-section-l' }, ['']);
+        function applyOdds(mut) {
+          var cur = (current.admin && current.admin.odds) || {};
+          var next = { lose: cur.lose || null, win: cur.win || null, crashAt: cur.crashAt || null };
+          mut(next);
+          if (!next.lose && !next.win && !next.crashAt) next = null;
+          Admin.setOdds(kind, key, next).then(function () {
+            UI.toast('Chancen von ' + current.displayName + ': ' + oddsSummary(next), 'info');
+            refresh();
+          }).catch(function (e) { UI.toast(e.message, 'lose'); });
+        }
+        var loseBtns = [{ l: 'Aus', v: 0 }, { l: '50%', v: 0.5 }, { l: '80%', v: 0.8 }, { l: '100%', v: 1 }].map(function (o) {
+          return el('button', { class: 'btn btn-ghost admin-rig-btn', type: 'button', onclick: function () {
+            applyOdds(function (n) { n.lose = o.v || null; if (o.v) n.win = null; });
+          } }, ['📉 ' + o.l]);
+        });
+        var winBtns = [{ l: '80%', v: 0.8 }, { l: '100%', v: 1 }].map(function (o) {
+          return el('button', { class: 'btn btn-ghost admin-rig-btn', type: 'button', onclick: function () {
+            applyOdds(function (n) { n.win = o.v; n.lose = null; });
+          } }, ['📈 ' + o.l]);
+        });
+        var crashInput = el('input', { class: 'text-input admin-num', type: 'number', min: '1', step: '0.01', placeholder: '1.01' });
+        var crashBtn = el('button', { class: 'btn btn-ghost admin-rig-btn', type: 'button', onclick: function () {
+          var v = Math.round(Number(crashInput.value) * 100) / 100;
+          if (!(v >= 1)) { UI.toast('Crash-Wert muss ≥ 1 sein.', 'lose'); return; }
+          applyOdds(function (n) { n.crashAt = v; });
+        } }, ['💥 Crash bei']);
+        var oddsReset = el('button', { class: 'btn btn-ghost admin-rig-btn', type: 'button', onclick: function () {
+          Admin.setOdds(kind, key, null).then(function () { UI.toast('Chancen von ' + current.displayName + ' zurückgesetzt.', 'win'); refresh(); }).catch(function (e) { UI.toast(e.message, 'lose'); });
+        } }, ['↺ Normal']);
+        var oddsSection = el('div', { class: 'admin-section' }, [
+          oddsHeadEl,
+          el('div', { class: 'admin-rig-row' }, loseBtns),
+          el('div', { class: 'admin-rig-row' }, winBtns.concat([oddsReset])),
+          el('div', { class: 'admin-controls' }, [crashInput, el('span', { class: 'admin-unit' }, ['×']), crashBtn])
+        ]);
+
+        // --- Mod-Rolle (siehe js/mods.js) ---
+        var modStatusEl = el('span', { class: 'admin-status' }, ['']);
+        var modBtn = el('button', { class: 'btn admin-rig-btn', type: 'button', onclick: function () {
+          var on = !!(current.admin && current.admin.mod);
+          Admin.setMod(kind, key, !on).then(function () {
+            UI.toast(current.displayName + (on ? ' ist kein Mod mehr.' : ' ist jetzt Moderator! 🛡'), on ? 'lose' : 'win');
+            refresh();
+          }).catch(function (e) { UI.toast(e.message, 'lose'); });
+        } }, ['']);
+        var modSection = el('div', { class: 'admin-section' }, [
+          el('span', { class: 'admin-section-l' }, ['🛡 Moderator']),
+          el('div', { class: 'admin-controls' }, [modStatusEl, modBtn])
+        ]);
+
         // --- Sperre: zwei Zustände, per hidden umgeschaltet, Minuten-Input bleibt. ---
         var banUntilEl = el('span', { class: 'admin-status lose' }, ['']);
         var unbanBtn = el('button', { class: 'btn btn-ghost admin-rig-btn', type: 'button', onclick: function () {
@@ -743,6 +819,8 @@
         // update() ihn NIE anfasst.
         var body = el('div', { class: 'admin-card-body' }, [
           rigSection,
+          oddsSection,
+          modSection,
           el('hr', { class: 'admin-divider' }),
           banSection,
           msgSection,
@@ -788,9 +866,18 @@
             tixEl.textContent = (r.tickets || 0) + ' 🎟️';
 
             var rig = admin.rig || 0;
-            rigHeadEl.textContent = '🎲 Chancen — aktuell: ' + rigLabelFor(rig);
+            rigHeadEl.textContent = '🎲 Auszahlungs-Faktor — aktuell: ' + rigLabelFor(rig);
             rigBadge.textContent = rigLabelFor(rig); // Zusammenfassung im Kopf (auch eingeklappt)
             rigBtns.forEach(function (b, i) { b.classList.toggle('active', RIG_LEVELS[i].level === rig); });
+
+            // Erzwungene Chancen (Wahrscheinlichkeits-Rigging) + Mod-Rolle.
+            var odds = admin.odds || null;
+            oddsHeadEl.textContent = '🎯 Erzwungene Chancen — ' + oddsSummary(odds);
+            var isModded = !!admin.mod;
+            modStatusEl.textContent = isModded ? '🛡 Ist Moderator' : 'Kein Mod';
+            modStatusEl.className = 'admin-status' + (isModded ? ' win' : '');
+            modBtn.textContent = isModded ? '✖ Mod entfernen' : '🛡 Mod machen';
+            modBtn.classList.toggle('active', isModded);
 
             var banned = admin.banUntil && admin.banUntil > now;
             if (banned) {
@@ -904,8 +991,9 @@
           var got = idea.paid
             ? el('span', { class: 'idea-rw-state paid' }, ['✓ ausgezahlt: ' + UI.formatCoins(idea.paid) + ' 🪙'])
             : el('span', { class: 'idea-rw-state' }, ['⏳ wird beim nächsten Login des Spielers gutgeschrieben']);
+          var isPenalty = idea.reward.mult < 0;
           return el('div', { class: 'idea-reward' }, [
-            el('span', { class: 'idea-rw-given' }, ['🏅 Belohnt ×' + idea.reward.mult]),
+            el('span', { class: 'idea-rw-given', style: isPenalty ? 'color:var(--danger-2,#ff4d6d);' : '' }, [(isPenalty ? '⚠️ Abzug ×' : '🏅 Belohnt ×') + idea.reward.mult]),
             got,
             el('button', { class: 'btn btn-ghost admin-rig-btn idea-rw-btn', type: 'button', onclick: function () {
               Admin.clearIdeaReward(idea.id).then(reload).catch(function (e) { UI.toast(e.message, 'lose'); });
@@ -927,6 +1015,22 @@
               }).catch(function (e) { UI.toast(e.message, 'lose'); });
             }
           }, [el('b', {}, ['×' + m]), base ? ' ≈ ' + UI.formatShort(base * m) : '']));
+        });
+        // Strafe: negative Faktoren ziehen dem Spieler Coins ab (siehe js/ideas.js).
+        var penalties = (App.Ideas && App.Ideas.PENALTY_MULTS) || [-5, -10, -20, -30];
+        kids.push(el('span', { class: 'idea-rw-lab', style: 'color:var(--danger-2,#ff4d6d);' }, ['Abziehen:']));
+        penalties.forEach(function (m) {
+          kids.push(el('button', {
+            class: 'btn btn-ghost admin-rig-btn idea-rw-btn', type: 'button',
+            style: 'border-color:rgba(255,77,109,.5);',
+            title: base ? '≈ −' + UI.formatCoins(base * -m) + ' 🪙' : '',
+            onclick: function () {
+              Admin.rewardIdea(idea.id, m).then(function () {
+                UI.toast('⚠️ Idee bestraft: ×' + m + ' Einstiegsguthaben', 'lose');
+                reload();
+              }).catch(function (e) { UI.toast(e.message, 'lose'); });
+            }
+          }, [el('b', { style: 'color:var(--danger-2,#ff4d6d);' }, ['×' + m]), base ? ' ≈ −' + UI.formatShort(base * -m) : '']));
         });
         return el('div', { class: 'idea-reward' }, kids);
       }

@@ -6,7 +6,7 @@
  *
  * Regeln (vom Besteller):
  *   - 3 Ticks pro Sekunde (Standard-Geschwindigkeit, vom Admin einstellbar).
- *   - Jeder Tick bewegt den Kurs um 3 % bis 22 % nach oben ODER unten (steil).
+ *   - Jeder Tick bewegt den Kurs um 1 % bis 10 % nach oben ODER unten.
  *   - Der Kurs hört nie auf und läuft für ALLE Spieler exakt gleich.
  *   - Ein- und aussteigen geht immer.
  *
@@ -15,10 +15,10 @@
  * Jeder Client rechnet dieselbe Formel -> alle sehen zur selben Zeit denselben
  * Kurs, und er läuft auch weiter, wenn niemand zusieht.
  *
- * Warum er trotz „immer 3–22 % pro Tick" nie explodiert oder auf 0 fällt:
+ * Warum er trotz „immer 1–10 % pro Tick" nie explodiert oder auf 0 fällt:
  * ein multiplikativer Random-Walk mit Rückstellkraft (mean reversion). Je weiter
  * der Kurs über/unter dem Mittelwert BASE liegt, desto wahrscheinlicher zieht es
- * ihn zurück — die Schrittgröße bleibt dabei immer volle 3–22 %.
+ * ihn zurück — die Schrittgröße bleibt dabei immer volle 1–10 %.
  *
  * Damit man den Wert an Tick i nicht von Anbeginn der Zeit aufsummieren muss,
  * rechnen wir ihn aus einem festen Vorlauf-Fenster (WARMUP Ticks vor i, Start
@@ -39,13 +39,20 @@
   var DEFAULT_SPEED_MS = 333;   // ~3 Ticks/Sekunde (Standard)
   var MIN_SPEED_MS = 100;       // schnellstens 10 Ticks/s
   var MAX_SPEED_MS = 2000;      // langsamstens 1 Tick / 2 s
-  var MIN_STEP = 0.03;          // 3 %  – kleinster Sprung pro Tick (steiler!)
-  var MAX_STEP = 0.22;          // 22 % – größter Sprung pro Tick (steiler!)
-  var REVERT = 0.62;            // Stärke der Rückstellung zum Mittelwert
+  var MIN_STEP = 0.03;          // 3 %  – kleinster Sprung pro Tick
+  var MAX_STEP = 0.22;          // 22 % – größter Sprung pro Tick (steil, wie zuvor getunt)
+  var REVERT = 0.20;            // schwache Rückstellung -> viel breiteres Band, Kurs
+                                //   kann weit hoch UND tief laufen (früher 0.62 = eng um 1000)
   var WARMUP = 1200;            // Vorlauf-Ticks (Einschwingen der Kurve)
   var HISTORY = 90;             // Punkte im großen Chart
   var SEED_MAG = 0x1a2b3c;      // getrennte Seeds für Schrittgröße …
   var SEED_DIR = 0x9f8e7d;      // … und Richtung
+  var SEED_CRASH = 0x7c3f21;    // … und für Crash-Ereignisse
+  // CRASH: seltenes, für alle gleiches Ereignis, bei dem der Kurs schlagartig
+  // fast auf 0 einbricht. Wer dann im Kurs steckt, verliert seinen kompletten
+  // Einsatz (siehe crashWatch). Danach erholt sich der Kurs wieder Richtung 1000.
+  var CRASH_CHANCE = 1 / 1200;  // ~1 Crash alle 1200 Ticks (bei 3/s ≈ alle 6-7 Min)
+  var CRASH_DEPTH = 0.03;       // Kurs fällt auf ~3 % (praktisch alles weg)
   var KEY = 'gj_cours';         // Depot im Storage
   var SPEED_KEY = 'gj_cours_speed';
   var SPEED_PATH = 'cours/speedMs';
@@ -60,9 +67,14 @@
     return (h >>> 0) / 4294967296;
   }
 
-  /** Ein Kursschritt: multipliziert v mit (1 ± 3–22 %), Richtung mean-revertend. */
+  /** Ist Tick k ein Crash-Tick? Deterministisch -> für alle Spieler gleich. */
+  function isCrashTick(k) { return hash(SEED_CRASH, k) < CRASH_CHANCE; }
+
+  /** Ein Kursschritt: multipliziert v mit (1 ± 1–15 %), Richtung schwach
+   *  mean-revertend. An Crash-Ticks bricht der Kurs schlagartig auf ~3 % ein. */
   function step(v, k) {
-    var mag = MIN_STEP + (MAX_STEP - MIN_STEP) * hash(SEED_MAG, k);   // 0.03 … 0.22
+    if (isCrashTick(k)) return v * CRASH_DEPTH;    // 💥 Crash: fast alles weg
+    var mag = MIN_STEP + (MAX_STEP - MIN_STEP) * hash(SEED_MAG, k);   // 0.01 … 0.15
     var z = Math.log(v / BASE);                    // Abstand vom Mittel (logarithmisch)
     var pUp = 0.5 - REVERT * z;                     // teuer -> seltener hoch, billig -> öfter hoch
     if (pUp < 0.10) pUp = 0.10; else if (pUp > 0.90) pUp = 0.90;
@@ -108,6 +120,7 @@
     if (!s || typeof s !== 'object') s = {};
     if (typeof s.shares !== 'number' || s.shares < 0) s.shares = 0;
     if (typeof s.cost !== 'number' || s.cost < 0) s.cost = 0;
+    if (typeof s.seenTick !== 'number') s.seenTick = tickNow();
     return s;
   }
   function save() { if (App.Storage) App.Storage.set(KEY, state); }
@@ -134,6 +147,7 @@
     App.Coins.addRaw(-spend);
     state.shares += spend / p;
     state.cost += spend;
+    state.seenTick = tickNow();   // ab jetzt auf Crashs achten
     save(); emit();
     return { spend: spend };
   }
@@ -152,6 +166,35 @@
     save(); emit();
     return { proceeds: proceeds, profit: proceeds - costPart };
   }
+
+  /* ---------------- Crash-Wächter ----------------
+   * Läuft dauerhaft (nicht nur auf der Kurs-Seite): sobald zwischen dem zuletzt
+   * gesehenen Tick und jetzt ein Crash lag und der Spieler eine offene Position
+   * hat, ist der komplette Einsatz weg. Weil der Kurs für alle identisch ist,
+   * trifft es alle, die gerade drin sind, gleichzeitig. */
+  var crashListeners = [];
+  function onCrash(cb) { crashListeners.push(cb); return function () { var i = crashListeners.indexOf(cb); if (i >= 0) crashListeners.splice(i, 1); }; }
+  function emitCrash(info) { for (var i = 0; i < crashListeners.length; i++) { try { crashListeners[i](info); } catch (e) {} } }
+
+  function crashBetween(a, b) {
+    var from = Math.max(a + 1, b - 6000);    // Sicherheitsbund gegen lange Abwesenheit
+    for (var k = from; k <= b; k++) if (isCrashTick(k)) return true;
+    return false;
+  }
+  function crashWatch() {
+    var t = tickNow();
+    var seen = (typeof state.seenTick === 'number') ? state.seenTick : t;
+    if (t <= seen) return;
+    if (state.shares > 1e-9 && crashBetween(seen, t)) {
+      var lost = invested();
+      state.shares = 0; state.cost = 0; state.seenTick = t;
+      save(); emit();
+      emitCrash({ lost: lost });
+    } else {
+      state.seenTick = t; save();
+    }
+  }
+  setInterval(crashWatch, 1500);
 
   /* ---------------- Geschwindigkeit (Admin, geteilt) ---------------- */
   var speedListeners = [];
@@ -301,7 +344,9 @@
 
     page.appendChild(el('p', { class: 'crs-hint' }, [
       'Ein einziger Kurs, der ohne Pause steigt und fällt — für alle Spieler gleich und immer weiterlaufend. ' +
-      'Jeder Tick bewegt ihn um 3 bis 22 % — richtig steil. Steig ein, wenn du glaubst er steigt, und wieder aus, bevor er kippt. ' +
+      'Jeder Tick bewegt ihn um 3 bis 22 %, und er kann weit hoch UND tief laufen. ' +
+      '⚠️ Selten kommt ein CRASH: der Kurs stürzt fast auf null und wer dann drin ist, verliert seinen ganzen Einsatz. ' +
+      'Steig ein, wenn du glaubst er steigt, und wieder aus, bevor er kippt. ' +
       'Gespielt wird mit ' + App.Mode.coinName() + '.'
     ]));
 
@@ -515,10 +560,20 @@
     ticksPerSec: ticksPerSec,
     setSpeed: setSpeed,
     onSpeed: onSpeed,
+    onCrash: onCrash,
     /** Depot neu laden — nach Konto-Login oder Moduswechsel (js/mode.js). */
     reload: function () { state = load(); emit(); }
   };
 
   // Wer im Kurs steckt, ist nicht pleite — er muss nur aussteigen (siehe coins.js).
   if (App.Coins && App.Coins.addReserveSource) App.Coins.addReserveSource(positionValue);
+
+  // Globaler Crash-Hinweis (auch außerhalb der Kurs-Seite sichtbar).
+  onCrash(function (info) {
+    if (App.UI && App.UI.toast) {
+      App.UI.toast('💥 COURS-CRASH! Dein Einsatz (' + UI.formatCoins(info.lost) + ' ' + UI.coinIcon() + ') ist weg.', 'lose');
+    }
+    if (App.Audio && App.Audio.sfx) App.Audio.sfx('lose');
+  });
+  crashWatch();   // direkt einmal prüfen (fängt Crashs während kurzer Abwesenheit)
 })();

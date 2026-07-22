@@ -17,6 +17,19 @@
 
   var ENTRIES = [
     {
+      date: '2026-07-22',
+      title: 'Unendlich-Update: Level, Crash, Mods & mehr',
+      items: [
+        'Level ohne Ende: kein Maximum mehr — höhere Level dauern länger, und das Auffüll-Geld bei Pleite wächst mit dem Level bis ins Astronomische (neue Einheiten dx, fx … yx, SKD und weiter).',
+        'COURS ist viel wilder und kann jetzt CRASHEN: selten stürzt der Kurs fast auf null — wer dann drin ist, verliert seinen ganzen Einsatz. Nach oben ist er unbegrenzt.',
+        'Neu: Coins an andere Spieler verschenken (🎁) — mit eigener Bestenliste der größten Schenker.',
+        'Neue Ranglisten (📊): höchste Level, längste Spielzeit und meistes Verschenken. Deine Spielzeit steht jetzt auch in deinen Stats.',
+        'Neues Spiel: Busfahrer 🚌 — vier Stufen (Rot/Schwarz → Höher/Tiefer → Rein/Raus → Symbol) bis ×20.',
+        'Moderatoren: der Admin kann Spielern eine Mod-Rolle geben. Mods können an alle shouten und Spielern live zuschauen — mehr nicht. Der Admin sieht alle Mods und ihren Aktions-Verlauf.',
+        'Admin kann pro Spieler die Gewinnchancen erzwingen (z. B. Coinflip zu 80 % Verlust, Crash bei genau 1,01×) und Ideen jetzt auch mit Coin-Abzug bestrafen.',
+      ]
+    },
+    {
       date: '2026-07-18',
       title: 'Schneller leveln & Feinschliff',
       items: [

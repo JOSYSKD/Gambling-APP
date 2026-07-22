@@ -12,8 +12,8 @@
       id: 'gambling',
       name: 'Gambling',
       icon: '🎰',
-      desc: '16 Solo-Klassiker + Poker & Casino mit Freunden. Setze deine Coins und jage den Highscore.',
-      games: ['blackjack', 'crash', 'cuberoll', 'slots', 'roulette', 'mines', 'coinflip', 'wheel',
+      desc: '19 Solo-Klassiker + Poker & Casino mit Freunden. Setze deine Coins und jage den Highscore.',
+      games: ['busfahrer', 'blackjack', 'crash', 'cuberoll', 'slots', 'roulette', 'mines', 'coinflip', 'wheel',
         'baccarat', 'videopoker', 'casinowar', 'dragontiger', 'andarbahar', 'sicbo', 'keno', 'plinko',
         'jenga', 'doubleornothing'],
       // Aus dem Menü heraus wird immer im Casino (Silber) gezockt. In den
@@ -79,6 +79,15 @@
 
   function categoryById(id) {
     for (var i = 0; i < CATEGORIES.length; i++) if (CATEGORIES[i].id === id) return CATEGORIES[i];
+    return null;
+  }
+
+  /** In welcher Kategorie steckt dieses Spiel? (für den Zurück-Knopf) */
+  function categoryOfGame(gameId) {
+    for (var i = 0; i < CATEGORIES.length; i++) {
+      var g = CATEGORIES[i].games;
+      if (g && g.indexOf(gameId) >= 0) return CATEGORIES[i].id;
+    }
     return null;
   }
 
@@ -170,6 +179,11 @@
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/send'); } }, ['💸 Coins verschenken']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/bank'); } }, ['🏦 Bank']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/leaderboard'); } }, ['🏆 Bestenliste']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/boards'); } }, ['📊 Ranglisten']),
+        el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/gift'); } }, ['🎁 Verschenken']),
+        (App.Mods && App.Mods.isMod && App.Mods.isMod())
+          ? el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/modpanel'); } }, ['🛡 Mod-Panel'])
+          : null,
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/profile'); } }, ['👤 Profil']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/changelog'); } }, ['🆕 Update-News']),
         el('button', { class: 'btn btn-ghost', type: 'button', onclick: function () { go('/settings'); } }, ['⚙️ Einstellungen'])
@@ -260,10 +274,13 @@
     var id = params.id, g = App.Games[id];
     if (!g) { UI.toast('Spiel nicht gefunden', 'lose'); go('/'); return; }
 
+    // Zurück in die Kategorie, aus der das Spiel stammt (Gambling oder Slots).
+    var home = '/category/' + (categoryOfGame(id) || 'gambling');
+
     var content = el('div', { class: 'game-content' });
     var frame = el('div', { class: 'game-frame' }, [
       el('div', { class: 'game-topline' }, [
-        el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go('/category/gambling'); } }, ['← Spielauswahl']),
+        el('button', { class: 'btn btn-ghost back', type: 'button', onclick: function () { go(home); } }, ['← Spielauswahl']),
         el('div', { class: 'game-frame-title' }, [(g.icon || '') + ' ' + g.title])
       ]),
       content
@@ -630,6 +647,12 @@
     .add('/live', function () { return App.MinigameHub.list({ group: 'live', title: '🃏 Poker & Casino', intro: 'Mit Freunden per Raum-Code – Poker-Varianten und Casino-Klassiker. Solo geht gegen Bots.' }); })
     .add('/mini/:id', function (p) { return App.MinigameHub.open(p.id); })
     .add('/leaderboard', renderLeaderboard)
+    .add('/boards', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Boards.renderPage(d); })
+    .add('/gift', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.Gift.renderPage(d); })
+    .add('/modpanel', function () {
+      if (!App.Mods || !App.Mods.isMod()) { go('/'); return; }
+      var d = el('div', { class: 'view-page' }); mount(d); return App.Mods.renderPanel(d);
+    })
     .add('/survival', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Survival.renderPage(d); })
     .add('/stocks', function () { var d = el('div', { class: 'view-page' }); mount(d); return App.Stocks.renderPage(d); })
     .add('/cours', function () { if (App.Mode) App.Mode.set('casino'); var d = el('div', { class: 'view-page' }); mount(d); return App.Cours.renderPage(d); })
@@ -668,6 +691,11 @@
       if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; }
       var d = el('div', { class: 'view-page' }); mount(d);
       return App.TournamentAdmin.renderPage(d);
+    })
+    .add('/admin/mods', function () {
+      if (!App.Admin || !App.Admin.isAdmin()) { go('/'); return; }
+      var d = el('div', { class: 'view-page' }); mount(d);
+      return App.Mods.renderAdminMenu(d);
     })
     .setNotFound(renderMenu);
 

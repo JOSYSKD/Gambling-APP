@@ -344,6 +344,42 @@
         });
       }
 
+      // ----- Rigging: Würfel passend zur Wette erzwingen -----
+      function shuffle3(arr) {
+        for (var i = arr.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+        }
+        return arr;
+      }
+      function winningDice(snap) {
+        var t = snap.type, v = snap.value, x, a, b, pool = [], d1, d2, d3, s;
+        if (t === 'anytriple') { x = rand6(); return [x, x, x]; }
+        if (t === 'spectriple') return [v, v, v];
+        if (t === 'single') {
+          a = rand6(); if (a === v) a = (a % 6) + 1;
+          b = rand6(); if (b === v) b = (b % 6) + 1;
+          return shuffle3([v, a, b]);
+        }
+        if (t === 'total') {
+          for (d1 = 1; d1 <= 6; d1++) for (d2 = 1; d2 <= 6; d2++) for (d3 = 1; d3 <= 6; d3++)
+            if (d1 + d2 + d3 === v) pool.push([d1, d2, d3]);
+          return pool[Math.floor(Math.random() * pool.length)];
+        }
+        // small (4–10) / big (11–17): Nicht-Pasch im Summenbereich
+        var lo = (t === 'small') ? 4 : 11, hi = (t === 'small') ? 10 : 17;
+        for (d1 = 1; d1 <= 6; d1++) for (d2 = 1; d2 <= 6; d2++) for (d3 = 1; d3 <= 6; d3++) {
+          s = d1 + d2 + d3;
+          if (s >= lo && s <= hi && !(d1 === d2 && d2 === d3)) pool.push([d1, d2, d3]);
+        }
+        return pool[Math.floor(Math.random() * pool.length)];
+      }
+      function losingDice(snap) {
+        var d, guard = 0;
+        do { d = [rand6(), rand6(), rand6()]; } while (evaluate(d, snap).won && ++guard < 500);
+        return d;
+      }
+
       // ----- Rundenablauf -----
       function doRoll() {
         if (rolling) return;
@@ -356,6 +392,9 @@
 
         var snap = { type: state.type, value: state.value };
         var dice = [rand6(), rand6(), rand6()];
+        var forced = (App.Rig && App.Rig.outcome) ? App.Rig.outcome() : null;
+        if (forced === 'win') dice = winningDice(snap);
+        else if (forced === 'lose') dice = losingDice(snap);
 
         sumEl.textContent = '';
         setStatus('Die Würfel rollen…', null);
