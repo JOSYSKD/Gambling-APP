@@ -103,11 +103,24 @@
     if (n > HARD_AT) c += LC_XTRA * sumCu(n - HARD_AT);
     return c;
   }
-  // Level aus XP per Binärsuche über [1, LEVEL_CAP] (O(log) statt O(L)).
+  // Level aus XP. WICHTIG: eine Binärsuche über [1, LEVEL_CAP=1e100] läuft bei
+  // sehr großer XP in eine ENDLOSSCHLEIFE, weil JS-Number ab 2^53 (~9e15) die
+  // Ganzzahl-Präzision verliert — dann steht die Suche still (mid == lo). Deshalb:
+  // (1) grobe Schätzung per Kubikwurzel (cumFor(L) ≈ 130·L³/3 -> L ≈ ∛(3·xp/130)),
+  // (2) nur im präzisen Bereich (< 2^53) per kurzer Binärsuche exakt nachjustieren,
+  //     mit Iterationslimit als Sicherheitsnetz. So kann nichts mehr hängen.
   function levelFromXp(xp) {
-    var lo = 1, hi = LEVEL_CAP;
-    while (lo < hi) {
+    xp = Math.max(0, Number(xp) || 0);
+    if (xp < 500) return 1;                       // reqFor(1)=500 -> unter Level 2
+    var approx = Math.floor(Math.cbrt(3 * xp / 130)) + 1;
+    if (!isFinite(approx) || approx < 1) approx = 1;
+    if (approx > LEVEL_CAP) approx = LEVEL_CAP;
+    if (approx >= 9e15) return approx;            // jenseits der Number-Präzision: Schätzung genügt
+    // Feinjustierung in kleinem, präzisem Fenster um die Schätzung.
+    var lo = 1, hi = Math.min(LEVEL_CAP, approx * 2 + 8), iter = 0;
+    while (lo < hi && iter++ < 200) {
       var mid = Math.floor((lo + hi + 1) / 2);
+      if (mid <= lo || mid > hi) break;           // Präzisions-Stillstand -> raus
       if (cumFor(mid) <= xp) lo = mid; else hi = mid - 1;
     }
     return lo;
