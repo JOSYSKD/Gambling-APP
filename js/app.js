@@ -12,10 +12,10 @@
       id: 'gambling',
       name: 'Gambling',
       icon: '🎰',
-      desc: '19 Solo-Klassiker + Poker & Casino mit Freunden. Setze deine Coins und jage den Highscore.',
+      desc: '20 Solo-Klassiker + Poker & Casino mit Freunden. Setze deine Coins und jage den Highscore.',
       games: ['busfahrer', 'blackjack', 'crash', 'cuberoll', 'naehe', 'roulette', 'mines', 'coinflip', 'wheel',
         'baccarat', 'videopoker', 'casinowar', 'dragontiger', 'andarbahar', 'sicbo', 'keno', 'plinko',
-        'jenga', 'doubleornothing'],
+        'jenga', 'doubleornothing', 'scratch'],
       // Aus dem Menü heraus wird immer im Casino (Silber) gezockt. In den
       // Survival-Modus kommt man ausschließlich über dessen eigene Kachel.
       mode: 'casino'

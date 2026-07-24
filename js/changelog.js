@@ -18,6 +18,14 @@
   var ENTRIES = [
     {
       date: '2026-07-24',
+      title: 'Neues Spiel: Rubbellos 🎟️',
+      items: [
+        'Jungle-Rubbellos in der Gambling-Kategorie: Los kaufen und die 9 Felder mit dem Finger oder der Maus WIRKLICH freirubbeln (oder ⚡ alles aufdecken).',
+        '3 gleiche Symbole gewinnen: 🌴×1.5, 🍌×2.5, 🍀×5, 🔔×10, 🏆×20, 💎×50 — Auszahlungsquote ~96 %, wie bei den anderen Klassikern.',
+      ]
+    },
+    {
+      date: '2026-07-24',
       title: 'Der große Reset: fairer Neustart für alle',
       items: [
         'KOMPLETTER RESET für alle Spieler: Guthaben, Bank, Aktien-Depots, Level, Quests, Tickets, Power-Ups und der Geld-Rekord (Peak) starten bei null bzw. 1.000 Coins. Deine SPIEL-Stats bleiben: Runden, Siege, Sieg-Serien, Spielzeit und gespielte Spiele.',
