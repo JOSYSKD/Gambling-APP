@@ -35,24 +35,37 @@
     if (amount <= 0) return Promise.reject(new Error('Betrag muss größer als 0 sein.'));
     if (amount > App.Coins.get()) return Promise.reject(new Error('So viel hast du nicht.'));
     if (!fbReady()) return Promise.reject(new Error('Verschenken geht nur online (mit Cloud).'));
+    // ERST abbuchen, DANN zustellen (wie js/wallet.js): so kann nie mehr ankommen,
+    // als abgebucht wurde. Vorher wurde erst nach dem Netzwerk-Roundtrip abgebucht —
+    // Tab zu im falschen Moment (oder Mehrfach-Klick) erzeugte Coins aus dem Nichts.
+    App.Coins.addRaw(-amount);
     return App.Net.firebaseDb().then(function (db) {
       return db.ref('gifts/' + recipientKey).push({
         amount: amount, from: myName(), ts: Date.now()
       }).then(function () {
-        App.Coins.addRaw(-amount);
         addTotal(amount);
         return amount;
       });
+    }).catch(function (e) {
+      App.Coins.addRaw(amount);   // Zustellung fehlgeschlagen -> zurückbuchen
+      throw new Error('Verschenken fehlgeschlagen — dein Geld ist wieder da.');
     });
   }
 
-  /** Eingehende Geschenke gutschreiben (läuft dauerhaft, auf jeder Seite). */
+  /** Eingehende Geschenke gutschreiben (läuft dauerhaft, auf jeder Seite).
+   *  Seen-Guard: schlägt das remove() fehl (offline, Regeln), würde dasselbe
+   *  Geschenk sonst bei jedem Laden erneut gutgeschrieben. */
+  var KEY_SEEN = 'gj_gift_seen';
   function listen() {
     if (!fbReady()) return;
     var id = myId();
     if (!id) { setTimeout(listen, 1500); return; }   // Geräte-ID evtl. noch nicht bereit
     App.Net.firebaseDb().then(function (db) {
       db.ref('gifts/' + id).on('child_added', function (snap) {
+        var seen = App.Storage.get(KEY_SEEN, []) || [];
+        if (seen.indexOf(snap.key) >= 0) { snap.ref.remove(); return; }
+        seen.push(snap.key); if (seen.length > 80) seen = seen.slice(-80);
+        App.Storage.set(KEY_SEEN, seen);
         var g = snap.val() || {};
         var amt = Math.round(Number(g.amount) || 0);
         if (amt > 0) {

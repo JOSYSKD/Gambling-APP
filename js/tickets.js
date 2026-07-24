@@ -27,13 +27,15 @@
     listeners.forEach(function (cb) { try { cb(n); } catch (e) {} });
   }
 
+  var CAP = 999;   // Ticket-Maximum — auch hier gibt es kein "unendlich"
+
   function get() {
     var v = App.Storage.get(KEY, null);
     if (v === null || typeof v !== 'number' || v < 0) { v = START; App.Storage.set(KEY, v); }
-    return v;
+    return Math.min(CAP, v);
   }
   function set(n) {
-    App.Storage.set(KEY, Math.max(0, Math.round(Number(n) || 0)));
+    App.Storage.set(KEY, Math.max(0, Math.min(CAP, Math.round(Number(n) || 0))));
     emit();
     return get();
   }

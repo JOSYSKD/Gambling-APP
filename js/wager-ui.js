@@ -223,8 +223,10 @@
     function render() {
       var m = state.match;
       if (!m) { frame.innerHTML = ''; frame.appendChild(el('div', { class: 'wg-empty' }, ['Kampf wird geladen …'])); return; }
-      // Einsatz genau einmal abbuchen, sobald wir hier sind
-      if (!W.alreadyStaked(m.id)) W.stakeOnce(m.id, m.stake);
+      // Einsatz genau einmal abbuchen — aber NUR in einem laufenden Kampf.
+      // Vorher wurde auch beim Öffnen eines bereits BEENDETEN Matches abgebucht:
+      // wer sich das Ergebnis nochmal ansah, zahlte nachträglich den Einsatz.
+      if (m.phase !== 'done' && !m.done && !W.alreadyStaked(m.id)) W.stakeOnce(m.id, m.stake);
 
       frame.innerHTML = '';
       frame.appendChild(el('div', { class: 'page-head' }, [

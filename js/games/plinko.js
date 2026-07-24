@@ -6,7 +6,9 @@
  * genau zur Multiplikator-Tabelle passt.
  *
  * Auszahlung: brutto = round(bet * slotMultiplikator) (inkl. Einsatz).
- *   Rand (0/12) = 15x, Mitte (6) = 0.4x.  Erwartungswert ~ 0.965 -> House-Edge.
+ *   Rand (0/12) = 15x, Mitte (6) = 0.55x.  Erwartungswert (binomialgewichtet)
+ *   = 0.966 -> House-Edge. Die alte Tabelle lag real nur bei ~0.79 — die
+ *   mittleren Multiplikatoren waren zu niedrig für die dokumentierten ~0.965.
  */
 (function () {
   'use strict';
@@ -16,7 +18,7 @@
 
   var ROWS = 12;                 // Peg-Reihen / Entscheidungen
   var SLOTS = ROWS + 1;          // 13 Slots
-  var MULTS = [15, 4, 2, 1.2, 1, 0.6, 0.4, 0.6, 1, 1.2, 2, 4, 15];
+  var MULTS = [15, 5, 3, 1.6, 1.1, 0.7, 0.55, 0.7, 1.1, 1.6, 3, 5, 15];
 
   var SEG_MS = 108;              // Dauer pro Fall-Segment
   var TOTAL_SEG = ROWS + 1;      // Intro-Drop + 12 Bounces

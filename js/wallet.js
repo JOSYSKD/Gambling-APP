@@ -85,7 +85,12 @@
     }
     H().payCasino(-amount);   // sofort abbuchen (addRaw -> kein XP)
     return H().mailCoins(toPid, amount, myName() + ' hat dir ' + UI.formatShort(amount) + ' Coins geschenkt 🎁')
-      .then(function () { return { amount: amount, toName: toName }; })
+      .then(function () {
+        // Für die "größte Schenker"-Rangliste (js/boards.js) mitzählen — lief
+        // früher nur über die alte /gift-Seite, /send-Transfers fehlten dort.
+        App.Storage.set('gj_gifted_total', Math.max(0, Number(App.Storage.get('gj_gifted_total', 0)) || 0) + amount);
+        return { amount: amount, toName: toName };
+      })
       .catch(function (e) {
         H().payCasino(amount);   // Zustellung fehlgeschlagen -> zurückbuchen
         throw new Error('Überweisung fehlgeschlagen — dein Geld ist wieder da.');

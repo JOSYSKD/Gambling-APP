@@ -85,10 +85,10 @@
     App.Mode.writeIn('casino', 'gj_bank', 0);   // Bank-Einlage beim Geld-Reset ebenfalls auf 0
   })();
 
-  // Höchstwert für Guthaben/Peak: knapp unter dem JS-Zahlen-Limit, damit nie
-  // "Infinity" ("∞") entsteht. Mit den 60er-Einheiten wird das als "1Qa" o.Ä.
-  // angezeigt — riesig, aber endlich und lesbar.
-  var BAL_CAP = 1e300;
+  // Höchstwert für Guthaben/Peak: 1 Billiarde (1e15). Bewusst UNTER 2^53 (~9e15),
+  // der Grenze, ab der JS-Zahlen ganzzahlig ungenau werden — so ist jeder Coin-
+  // Betrag im Spiel immer exakt. Riesig, aber endlich: nirgends mehr "unendlich".
+  var BAL_CAP = 1e15;
   function loadBalance() {
     var b = App.Storage.get(KEY_BAL, null);
     if (b === null || typeof b !== 'number' || b < 0 || !isFinite(b)) { b = START; App.Storage.set(KEY_BAL, b); }

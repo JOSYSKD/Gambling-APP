@@ -20,7 +20,7 @@
   'use strict';
   window.App = window.App || {};
 
-  var GEN = 7;                 // hochzählen für den nächsten globalen Reset (7 = erneuter Geld/Konten-Reset auf Wunsch)
+  var GEN = 8;                 // hochzählen für den nächsten globalen Reset (8 = großer Sommer-Reset: Geld/Bank/Depot/Tickets + Level, Spiel-Stats bleiben)
   var KEY_GEN = 'gj_hard_gen';
   var CASINO_START = (App.Coins && App.Coins.START) || 1000;
 
@@ -48,6 +48,10 @@
       App.Storage.set('gj_sv_peak_ever', 0);
       App.Storage.set('gj_sv_next_try', 0);
       App.Storage.set('gj_sv_run', false);
+      App.Storage.set('gj_tickets', 1);        // Turnier-Tickets zurück aufs Willkommens-Ticket
+      App.Storage.set('gj_gifted_total', 0);   // "bisher verschenkt" (Geld-Rekord) nullen
+      App.Storage.remove('gj_pu_inv');         // Power-Up-Inventar leeren (remove statt set(null): get() soll den Fallback liefern)
+      App.Storage.remove('gj_pu_fx');          // aktive Power-Up-Effekte beenden
     }
     // Level/XP/Quests + Stats-Erhalt macht progress.js (RESET_GEN). Danach die
     // In-Memory-Stände dem gekappten Storage nachziehen.
@@ -115,8 +119,8 @@
 
   /** Kopie des Kontos mit gekapptem Geld/Bank/Chips/Depot/Survival + Stempel.
    *  `progress` bleibt ABSICHTLICH erhalten (bringt die alten Stats aus der Cloud
-   *  zurück; progress.js RESET_GEN nullt daraus nur XP/Quests). Name, Tickets,
-   *  Glühbirnen, Antworten, Admin bleiben. */
+   *  zurück; progress.js RESET_GEN nullt daraus XP/Quests + Geld-Rekorde und behält
+   *  die Spiel-Stats). Name, Glühbirnen, Antworten, Admin bleiben. */
   function cleanAccount(acct) {
     var c = {};
     for (var k in acct) if (Object.prototype.hasOwnProperty.call(acct, k)) c[k] = acct[k];
@@ -124,6 +128,8 @@
     c.runPeak = CASINO_START;
     c.bank = 0;
     c.chips = 0;
+    c.tickets = 1;
+    c.giftedTotal = 0;
     c.sv = freshSv();
     c.hardGen = GEN;
     return c;

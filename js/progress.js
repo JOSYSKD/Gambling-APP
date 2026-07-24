@@ -24,7 +24,10 @@
   // Survival getrennt (mode.js präfixt gj_progress). Über den Konto-Heartbeat
   // (account.js snapshotToAccount) landet der Reset danach auch in den Cloud-Konten,
   // sodass ein späterer Login den alten Stand NICHT zurückholt.
-  var RESET_GEN = 9;
+  // Gen 10 (großer Sommer-Reset): Level/XP/Quests auf null, aber die SPIEL-Stats
+  // (Runden, Siege, Niederlagen, Serien, gespielte Spiele) bleiben erhalten — nur
+  // die GELD-Rekorde (gesetzt/gewonnen/größter Gewinn) werden mitgenullt.
+  var RESET_GEN = 10;
 
   function freshStats() {
     return {
@@ -42,18 +45,28 @@
   function load() {
     var s = App.Storage ? App.Storage.get(KEY, null) : null;
     if (!s || typeof s !== 'object') s = {};
-    // Globaler Reset (siehe RESET_GEN): Level/XP, Quests UND Stats komplett auf null.
-    // Die Stats werden bewusst mit zurückgesetzt: die Quests hängen an ihnen, und das
-    // durch den alten Geld-Bug astronomisch verfälschte `wagered` (10^21) hielt die
-    // Risiko-Quests dauerhaft erfüllt. Nur ein voller Reset macht ALLE Quests wieder
-    // offen. Der checkQuests-Backfill (unten) bleibt als Schutz gegen Rest-Stände.
+    // Globaler Reset (siehe RESET_GEN): Level/XP und Quests auf null. Die SPIEL-Stats
+    // (rounds/wins/losses/streak/maxStreak/games/gameWins) bleiben BEWUSST erhalten —
+    // nur die Geld-Rekorde (wagered/won/biggestWin) werden genullt, weil die durch den
+    // alten Geld-Bug astronomisch verfälscht waren (10^21) und sonst die Risiko-Quests
+    // dauerhaft erfüllt hielten. Durch die behaltenen Stats bereits erfüllte Quests
+    // markiert der checkQuests-Backfill (unten) nur als abgeholt (bf), ohne Auszahlung.
     if ((Number(s.resetGen) || 0) < RESET_GEN) {
-      s = { xp: 0, stats: freshStats(), quests: {}, lastDaily: s.lastDaily || '', daily: s.daily || [], resetGen: RESET_GEN };
+      var keep = Object.assign(freshStats(), (s.stats && typeof s.stats === 'object') ? s.stats : {});
+      keep.wagered = 0; keep.won = 0; keep.biggestWin = 0;
+      ['rounds', 'wins', 'losses', 'streak', 'maxStreak'].forEach(function (k) {
+        var v = Math.round(Number(keep[k]) || 0);
+        keep[k] = (isFinite(v) && v > 0) ? Math.min(v, 9e15) : 0;   // korrupte Werte reparieren
+      });
+      if (keep.streak > keep.maxStreak) keep.maxStreak = keep.streak;
+      if (!keep.games || typeof keep.games !== 'object') keep.games = {};
+      if (!keep.gameWins || typeof keep.gameWins !== 'object') keep.gameWins = {};
+      s = { xp: 0, stats: keep, quests: {}, lastDaily: s.lastDaily || '', daily: s.daily || [], resetGen: RESET_GEN };
       if (App.Storage) App.Storage.set(KEY, s);
       return s;
     }
     s.xp = Math.max(0, Math.round(Number(s.xp) || 0));
-    if (!isFinite(s.xp) || s.xp > 1e300) s.xp = 1e300;   // korruptes/Infinity-XP reparieren
+    if (!isFinite(s.xp)) s.xp = 0;   // korruptes/Infinity-XP reparieren (Kappen aufs Maximum unten)
     s.stats = Object.assign(freshStats(), s.stats || {});
     if (!s.stats.games || typeof s.stats.games !== 'object') s.stats.games = {};
     if (!s.stats.gameWins || typeof s.stats.gameWins !== 'object') s.stats.gameWins = {};
@@ -70,12 +83,13 @@
   function emit() { for (var i = 0; i < listeners.length; i++) { try { listeners[i](); } catch (e) {} } }
 
   /* ---------------- Level-Kurve ---------------- */
-  // Ab hier gibt es KEIN Höchstlevel mehr — man kann unbegrenzt weiterleveln.
-  // LEVEL_CAP ist nur die (rein technische) Obergrenze der Binärsuche, weit
-  // jenseits von allem real Erreichbaren. MAX_LEVEL ist jetzt nur noch die
-  // Schwelle für den goldenen "Legenden"-Namen, nicht mehr das Ende.
-  var LEVEL_CAP = 1e100;        // praktisch unendlich (wie Coins) — nur Binärsuche-Grenze
-  var MAX_LEVEL = Infinity;     // KEIN Höchstlevel mehr — Level läuft endlos weiter, nie "MAX"
+  // HARTES Höchstlevel: bei 99.999 ist wirklich Schluss. Nichts im Spiel ist mehr
+  // "unendlich" — Level, XP und Guthaben haben alle ein Maximum. Wer das Höchst-
+  // level erreicht, bekommt den goldenen "Legenden"-Namen; mehr XP als xpCap()
+  // (der Beginn von Level 99.999) kann man nicht ansammeln.
+  var MAX_LEVEL = 99999;
+  var _xpCap = null;
+  function xpCap() { if (_xpCap === null) _xpCap = cumFor(MAX_LEVEL); return _xpCap; }
 
   // XP von Level L nach L+1 — BRUTAL STEIL und mit dem Level immer steiler: ein
   // quadratischer PLUS ein kubischer Term, damit jedes weitere Level spürbar
@@ -104,37 +118,33 @@
     if (n > HARD_AT) c += LC_XTRA * sumCu(n - HARD_AT);
     return c;
   }
-  // Level aus XP. WICHTIG: eine Binärsuche über [1, LEVEL_CAP=1e100] läuft bei
-  // sehr großer XP in eine ENDLOSSCHLEIFE, weil JS-Number ab 2^53 (~9e15) die
-  // Ganzzahl-Präzision verliert — dann steht die Suche still (mid == lo). Deshalb:
-  // (1) grobe Schätzung per Kubikwurzel (cumFor(L) ≈ 130·L³/3 -> L ≈ ∛(3·xp/130)),
-  // (2) nur im präzisen Bereich (< 2^53) per kurzer Binärsuche exakt nachjustieren,
-  //     mit Iterationslimit als Sicherheitsnetz. So kann nichts mehr hängen.
+  // Level aus XP: obere Grenze per Verdopplung suchen (kurvenunabhängig), dann
+  // exakte Binärsuche im gefundenen Fenster. Alles über dem XP-Maximum ist hart
+  // Level MAX_LEVEL — mehr geht nicht.
   function levelFromXp(xp) {
     xp = Math.max(0, Number(xp) || 0);
     if (xp < reqFor(1)) return 1;                 // unter dem XP für Level 2
-    // Obere Grenze per Verdopplung suchen — KURVENUNABHÄNGIG (egal ob reqFor
-    // quadratisch, kubisch … ist) und immer terminierend (guard). Danach exakte
-    // Binärsuche im gefundenen Fenster. Verhindert jeden Freeze und liefert auch
-    // bei sehr großer XP ein korrektes Level (keine kurvenabhängige Schätzung mehr).
+    if (xp >= xpCap()) return MAX_LEVEL;          // hartes Höchstlevel
     var hi = 2, guard = 0;
-    while (hi < LEVEL_CAP && cumFor(hi) <= xp && guard++ < 400) hi *= 2;
-    if (hi > LEVEL_CAP) hi = LEVEL_CAP;
-    if (hi >= 9e15) return Math.floor(hi);        // jenseits der Number-Präzision: grobe Grenze genügt
+    while (hi < MAX_LEVEL && cumFor(hi) <= xp && guard++ < 60) hi *= 2;
+    if (hi > MAX_LEVEL) hi = MAX_LEVEL;
     var lo = Math.max(1, Math.floor(hi / 2)), iter = 0;
-    while (lo < hi && iter++ < 200) {
+    while (lo < hi && iter++ < 60) {
       var mid = Math.floor((lo + hi + 1) / 2);
-      if (mid <= lo || mid > hi) break;           // Präzisions-Stillstand -> raus
       if (cumFor(mid) <= xp) lo = mid; else hi = mid - 1;
     }
-    return lo;
+    return Math.min(lo, MAX_LEVEL);
   }
   function level() { return levelFromXp(state.xp); }
-  function xpInLevel() { return state.xp - cumFor(level()); }
-  // Kein Ende mehr: es geht IMMER ein nächstes Level weiter.
-  function xpForLevel() { return reqFor(level()); }
-  // "Max" ist jetzt nur noch die Prestige-Schwelle für den goldenen Namen.
+  function xpInLevel() { return Math.max(0, state.xp - cumFor(level())); }
+  // Am Höchstlevel gibt es kein nächstes Level mehr -> 0 (Balken zeigt dann 100 %).
+  function xpForLevel() { return level() >= MAX_LEVEL ? 0 : reqFor(level()); }
   function isMaxLevel() { return level() >= MAX_LEVEL; }
+
+  // Alt-Stände mit XP jenseits des Maximums (aus der Zeit ohne Level-Deckel)
+  // einmalig aufs Maximum kappen. Läuft hier, weil erst ab dieser Stelle die
+  // Kurven-Konstanten definiert sind (load() oben läuft davor).
+  if (state.xp > xpCap()) { state.xp = xpCap(); save(); }
 
   // Wie stark Level und Quests das Wieder-Auffüll-Guthaben heben. Auf Josls Wunsch
   // gibt das LEVEL jetzt viel mehr fürs Wiedereinstiegsguthaben (100 -> 1000 je Level):
@@ -159,20 +169,21 @@
 
   // Wieder-Auffüll-/Start-Betrag steigt mit dem Level: bis ~Level 100 linear
   // (L1=1000, +LEVEL_START_STEP je Level), danach zusätzlich EXPONENTIELL — grob eine
-  // Verdopplung alle ~1200 Level. So landet man bei ~Level 100.000 bei ~10^33 Coins
-  // und der Betrag wächst praktisch unbegrenzt weiter (bis ans JS-Limit). Bei kleinen
-  // Levels ist der Exponential-Faktor ~1, das frühe Spiel bleibt wie getunt.
+  // Verdopplung alle ~1200 Level. Gedeckelt bei 1 Billion (1e12): selbst am Höchst-
+  // level startet man nach einer Pleite nicht direkt wieder am Guthaben-Maximum.
+  // Bei kleinen Levels ist der Exponential-Faktor ~1, das frühe Spiel bleibt wie getunt.
+  var START_CAP = 1e12;
   function startBalanceAtLevel(L) {
     var base = 1000 + (L - 1) * LEVEL_START_STEP;
     var growth = Math.pow(10, 0.00025 * (L - 1));
     var amt = base * growth;
-    if (!isFinite(amt) || amt > 1e300) amt = 1e300;   // nie Infinity
+    if (!isFinite(amt) || amt > START_CAP) amt = START_CAP;
     return amt;
   }
   function startBalanceOf(st) {
     var L = levelFromXp(Math.max(0, Math.round(Number(st && st.xp) || 0)));
     var amt = startBalanceAtLevel(L) + questBonusOf(st);
-    if (!isFinite(amt) || amt > 1e300) amt = 1e300;
+    if (!isFinite(amt) || amt > START_CAP) amt = START_CAP;
     return Math.round(amt / 50) * 50;
   }
   function startBalance() { return startBalanceOf(state); }
@@ -242,7 +253,7 @@
     if (!amount) return;
     var before = level();
     state.xp += amount;
-    if (!isFinite(state.xp) || state.xp > 1e300) state.xp = 1e300;   // nie Infinity -> kein kaputtes Level
+    if (!isFinite(state.xp) || state.xp > xpCap()) state.xp = xpCap();   // hartes XP-/Level-Maximum
     var after = level();
     if (after > before) onLevelUp(before, after);
     save(); emit();
@@ -258,7 +269,9 @@
     var count = to - from;
     var lump = 500 * count + 250 * (from + 1 + to) * count / 2;
     if (!isFinite(lump) || lump > 1e300) lump = 1e300;
-    if (App.Coins) App.Coins.add(lump);
+    // addRaw: der Level-Bonus ist kein Spielgewinn (kein Rigging, kein Verbrauch
+    // eines "nächster Gewinn ×2"-Power-Ups).
+    if (App.Coins) App.Coins.addRaw(lump);
     if (count <= 25 && to < 9e15) {
       // kleiner, präziser Sprung -> je Level eine Feier
       for (var L = from + 1; L <= to; L++) {
@@ -267,11 +280,10 @@
     } else {
       celebrate('⭐ Level ' + UI.formatShort(from) + ' → ' + UI.formatShort(to) + '!', title() + ' · +' + UI.formatCoins(lump) + ' 🪙');
     }
-    // Prestige-Schwelle erreicht -> große Feier + goldener Name freigeschaltet
-    // (es geht danach unbegrenzt weiter, nur der Name glänzt ab jetzt golden).
+    // Höchstlevel erreicht -> große Feier + goldener Name freigeschaltet.
     if (to >= MAX_LEVEL && from < MAX_LEVEL) {
       confetti(90);
-      celebrate('👑 LEVEL 99.999 — LEGENDE!', 'Dein Name glänzt ab jetzt überall golden — und es geht weiter!');
+      celebrate('👑 LEVEL 99.999 — LEGENDE!', 'Das absolute Maximum! Dein Name glänzt ab jetzt überall golden.');
     }
     if (App.Audio) App.Audio.sfx('levelup');
   }
@@ -504,8 +516,10 @@
       } else {
         // Frisch im Spiel erreicht -> normal belohnen.
         rec = state.quests[q.id] = { done: true, claimed: true };
-        if (App.Coins) App.Coins.add(q.reward.coins);
+        // addRaw: Quest-Belohnung ist kein Spielgewinn (kein Rigging/Power-Up-Verbrauch).
+        if (App.Coins) App.Coins.addRaw(q.reward.coins);
         state.xp += q.reward.xp;
+        if (!isFinite(state.xp) || state.xp > xpCap()) state.xp = xpCap();   // hartes XP-Maximum
         if (App.Tickets) rec.tickets = App.Tickets.grantForQuest(q.reward);
         changed = true;
         toastQuest(q);
@@ -654,7 +668,9 @@
       el('div', { class: 'lvl-badge' }, ['⭐', el('span', { class: 'lvl-badge-n' }, [UI.formatShort(L)])]),
       el('div', { class: 'lvl-meta' }, [
         el('div', { class: 'lvl-title neon' + (maxed ? ' name-gold' : '') }, [title()]),
-        el('div', { class: 'lvl-sub' }, ['Level ' + UI.formatShort(L) + ' · ' + UI.formatShort(xpInLevel()) + ' / ' + UI.formatShort(xpForLevel()) + ' XP']),
+        el('div', { class: 'lvl-sub' }, [maxed
+          ? 'Level 99.999 · MAXIMUM erreicht 👑'
+          : 'Level ' + UI.formatShort(L) + ' · ' + UI.formatShort(xpInLevel()) + ' / ' + UI.formatShort(xpForLevel()) + ' XP']),
         el('div', { class: 'lvl-bar' }, [el('div', { class: 'lvl-bar-fill', style: 'width:' + pct + '%' })]),
         el('div', { class: 'lvl-start' }, ['Auffüllung bei Pleite: ', el('b', {}, [UI.formatCoins(startBalance()) + ' 🪙'])])
       ])

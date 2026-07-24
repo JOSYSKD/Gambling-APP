@@ -21,10 +21,12 @@
   window.App = window.App || {};
   var KEY = 'gj_bank';
   var FEE = 0.18;   // 18 % Abzug beim Auszahlen
+  var CAP = 1e15;   // Bank-Maximum — gleiche Obergrenze wie das Guthaben (nie "unendlich")
 
   function load() {
     var b = App.Storage.get(KEY, 0);
     if (typeof b !== 'number' || !isFinite(b) || b < 0) b = 0;
+    if (b > CAP) b = CAP;
     return Math.floor(b);
   }
   var balance = load();
@@ -37,10 +39,13 @@
   /** Netto beim Auszahlen von amount (nach 18 % Gebühr). */
   function netOut(amount) { return Math.floor(Math.max(0, Math.round(Number(amount) || 0)) * (1 - FEE)); }
 
-  /** amount Coins einzahlen (1:1). */
+  /** amount Coins einzahlen (1:1). Über das Bank-Maximum hinaus geht nichts —
+   *  dann wird nur so viel eingezahlt, wie noch Platz ist. */
   function deposit(amount) {
     amount = Math.floor(Number(amount) || 0);
     if (amount <= 0 || amount > App.Coins.get()) return false;
+    amount = Math.min(amount, CAP - balance);
+    if (amount <= 0) return false;   // Bank ist voll
     App.Coins.addRaw(-amount);   // addRaw -> kein XP fürs Umschichten
     balance += amount;
     save(); emit();

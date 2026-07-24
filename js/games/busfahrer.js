@@ -2,10 +2,14 @@
  * Progressives Kartenspiel in vier Stufen. Jede richtige Vorhersage steigert den
  * Multiplikator; nach jeder Stufe kann man auszahlen oder weiterrisken. Ein Fehler
  * kostet den kompletten Einsatz.
- *   1) Rot oder Schwarz?            -> ×2
- *   2) Höher oder tiefer?           -> ×4
- *   3) Innerhalb oder außerhalb?    -> ×6
- *   4) Welche Farbe (Symbol)?       -> ×20
+ *   1) Rot oder Schwarz?            -> ×1.9
+ *   2) Höher oder tiefer?           -> ×2.6
+ *   3) Innerhalb oder außerhalb?    -> ×3.9
+ *   4) Welche Farbe (Symbol)?       -> ×16
+ * Multiplikatoren per Monte-Carlo an die ECHTEN Erreich-Wahrscheinlichkeiten bei
+ * optimaler Wahl gekoppelt (P kumulativ ≈ 0.50 / 0.356 / 0.225 / 0.056) -> RTP je
+ * Stufe ~0.88–0.95. Die alten Werte [2,4,6,20] lagen bei 100–142 % — das Spiel
+ * war eine unendliche Geld-Farm (gleicher Bug wie früher in doubleornothing.js).
  * Berücksichtigt das Wahrscheinlichkeits-Rigging (js/rig.js).
  */
 (function () {
@@ -14,7 +18,7 @@
   App.Games = App.Games || {};
   var UI = App.UI, el = UI.el;
 
-  var MULTS = [2, 4, 6, 20];   // Auszahlung bei Erreichen von Stufe 1..4
+  var MULTS = [1.9, 2.6, 3.9, 16];   // Auszahlung bei Erreichen von Stufe 1..4 (siehe Header)
   var SUITS = [
     { k: 'clubs', s: '♣', red: false, name: 'Kreuz' },
     { k: 'spades', s: '♠', red: false, name: 'Pik' },
@@ -68,7 +72,7 @@
     id: 'busfahrer',
     title: 'Busfahrer',
     icon: '🚌',
-    subtitle: '4 Stufen: Rot/Schwarz → Höher/Tiefer → Rein/Raus → Farbe (×20)',
+    subtitle: '4 Stufen: Rot/Schwarz → Höher/Tiefer → Rein/Raus → Symbol (×16)',
 
     render: function (root) {
       injectCss();

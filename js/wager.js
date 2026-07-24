@@ -224,8 +224,21 @@
     });
   }
 
-  /** Kampf endgültig werten + Pot auszahlen (nur der Host, genau einmal). */
+  /** Kampf endgültig werten + Pot auszahlen (nur der Host, genau einmal).
+   *  Doppelt abgesichert: match.done aus der Cloud UND ein lokaler Paid-Guard —
+   *  mailCoins erzeugt zufällige payIds, zwei finish()-Läufe (zweiter Tab,
+   *  Reload, doppelter Timer) zahlten den Pot sonst doppelt aus. */
+  var KEY_PAID = 'gj_wager_paid';
+  function paidOnce(matchId) {
+    var a = App.Storage.get(KEY_PAID, []) || [];
+    if (a.indexOf(matchId) >= 0) return false;
+    a.push(matchId); if (a.length > 50) a = a.slice(-50);
+    App.Storage.set(KEY_PAID, a);
+    return true;
+  }
   function finish(match) {
+    if (match.done || match.phase === 'done') return Promise.resolve();
+    if (!paidOnce(match.id)) return Promise.resolve();
     var pot = match.stake * 2;
     var winner = null;
     if (match.winsA > match.winsB) winner = match.a;

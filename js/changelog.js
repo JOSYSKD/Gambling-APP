@@ -17,6 +17,20 @@
 
   var ENTRIES = [
     {
+      date: '2026-07-24',
+      title: 'Der große Reset: fairer Neustart für alle',
+      items: [
+        'KOMPLETTER RESET für alle Spieler: Guthaben, Bank, Aktien-Depots, Level, Quests, Tickets, Power-Ups und der Geld-Rekord (Peak) starten bei null bzw. 1.000 Coins. Deine SPIEL-Stats bleiben: Runden, Siege, Sieg-Serien, Spielzeit und gespielte Spiele.',
+        'Es gibt kein „unendlich" mehr: Höchstlevel 99.999 (goldener Name), Guthaben- und Bank-Maximum 1 Billiarde, Tickets maximal 999. Alle Zahlen bleiben dadurch immer exakt.',
+        'Busfahrer 🚌 war eine Geld-Druckmaschine (bis zu 142 % Auszahlung) — die Multiplikatoren sind jetzt fair kalibriert (×1.9/×2.6/×3.9/×16).',
+        'Pferderennen 🐎: der Favorit gewann 73 % der Rennen (Dauergewinn), die Außenseiter NIE. Jetzt passen die Siegchancen zu neuen, fairen Quoten (2.3 bis 13).',
+        'Plinko 🎯 zahlte real nur ~79 % aus — die mittleren Felder geben jetzt mehr (~96,6 % wie die anderen Spiele).',
+        'Verschenken aufgeräumt: es gibt nur noch EINE Verschenken-Seite (💸). Ein Fehler, durch den beim Verschenken Coins aus dem Nichts entstehen konnten, ist behoben — und 💸-Geschenke zählen jetzt für die Schenker-Rangliste.',
+        'Tagesbonus, Quest- und Level-Belohnungen verbrauchen keine Gewinn-Power-Ups mehr und werden nicht mehr vom Glücks-Rigging verändert.',
+        'Wett-Kämpfe (1v1): kein doppeltes Auszahlen des Pots mehr, und wer sich ein beendetes Match nochmal ansieht, zahlt nicht nochmal den Einsatz.',
+      ]
+    },
+    {
       date: '2026-07-22',
       title: 'Vier weitere Automaten: Drachen, Wikinger, Wilder Westen & Elfmeter',
       items: [

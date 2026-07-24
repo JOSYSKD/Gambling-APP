@@ -24,11 +24,17 @@
     var s = App.Storage ? App.Storage.get(KEY, null) : null;
     if (!s || typeof s !== 'object') s = { last: '', streak: 0 };
     s.last = s.last || ''; s.streak = s.streak || 0;
+    s.lastAt = Number(s.lastAt) || 0;
     return s;
   }
   function save() { if (App.Storage) App.Storage.set(KEY, state); }
 
-  function claimable() { return state.last !== today(); }
+  // Neben dem Kalendertag auch ein Mindestabstand in ECHTER Zeit (6 h): Wer die
+  // Systemuhr vor- und wieder zurückstellt, hat danach ein lastAt in der Zukunft
+  // und bleibt gesperrt, bis die echte Zeit aufgeholt hat — Datum-Jonglieren
+  // bringt so keine Extra-Boni mehr.
+  var MIN_GAP_MS = 6 * 3600 * 1000;
+  function claimable() { return state.last !== today() && Date.now() >= state.lastAt + MIN_GAP_MS; }
   function nextStreak() {
     if (state.last === yesterday()) return Math.min(7, state.streak + 1);
     return 1; // Streak neu (oder erster Tag)
@@ -48,8 +54,10 @@
     }
     var st = nextStreak();
     var amt = amountFor(st);
-    state.last = today(); state.streak = st; save();
-    if (App.Coins) App.Coins.add(amt);
+    state.last = today(); state.streak = st; state.lastAt = Date.now(); save();
+    // addRaw statt add: der Bonus ist kein Spielgewinn — er soll weder vom
+    // Admin-Rigging skaliert werden noch ein "nächster Gewinn ×2"-Power-Up aufbrauchen.
+    if (App.Coins) App.Coins.addRaw(amt);
     if (App.Progress) App.Progress.addXp(40 + st * 10);
     if (App.Audio) App.Audio.sfx('jackpot');
     updateBadge();
