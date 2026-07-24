@@ -202,7 +202,12 @@
   }
 
   function getBoard(limit) {
-    var list = (driver ? driver.list() : board).slice();
+    // Einträge aus der Zeit VOR dem großen Reset ausblenden (alte Gold-Rekorde
+    // aus der kaputten Ökonomie) — wer wieder spielt, publiziert sich neu.
+    var resetCut = (App.HardReset && App.HardReset.RESET_AT) || 0;
+    var list = (driver ? driver.list() : board).filter(function (e) {
+      return e && (Number(e.at) || 0) >= resetCut;
+    });
     // GENAU EIN Eintrag pro Spieler = sein bester Run. Ein Spieler kann unter
     // mehreren Keys publiziert haben (erst als Gast d_…, später mit Konto a_…,
     // oder nach einer Umbenennung) und tauchte dann mehrfach auf. Wir gruppieren

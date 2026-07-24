@@ -81,9 +81,15 @@
       emit();
     },
 
-    /** Alle gespeicherten (abgeschlossenen) Runs, sortiert absteigend. */
+    /** Alle gespeicherten (abgeschlossenen) Runs, sortiert absteigend.
+     *  Runs aus der Zeit VOR dem großen Reset (kein `at`-Stempel oder älter als
+     *  App.HardReset.RESET_AT) und unmöglich große Peaks werden ignoriert —
+     *  die alte Historie ist damit ohne Datenbank-Löschung unsichtbar. */
     getEntries: function () {
-      var list = (driver.load() || []).slice();
+      var cutoff = (App.HardReset && App.HardReset.RESET_AT) || 0;
+      var list = (driver.load() || []).filter(function (e) {
+        return e && (Number(e.at) || 0) >= cutoff && (Number(e.peak) || 0) <= 1e15;
+      });
       list.sort(function (a, b) { return b.peak - a.peak; });
       return list;
     },
@@ -134,8 +140,13 @@
       var meMax = !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel());
 
       // 1) Register: jeder Spieler, der die Seite offen hat/hatte — auch ohne Game Over.
+      // Wer seit dem großen Reset nicht mehr da war, trägt noch Vor-Reset-Geldwerte
+      // im Register -> für die GELD-Bestenliste ignorieren (die Streak-Liste unten
+      // zeigt solche Spieler weiter, denn Serien blieben beim Reset erhalten).
+      var resetCut = (App.HardReset && App.HardReset.RESET_AT) || 0;
       this.getPlayers().forEach(function (p) {
         if (!p || !p.name) return;
+        if ((p.updatedAt || 0) < resetCut) return;
         var best = Math.max(Number(p.peak) || 0, Number(p.balance) || 0);
         put(p.name, best, {
           date: p.date || null,
@@ -222,6 +233,7 @@
         name: cleanName(name),
         peak: Math.round(peak),
         date: dateStr,
+        at: Date.now(),   // Reset-Stempel: Einträge ohne/mit altem `at` werden ausgeblendet
         active: false,
         gold: !!(App.Progress && App.Progress.isMaxLevel && App.Progress.isMaxLevel())
       };

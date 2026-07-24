@@ -222,6 +222,9 @@
       if (seenList().indexOf(id) < 0) {
         markSeen(id);
         var amt = Math.round(Number(e.amount) || 0);
+        // Zahlungen aus der Zeit VOR dem großen Reset verfallen (sonst würde ein
+        // ungeholtes Riesen-Geschenk aus der alten Ökonomie den Reset aushebeln).
+        if ((Number(e.ts) || 0) < ((App.HardReset && App.HardReset.RESET_AT) || 0)) amt = 0;
         if (amt > 0) {
           payCasino(amt);
           total += amt;

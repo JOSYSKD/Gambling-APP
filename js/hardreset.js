@@ -21,6 +21,15 @@
   window.App = window.App || {};
 
   var GEN = 8;                 // hochzählen für den nächsten globalen Reset (8 = großer Sommer-Reset: Geld/Bank/Depot/Tickets + Level, Spiel-Stats bleiben)
+
+  // Zeitpunkt des großen Sommer-Resets (GEN 8, 24.07.2026). Cloud-Daten, die VOR
+  // diesem Zeitpunkt entstanden sind — Postfach-Zahlungen (tournament-host.js),
+  // Bestenlisten-Runs (leaderboard.js), Survival-Board-Einträge (survival.js) und
+  // Präsenz-Geldwerte von seither nicht mehr gesehenen Spielern — stammen aus der
+  // alten, kaputten Ökonomie und werden beim LESEN ignoriert. So braucht der Reset
+  // keinen Massen-Schreibzugriff auf die Datenbank: jeder Client kappt sich selbst,
+  // und die Alt-Reste sind ab sofort unsichtbar.
+  var RESET_AT = 1784898577139;
   var KEY_GEN = 'gj_hard_gen';
   var CASINO_START = (App.Coins && App.Coins.START) || 1000;
 
@@ -137,6 +146,7 @@
 
   App.HardReset = {
     GEN: GEN,
+    RESET_AT: RESET_AT,
     accountNeedsReset: accountNeedsReset,
     cleanAccount: cleanAccount,
     bumpCloudReset: bumpCloudReset,          // Admin: Geld-Reset für ALLE auslösen

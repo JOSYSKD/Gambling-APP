@@ -42,6 +42,10 @@
     }
     ((App.Leaderboard && App.Leaderboard.getPlayers && App.Leaderboard.getPlayers()) || []).forEach(function (p) {
       if (!p || !p.name) return;
+      // Level & Verschenkt wurden beim großen Reset genullt — Register-Werte von
+      // Spielern, die seitdem nicht mehr da waren, sind Vor-Reset-Reste und werden
+      // ausgeblendet. Die Spielzeit blieb erhalten und zeigt weiterhin alle.
+      if (metric.id !== 'time' && (p.updatedAt || 0) < ((App.HardReset && App.HardReset.RESET_AT) || 0)) return;
       put(p.name, metric.get(p), { online: (now - (p.updatedAt || 0)) < 45000, gold: !!p.maxLevel });
     });
     var myName = (App.Leaderboard && App.Leaderboard.getPlayerName()) || 'Du';
