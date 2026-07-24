@@ -179,7 +179,17 @@
       el('div', { class: 'hero' }, [
         el('div', { class: 'hero-badge' }, ['🌴 Nur zum Spaß · virtuelle Coins']),
         el('h1', { class: 'hero-title neon-strong' }, ['NEON JUNGLE CASINO']),
-        el('p', { class: 'hero-sub' }, ['Willkommen im überwucherten Spielsalon. Wähle eine Kategorie.'])
+        el('p', { class: 'hero-sub' }, [(function () {
+          // Bei jedem Menü-Besuch ein anderer Spruch, damit der Startscreen lebendiger wirkt.
+          var subs = [
+            'Willkommen im überwucherten Spielsalon. Wähle eine Kategorie.',
+            'Die Lianen glühen schon – such dir ein Spiel aus.',
+            'Der Dschungel zahlt heute gut aus. Angeblich.',
+            'Frisch gegossene Neon-Palmen, frisches Glück.',
+            'Leise tropft der Jackpot durchs Blätterdach.'
+          ];
+          return subs[Math.floor(Math.random() * subs.length)];
+        })()])
       ]),
       el('div', { class: 'cat-grid' }, cards),
       el('div', { class: 'menu-links' }, [
